@@ -1,3 +1,4 @@
+import { readFileSync, writeFileSync } from 'node:fs'
 import type { GameConfig } from '@family-feudal/shared'
 import { FAMILY_PRESETS, MEMBER_NAMES, TOWNS } from './data.js'
 
@@ -24,15 +25,13 @@ export const CONFIG_BOUNDS: Record<keyof GameConfig, [number, number]> = {
   maxPlayers: [2, FAMILY_PRESETS.length],
 }
 
-let config: GameConfig = { ...DEFAULT_CONFIG }
+// Persisted so settings survive restarts/deploys. Resolved against the server process
+// cwd (packages/server under the systemd unit); override with CONFIG_FILE.
+const CONFIG_FILE = process.env['CONFIG_FILE'] ?? 'game-config.json'
 
-export function getConfig(): GameConfig {
-  return config
-}
-
-/** Apply a partial update, clamping every field to its bounds. Returns the new config. */
-export function updateConfig(patch: Partial<Record<keyof GameConfig, unknown>>): GameConfig {
-  const next = { ...config }
+/** Merge a partial patch onto a base config, clamping every field to its bounds. */
+function clampInto(base: GameConfig, patch: Partial<Record<keyof GameConfig, unknown>>): GameConfig {
+  const next = { ...base }
   for (const key of Object.keys(CONFIG_BOUNDS) as (keyof GameConfig)[]) {
     const value = patch[key]
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -41,11 +40,42 @@ export function updateConfig(patch: Partial<Record<keyof GameConfig, unknown>>):
     }
   }
   if (next.skillMin > next.skillMax) next.skillMin = next.skillMax
-  config = next
+  return next
+}
+
+function loadConfig(): GameConfig {
+  try {
+    const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) as Record<string, unknown>
+    return clampInto(DEFAULT_CONFIG, raw)
+  } catch {
+    // missing or unreadable file → defaults
+    return { ...DEFAULT_CONFIG }
+  }
+}
+
+function persistConfig(): void {
+  try {
+    writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2) + '\n')
+  } catch (err) {
+    console.error('failed to persist game config:', err)
+  }
+}
+
+let config: GameConfig = loadConfig()
+
+export function getConfig(): GameConfig {
+  return config
+}
+
+/** Apply a partial update, clamping every field to its bounds. Returns the new config. */
+export function updateConfig(patch: Partial<Record<keyof GameConfig, unknown>>): GameConfig {
+  config = clampInto(config, patch)
+  persistConfig()
   return config
 }
 
 export function resetConfig(): GameConfig {
   config = { ...DEFAULT_CONFIG }
+  persistConfig()
   return config
 }

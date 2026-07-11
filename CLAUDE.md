@@ -71,9 +71,11 @@ Pass `-Full` to also `pnpm install` on the server.
 Two layers:
 
 - **Runtime config** (`server/src/game/config.ts`): `GameConfig` (rounds, members per
-  family, scenarios per round, town count, skill min/max, max players) held in memory,
-  editable from the dev panel, clamped to `CONFIG_BOUNDS`. Read at `startGame` — applies to
-  games started after a change; in-progress games keep their values. The per-game map is
+  family, scenarios per round, town count, skill min/max, max players), editable from the
+  dev panel, clamped to `CONFIG_BOUNDS`, persisted to `game-config.json` (gitignored, in
+  the server process cwd — `packages/server` in prod; override via `CONFIG_FILE`). Read at
+  `startGame` — applies to games started after a change; in-progress games keep their
+  values. The per-game map is
   built at start: capital + playing families' home towns + random fill to `townCount`.
 - **Static data** (`server/src/game/data.ts`): towns, family presets, member name pool,
   scenario templates with difficulty ranges, `rewardFor(difficulty)`, `MIN_PLAYERS`.
