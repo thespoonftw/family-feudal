@@ -102,6 +102,25 @@ export interface GameView {
   winnerFamilyIds: string[] | null
 }
 
+// ---------- Global game configuration (dev panel) ----------
+
+/** Tunable parameters applied to games created after the change. */
+export interface GameConfig {
+  /** rounds per game */
+  totalRounds: number
+  /** family members each player starts with */
+  membersPerFamily: number
+  /** public scenarios per round (one is always at the capital; every family also gets a home scenario) */
+  scenariosPerRound: number
+  /** non-capital towns on the map (home towns of playing families are always included) */
+  townCount: number
+  /** member skills roll uniformly in [skillMin, skillMax] */
+  skillMin: number
+  skillMax: number
+  /** maximum players per room */
+  maxPlayers: number
+}
+
 // ---------- Dev panel (REST) types ----------
 
 export interface DevRoomSummary {

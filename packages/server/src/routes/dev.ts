@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify'
-import type { DevRoomDetail, DevRoomSummary, SkillKey } from '@family-feudal/shared'
+import type { DevRoomDetail, DevRoomSummary, GameConfig, SkillKey } from '@family-feudal/shared'
 import { SKILLS } from '@family-feudal/shared'
 import { getRoom, listRooms } from '../game/store.js'
 import { broadcastRoomByCode } from '../socket/index.js'
 import type { Room } from '../game/engine.js'
+import { CONFIG_BOUNDS, DEFAULT_CONFIG, getConfig, resetConfig, updateConfig } from '../game/config.js'
 
 function summary(room: Room): DevRoomSummary {
   return {
@@ -35,6 +36,27 @@ interface CodeParams {
 }
 
 export function registerDevRoutes(app: FastifyInstance): void {
+  // ----- global game configuration (applies to games started after the change) -----
+
+  app.get('/dev/config', async () => {
+    return { config: getConfig(), defaults: DEFAULT_CONFIG, bounds: CONFIG_BOUNDS }
+  })
+
+  app.patch<{ Body: Partial<Record<keyof GameConfig, unknown>> }>(
+    '/dev/config',
+    async (request) => {
+      const config = updateConfig(request.body ?? {})
+      return { config, defaults: DEFAULT_CONFIG, bounds: CONFIG_BOUNDS }
+    },
+  )
+
+  app.post('/dev/config/reset', async () => {
+    const config = resetConfig()
+    return { config, defaults: DEFAULT_CONFIG, bounds: CONFIG_BOUNDS }
+  })
+
+  // ----- live room inspection -----
+
   app.get('/dev/rooms', async () => {
     return listRooms().map(summary)
   })

@@ -1,8 +1,25 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import type { DevRoomDetail, DevRoomSummary, SkillKey } from '@family-feudal/shared'
+import type { DevRoomDetail, DevRoomSummary, GameConfig, SkillKey } from '@family-feudal/shared'
 import { SKILL_LABELS, SKILLS } from '@family-feudal/shared'
 
+interface ConfigResponse {
+  config: GameConfig
+  defaults: GameConfig
+  bounds: Record<keyof GameConfig, [number, number]>
+}
+
+const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = [
+  { key: 'totalRounds', label: 'Rounds per game', hint: 'Influence is tallied after this many rounds' },
+  { key: 'membersPerFamily', label: 'Starting family members', hint: 'Members each family begins with' },
+  { key: 'scenariosPerRound', label: 'Scenarios per round', hint: 'Public scenarios on the map (1 is always at the capital); each family also gets a home scenario' },
+  { key: 'townCount', label: 'Towns on the map', hint: 'Non-capital towns; playing families’ home towns are always included' },
+  { key: 'skillMin', label: 'Skill minimum', hint: 'Lower bound for randomly rolled member skills' },
+  { key: 'skillMax', label: 'Skill maximum', hint: 'Upper bound for randomly rolled member skills' },
+  { key: 'maxPlayers', label: 'Max players per room', hint: 'Limited by the number of family presets' },
+]
+
+const configData = ref<ConfigResponse | null>(null)
 const rooms = ref<DevRoomSummary[]>([])
 const detail = ref<DevRoomDetail | null>(null)
 const error = ref('')
@@ -17,6 +34,39 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
   return (await res.json()) as T
+}
+
+async function loadConfig() {
+  try {
+    configData.value = await api<ConfigResponse>('/dev/config')
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+async function saveConfig() {
+  if (!configData.value) return
+  try {
+    configData.value = await api<ConfigResponse>('/dev/config', {
+      method: 'PATCH',
+      body: JSON.stringify(configData.value.config),
+    })
+    status.value = `Settings saved ✓ (${new Date().toLocaleTimeString()}) — applies to games started from now on`
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+async function resetSettings() {
+  try {
+    configData.value = await api<ConfigResponse>('/dev/config/reset', { method: 'POST' })
+    status.value = 'Settings reset to defaults ✓'
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
 }
 
 async function loadRooms() {
@@ -86,6 +136,7 @@ function skillKeys(): SkillKey[] {
 }
 
 onMounted(() => {
+  void loadConfig()
   void loadRooms()
   pollTimer = setInterval(() => void loadRooms(), 5000)
 })
@@ -104,6 +155,38 @@ onUnmounted(() => {
 
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="status" class="status">{{ status }}</p>
+
+    <section v-if="configData" class="card">
+      <h2>Game settings</h2>
+      <p class="dim">
+        These parameters apply to games <strong>started after saving</strong> — games already in
+        progress keep their values.
+      </p>
+      <div class="settings">
+        <label v-for="f in CONFIG_FIELDS" :key="f.key" class="setting">
+          <span class="setting-label">
+            {{ f.label }}
+            <small class="dim">
+              ({{ configData.bounds[f.key][0] }}–{{ configData.bounds[f.key][1] }}, default
+              {{ configData.defaults[f.key] }})
+            </small>
+          </span>
+          <input
+            v-model.number="configData.config[f.key]"
+            type="number"
+            :min="configData.bounds[f.key][0]"
+            :max="configData.bounds[f.key][1]"
+            class="num"
+            :title="f.hint"
+          />
+          <span class="setting-hint dim">{{ f.hint }}</span>
+        </label>
+      </div>
+      <div class="settings-actions">
+        <button class="small" @click="saveConfig">Save settings</button>
+        <button class="small secondary" @click="resetSettings">Reset to defaults</button>
+      </div>
+    </section>
 
     <section class="card">
       <h2>Active rooms</h2>
@@ -283,6 +366,40 @@ input.color {
 button.small {
   padding: 0.25em 0.8em;
   font-size: 0.8rem;
+}
+
+.settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem 2rem;
+  margin: 0.8rem 0;
+}
+
+.setting {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.15rem 0.8rem;
+}
+
+.setting-label {
+  font-size: 0.9rem;
+}
+
+.setting-hint {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+@media (max-width: 700px) {
+  .settings {
+    grid-template-columns: 1fr;
+  }
 }
 
 .mono {

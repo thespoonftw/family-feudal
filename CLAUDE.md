@@ -68,14 +68,22 @@ Pass `-Full` to also `pnpm install` on the server.
 
 ## Game Tuning
 
-All in `server/src/game/data.ts`: `TOTAL_ROUNDS`, `MEMBERS_PER_FAMILY`,
-`SCENARIOS_PER_ROUND` (public scenarios; every family also gets one home scenario each
-round), scenario templates with difficulty ranges, `rewardFor(difficulty)`.
+Two layers:
+
+- **Runtime config** (`server/src/game/config.ts`): `GameConfig` (rounds, members per
+  family, scenarios per round, town count, skill min/max, max players) held in memory,
+  editable from the dev panel, clamped to `CONFIG_BOUNDS`. Read at `startGame` — applies to
+  games started after a change; in-progress games keep their values. The per-game map is
+  built at start: capital + playing families' home towns + random fill to `townCount`.
+- **Static data** (`server/src/game/data.ts`): towns, family presets, member name pool,
+  scenario templates with difficulty ranges, `rewardFor(difficulty)`, `MIN_PLAYERS`.
+
 Resolution: sum of assigned members' relevant skill + 1d6 ≥ difficulty → family gains
 `reward` Influence (see `resolveRound` in `engine.ts`).
 
 ## Dev Panel
 
-`/dev` route — lists active rooms, inspect one, edit family name/colour/influence, member
-names/skills, scenario title/difficulty/reward via `/api/dev/...` PATCH routes. Changes
-broadcast live to players.
+`/dev` route — primary section edits the global `GameConfig` (GET/PATCH
+`/api/dev/config`, POST `/api/dev/config/reset`). Below it: live room inspection — edit
+family name/colour/influence, member names/skills, scenario title/difficulty/reward via
+`/api/dev/...` PATCH routes; changes broadcast live to players.

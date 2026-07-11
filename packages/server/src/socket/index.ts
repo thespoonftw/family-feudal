@@ -17,7 +17,8 @@ import {
   type Room,
 } from '../game/engine.js'
 import { deleteRoom, getRoom, roomCodeExists, saveRoom } from '../game/store.js'
-import { MAX_PLAYERS, MIN_PLAYERS } from '../game/data.js'
+import { MIN_PLAYERS } from '../game/data.js'
+import { getConfig } from '../game/config.js'
 
 export type IoServer = Server<
   ClientToServerEvents,
@@ -70,7 +71,9 @@ export function registerSocketHandlers(io: IoServer): void {
       const room = getRoom(code)
       if (!room) return cb({ ok: false, error: 'Room not found' })
       if (room.phase !== 'lobby') return cb({ ok: false, error: 'Game already started' })
-      if (room.players.length >= MAX_PLAYERS) return cb({ ok: false, error: 'Room is full' })
+      if (room.players.length >= getConfig().maxPlayers) {
+        return cb({ ok: false, error: 'Room is full' })
+      }
       if (room.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
         return cb({ ok: false, error: 'That name is taken' })
       }

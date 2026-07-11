@@ -18,14 +18,12 @@ import {
   FAMILY_PRESETS,
   HOME_TEMPLATES,
   MEMBER_NAMES,
-  MEMBERS_PER_FAMILY,
   SCENARIO_TEMPLATES,
-  SCENARIOS_PER_ROUND,
-  TOTAL_ROUNDS,
   TOWNS,
   rewardFor,
   type ScenarioTemplate,
 } from './data.js'
+import { getConfig } from './config.js'
 
 export interface Room {
   code: string
@@ -77,7 +75,7 @@ export function createRoom(
     createdAt: new Date(),
     phase: 'lobby',
     round: 0,
-    totalRounds: TOTAL_ROUNDS,
+    totalRounds: getConfig().totalRounds,
     players: [player],
     families: [],
     towns: TOWNS,
@@ -113,15 +111,18 @@ export function addPlayer(room: Room, name: string): Player {
 }
 
 function generateMembers(): FamilyMember[] {
-  const names = shuffle(MEMBER_NAMES).slice(0, MEMBERS_PER_FAMILY)
+  const config = getConfig()
+  const names = shuffle(MEMBER_NAMES).slice(0, config.membersPerFamily)
   return names.map((name) => {
     const skills = {} as Record<SkillKey, number>
-    for (const skill of SKILLS) skills[skill] = randomInt(1, 5)
+    for (const skill of SKILLS) skills[skill] = randomInt(config.skillMin, config.skillMax)
     return { id: randomUUID(), name, skills }
   })
 }
 
 export function startGame(room: Room): void {
+  const config = getConfig()
+  room.totalRounds = config.totalRounds
   const presets = shuffle(FAMILY_PRESETS)
   room.families = room.players.map((player, i) => {
     const preset = presets[i % presets.length] as (typeof presets)[number]
@@ -135,6 +136,16 @@ export function startGame(room: Room): void {
       influence: 0,
     }
   })
+  // build this game's map: the capital + every playing family's home town + random fill
+  // up to the configured town count
+  const homeIds = new Set(room.families.map((f) => f.homeTownId))
+  const fillCount = Math.max(0, config.townCount - homeIds.size)
+  const fillIds = new Set(
+    shuffle(TOWNS.filter((t) => !t.isCapital && !homeIds.has(t.id)))
+      .slice(0, fillCount)
+      .map((t) => t.id),
+  )
+  room.towns = TOWNS.filter((t) => t.isCapital || homeIds.has(t.id) || fillIds.has(t.id))
   room.phase = 'planning'
   room.round = 1
   beginPlanning(room)
@@ -148,13 +159,13 @@ function pickScenarios(room: Room): Scenario[] {
   const capital = shuffle(capitalTemplates)[0] as ScenarioTemplate
   scenarios.push(instantiate(capital, CAPITAL_ID))
 
-  // remaining scenarios at distinct non-capital, non-home towns
+  // remaining scenarios at distinct non-capital, non-home towns on this game's map
   const homeTowns = new Set(room.families.map((f) => f.homeTownId))
   const eligibleTowns = shuffle(
-    TOWNS.filter((t) => !t.isCapital && !homeTowns.has(t.id)),
+    room.towns.filter((t) => !t.isCapital && !homeTowns.has(t.id)),
   )
   const general = shuffle(SCENARIO_TEMPLATES.filter((t) => !t.capitalOnly))
-  const count = Math.min(SCENARIOS_PER_ROUND - 1, eligibleTowns.length, general.length)
+  const count = Math.min(getConfig().scenariosPerRound - 1, eligibleTowns.length, general.length)
   for (let i = 0; i < count; i++) {
     const template = general[i] as ScenarioTemplate
     const town = eligibleTowns[i] as Town

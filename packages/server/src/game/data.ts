@@ -1,9 +1,6 @@
 import type { SkillKey, Town } from '@family-feudal/shared'
 
-export const TOTAL_ROUNDS = 5
-export const MEMBERS_PER_FAMILY = 4
-export const SCENARIOS_PER_ROUND = 5 // plus one home scenario per family
-export const MAX_PLAYERS = 8
+// rounds/members/scenarios/towns/max-players are runtime-tunable — see config.ts
 export const MIN_PLAYERS = 2
 
 export const CAPITAL_ID = 'kingsreach'
