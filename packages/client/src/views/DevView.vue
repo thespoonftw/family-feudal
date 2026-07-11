@@ -28,8 +28,9 @@ const status = ref('')
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  // only claim a JSON body when there is one — Fastify rejects an empty JSON body
   const res = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    ...(init?.body ? { headers: { 'Content-Type': 'application/json' } } : {}),
     ...init,
   })
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
