@@ -1,0 +1,11 @@
+{
+  "name": "family-feudal",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev:server": "pnpm --filter @family-feudal/server dev",
+    "dev:client": "pnpm --filter @family-feudal/client dev",
+    "build": "pnpm --filter @family-feudal/shared build && pnpm --filter @family-feudal/server build && pnpm --filter @family-feudal/client build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

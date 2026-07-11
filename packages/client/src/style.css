@@ -1,0 +1,94 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #1d1813;
+  --bg-raised: #2a2219;
+  --bg-inset: #17130f;
+  --border: #4a3c2a;
+  --gold: #c9a227;
+  --gold-soft: #e0c25c;
+  --text: #ece3d0;
+  --text-dim: #a89a80;
+  --success: #6fbf73;
+  --failure: #d9534f;
+}
+
+html,
+body,
+#app {
+  min-height: 100vh;
+}
+
+body {
+  background: var(--bg);
+  background-image: radial-gradient(ellipse at 50% -20%, #362b1d 0%, var(--bg) 60%);
+  color: var(--text);
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  background: var(--gold);
+  color: #241c0d;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6em 1.4em;
+  font-size: 1rem;
+  font-weight: 700;
+  transition: filter 0.15s;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--gold-soft);
+  border: 1px solid var(--border);
+}
+
+input,
+select {
+  font-family: inherit;
+  font-size: 1rem;
+  background: var(--bg-inset);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5em 0.7em;
+}
+
+input:focus,
+select:focus {
+  outline: 1px solid var(--gold);
+}
+
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.error {
+  color: var(--failure);
+}
