@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Family, Scenario, ScenarioOutcome, SkillKey } from '@family-feudal/shared'
-import { SKILL_LABELS, SKILLS } from '@family-feudal/shared'
+import { SKILL_LABELS } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
@@ -27,14 +27,14 @@ onMounted(async () => {
   }
 })
 
-// narrow screens (phones) get the portrait map + popup assignment sheet
-const narrowQuery = window.matchMedia('(max-width: 900px)')
-const isNarrow = ref(narrowQuery.matches)
-function onNarrowChange(e: MediaQueryListEvent) {
-  isNarrow.value = e.matches
+// portrait map by default; landscape screens (desktop, phone held sideways) rotate it 90°
+const landscapeQuery = window.matchMedia('(orientation: landscape)')
+const isLandscape = ref(landscapeQuery.matches)
+function onOrientationChange(e: MediaQueryListEvent) {
+  isLandscape.value = e.matches
 }
-onMounted(() => narrowQuery.addEventListener('change', onNarrowChange))
-onUnmounted(() => narrowQuery.removeEventListener('change', onNarrowChange))
+onMounted(() => landscapeQuery.addEventListener('change', onOrientationChange))
+onUnmounted(() => landscapeQuery.removeEventListener('change', onOrientationChange))
 
 const view = computed(() => game.view)
 
@@ -65,17 +65,7 @@ function memberAssignment(memberId: string): string {
   return view.value?.yourAssignments[memberId] ?? ''
 }
 
-async function onAssign(memberId: string, event: Event) {
-  if (!view.value) return
-  const scenarioId = (event.target as HTMLSelectElement).value
-  const next = { ...view.value.yourAssignments }
-  if (scenarioId) next[memberId] = scenarioId
-  else delete next[memberId]
-  const err = await game.assign(next)
-  actionError.value = err ?? ''
-}
-
-/** mobile sheet: tap to send a member to the selected scenario, tap again to recall */
+/** tap to send a member to the selected scenario, tap again to recall */
 async function toggleAssign(memberId: string) {
   if (!view.value || !selectedScenario.value) return
   const next = { ...view.value.yourAssignments }
@@ -203,29 +193,13 @@ const winnerNames = computed(() => {
           :families="view.families"
           :assigned-counts="assignedCounts"
           :selected-scenario-id="selectedScenarioId"
-          :portrait="isNarrow"
+          :landscape="isLandscape"
           @select="(id) => (selectedScenarioId = id)"
         />
-        <div v-if="selectedScenario && !isNarrow" class="card scenario-detail">
-          <h3>
-            {{ SKILL_ICONS[selectedScenario.skill] }} {{ selectedScenario.title }}
-            <small>at {{ townName(selectedScenario.townId) }}</small>
-          </h3>
-          <p>{{ selectedScenario.description }}</p>
-          <p class="stats">
-            Skill: <strong>{{ SKILL_LABELS[selectedScenario.skill] }}</strong> ·
-            Difficulty: <strong>{{ selectedScenario.difficulty }}</strong> ·
-            Reward: <strong>{{ selectedScenario.reward }} Influence</strong>
-          </p>
-          <p class="hint">
-            Assigned members roll their combined {{ SKILL_LABELS[selectedScenario.skill] }} + a
-            die. Beat the difficulty to win the reward.
-          </p>
-        </div>
 
-        <!-- mobile: assignment sheet over the map -->
+        <!-- assignment sheet over the map -->
         <div
-          v-if="selectedScenario && isNarrow"
+          v-if="selectedScenario"
           class="sheet-backdrop"
           @click.self="selectedScenarioId = null"
         >
@@ -272,50 +246,13 @@ const winnerNames = computed(() => {
         </div>
       </section>
 
-      <!-- mobile: ready bar pinned under the map -->
-      <div v-if="isNarrow" class="mobile-bar">
+      <!-- ready bar pinned under the map -->
+      <div class="plan-bar">
         <span class="hint">{{ readyCount }}/{{ view.players.length }} ready</span>
         <button class="ready-btn" @click="game.setReady(!game.you?.ready)">
           {{ game.you?.ready ? 'Not ready after all…' : 'Ready — seal the plans' }}
         </button>
       </div>
-
-      <aside class="side-pane">
-        <div class="card">
-          <h3>Your household</h3>
-          <div v-for="m in game.yourFamily?.members ?? []" :key="m.id" class="member">
-            <div class="member-head">
-              <strong>{{ m.name }}</strong>
-              <span class="skills">
-                <span v-for="skill in SKILLS" :key="skill" :title="SKILL_LABELS[skill]">
-                  {{ SKILL_ICONS[skill] }}{{ m.skills[skill] }}
-                </span>
-              </span>
-            </div>
-            <select :value="memberAssignment(m.id)" @change="onAssign(m.id, $event)">
-              <option value="">— stay idle —</option>
-              <option v-for="s in yourScenarios" :key="s.id" :value="s.id">
-                {{ s.homeFamilyId ? '🏠 ' : '' }}{{ s.title }} ({{ townName(s.townId) }},
-                {{ SKILL_ICONS[s.skill] }} {{ s.difficulty }})
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="card">
-          <button class="ready-btn" @click="game.setReady(!game.you?.ready)">
-            {{ game.you?.ready ? 'Not ready after all…' : 'Ready — seal the plans' }}
-          </button>
-          <ul class="ready-list">
-            <li v-for="p in view.players" :key="p.id">
-              {{ p.ready ? '✅' : '⏳' }} {{ p.name }}
-              <em v-if="!p.connected">(away)</em>
-            </li>
-          </ul>
-        </div>
-
-        <ScoreBoard :families="view.families" :players="view.players" />
-      </aside>
     </main>
 
     <!-- ================= RESOLUTION ================= -->
@@ -500,39 +437,41 @@ button.small {
   font-size: 0.9rem;
 }
 
-/* planning */
+/* planning: the map fills the viewport exactly — no page scrolling anywhere */
+.game.lock-viewport {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .planning {
   flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: 1rem;
-  padding: 1rem;
-  align-items: start;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
 }
 
 .map-pane {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  position: sticky;
-  top: 1rem;
 }
 
-/* keep the whole realm on screen on desktop */
 .map-pane .realm {
-  max-height: calc(100dvh - 8rem);
+  flex: 1;
+  min-height: 0;
+  width: 100%;
 }
 
-.scenario-detail h3 small,
 .result-card h3 small {
   color: var(--text-dim);
   font-weight: normal;
   font-size: 0.8em;
   margin-left: 0.4em;
-}
-
-.scenario-detail .stats {
-  margin: 0.4rem 0;
 }
 
 .side-pane {
@@ -541,53 +480,16 @@ button.small {
   gap: 1rem;
 }
 
-.member {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.6rem 0;
-  border-top: 1px solid var(--border);
-}
-
-.member:first-of-type {
-  border-top: none;
-}
-
-.member-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.6rem;
-}
-
-.skills {
-  display: flex;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-}
-
-.ready-btn {
-  width: 100%;
-}
-
-.ready-list {
-  list-style: none;
-  margin-top: 0.7rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.9rem;
-}
-
 /* resolution */
 .resolution {
   flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 320px;
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
   padding: 1rem;
-  align-items: start;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 .results-pane {
@@ -682,7 +584,7 @@ button.small {
   color: var(--text-dim);
 }
 
-/* mobile planning: sheet over the map + pinned ready bar */
+/* assignment sheet over the map + pinned ready bar */
 .sheet-backdrop {
   position: absolute;
   inset: 0;
@@ -690,11 +592,13 @@ button.small {
   background: rgba(10, 7, 3, 0.55);
   display: flex;
   align-items: flex-end;
+  justify-content: center;
   border-radius: 10px;
 }
 
 .sheet {
   width: 100%;
+  max-width: 520px;
   max-height: 80%;
   overflow-y: auto;
   display: flex;
@@ -750,65 +654,32 @@ button.small {
   flex-shrink: 0;
 }
 
-.mobile-bar {
+.plan-bar {
   display: flex;
   align-items: center;
   gap: 0.8rem;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
 }
 
-.mobile-bar .hint {
+.plan-bar .hint {
   white-space: nowrap;
 }
 
-.mobile-bar .ready-btn {
+.plan-bar .ready-btn {
   flex: 1;
-  width: auto;
 }
 
-@media (max-width: 900px) {
-  .resolution {
-    grid-template-columns: 1fr;
-  }
-
-  /* planning fills the viewport exactly — no page scrolling on phones */
-  .game.lock-viewport {
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .game.lock-viewport header {
+/* compact header on small screens */
+@media (max-width: 600px) {
+  header {
     gap: 0.5rem;
     padding: 0.5rem 0.7rem;
   }
 
-  .game.lock-viewport .brand {
+  .brand {
     display: none;
-  }
-
-  .planning {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    min-height: 0;
-  }
-
-  .planning .side-pane {
-    display: none;
-  }
-
-  .map-pane {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-    gap: 0;
-  }
-
-  .map-pane .realm {
-    flex: 1;
-    min-height: 0;
-    width: 100%;
   }
 }
 </style>

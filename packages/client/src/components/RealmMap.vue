@@ -9,8 +9,8 @@ const props = defineProps<{
   /** scenarioId -> number of your members assigned there */
   assignedCounts: Record<string, number>
   selectedScenarioId: string | null
-  /** stretch the map vertically for portrait (mobile) screens */
-  portrait?: boolean
+  /** rotate the portrait map 90° for landscape screens */
+  landscape?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -24,12 +24,16 @@ const SKILL_ICONS: Record<SkillKey, string> = {
   diplomacy: '🕊️',
 }
 
-// town coordinates are 0–100 square; in portrait mode y stretches to fill the screen
-const height = computed(() => (props.portrait ? 150 : 100))
-const sy = computed(() => height.value / 100)
+// The map is designed portrait: town coords are 0–100 square, y stretched ×1.5 into a
+// 100×150 canvas. Landscape screens get the same map rotated 90° clockwise (150×100).
+const STRETCH = 1.5
+const viewW = computed(() => (props.landscape ? 150 : 100))
+const viewH = computed(() => (props.landscape ? 100 : 150))
 
-function ty(t: Town): number {
-  return t.y * sy.value
+function pos(t: Town): { x: number; y: number } {
+  const px = t.x
+  const py = t.y * STRETCH
+  return props.landscape ? { x: 150 - py, y: px } : { x: px, y: py }
 }
 
 function town(id: string): Town | undefined {
@@ -50,35 +54,39 @@ const homesByTown = computed(() => {
 <template>
   <svg
     class="realm"
-    :class="{ portrait }"
-    :viewBox="`0 0 100 ${height}`"
+    :viewBox="`0 0 ${viewW} ${viewH}`"
     preserveAspectRatio="xMidYMid meet"
   >
     <!-- realm border -->
-    <rect x="1.5" y="1.5" width="97" :height="height - 3" rx="4" class="realm-border" />
+    <rect x="1.5" y="1.5" :width="viewW - 3" :height="viewH - 3" rx="4" class="realm-border" />
 
     <!-- roads from capital to towns -->
     <g v-if="capital" class="roads">
       <line
         v-for="t in towns.filter((t) => !t.isCapital)"
         :key="'road-' + t.id"
-        :x1="capital.x"
-        :y1="ty(capital)"
-        :x2="t.x"
-        :y2="ty(t)"
+        :x1="pos(capital).x"
+        :y1="pos(capital).y"
+        :x2="pos(t).x"
+        :y2="pos(t).y"
       />
     </g>
 
     <!-- towns -->
     <g v-for="t in towns" :key="t.id" class="town">
-      <circle :cx="t.x" :cy="ty(t)" :r="t.isCapital ? 2.6 : 1.6" :class="{ capital: t.isCapital }" />
-      <text :x="t.x" :y="ty(t) + (t.isCapital ? 5.4 : 4.2)" class="town-name">
+      <circle
+        :cx="pos(t).x"
+        :cy="pos(t).y"
+        :r="t.isCapital ? 2.6 : 1.6"
+        :class="{ capital: t.isCapital }"
+      />
+      <text :x="pos(t).x" :y="pos(t).y + (t.isCapital ? 5.4 : 4.2)" class="town-name">
         {{ t.name }}{{ t.isCapital ? ' ♔' : '' }}
       </text>
       <!-- family home shields -->
       <g v-for="(family, i) in homesByTown[t.id] ?? []" :key="family.id">
         <path
-          :d="`M ${t.x - 3.4 - i * 2.6} ${ty(t) - 3.6} h 2 v 2 l -1 1 l -1 -1 Z`"
+          :d="`M ${pos(t).x - 3.4 - i * 2.6} ${pos(t).y - 3.6} h 2 v 2 l -1 1 l -1 -1 Z`"
           :fill="family.color"
           stroke="#00000088"
           stroke-width="0.2"
@@ -97,21 +105,21 @@ const homesByTown = computed(() => {
       <template v-if="town(s.townId)">
         <!-- oversized invisible hit area for touch -->
         <circle
-          :cx="town(s.townId)!.x + 2.6"
-          :cy="ty(town(s.townId)!) - 2.6"
+          :cx="pos(town(s.townId)!).x + 2.6"
+          :cy="pos(town(s.townId)!).y - 2.6"
           r="5"
           fill="transparent"
         />
         <circle
-          :cx="town(s.townId)!.x + 2.6"
-          :cy="ty(town(s.townId)!) - 2.6"
+          :cx="pos(town(s.townId)!).x + 2.6"
+          :cy="pos(town(s.townId)!).y - 2.6"
           r="2.6"
           class="scenario-bg"
           :class="{ home: !!s.homeFamilyId }"
         />
         <text
-          :x="town(s.townId)!.x + 2.6"
-          :y="ty(town(s.townId)!) - 1.7"
+          :x="pos(town(s.townId)!).x + 2.6"
+          :y="pos(town(s.townId)!).y - 1.7"
           class="scenario-icon"
           text-anchor="middle"
         >
@@ -119,14 +127,14 @@ const homesByTown = computed(() => {
         </text>
         <g v-if="(assignedCounts[s.id] ?? 0) > 0">
           <circle
-            :cx="town(s.townId)!.x + 4.9"
-            :cy="ty(town(s.townId)!) - 4.9"
+            :cx="pos(town(s.townId)!).x + 4.9"
+            :cy="pos(town(s.townId)!).y - 4.9"
             r="1.4"
             class="count-bg"
           />
           <text
-            :x="town(s.townId)!.x + 4.9"
-            :y="ty(town(s.townId)!) - 4.2"
+            :x="pos(town(s.townId)!).x + 4.9"
+            :y="pos(town(s.townId)!).y - 4.2"
             class="count"
             text-anchor="middle"
           >
@@ -170,18 +178,9 @@ const homesByTown = computed(() => {
 }
 
 .town-name {
-  font-size: 2.1px;
+  font-size: 2.8px;
   fill: var(--text-dim);
   text-anchor: middle;
-}
-
-/* portrait phones render the 100-unit width on a narrow screen — bump label sizes */
-.realm.portrait .town-name {
-  font-size: 2.8px;
-}
-
-.realm.portrait .scenario-icon {
-  font-size: 2.8px;
 }
 
 .scenario {
@@ -205,7 +204,7 @@ const homesByTown = computed(() => {
 }
 
 .scenario-icon {
-  font-size: 2.4px;
+  font-size: 2.8px;
   user-select: none;
 }
 
