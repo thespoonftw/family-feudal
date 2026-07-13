@@ -29,10 +29,10 @@ await fastify.register(
 if (process.env['NODE_ENV'] === 'production') {
   const __dirname = dirname(fileURLToPath(import.meta.url))
   const clientDist = join(__dirname, '../../client/dist')
+  // decorateReply must stay on — the SPA fallback below relies on reply.sendFile
   await fastify.register(staticFiles, {
     root: clientDist,
     prefix: '/',
-    decorateReply: false,
   })
   fastify.setNotFoundHandler(async (request, reply) => {
     if (request.url.startsWith('/api')) {
