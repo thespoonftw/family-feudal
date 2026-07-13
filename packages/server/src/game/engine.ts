@@ -85,7 +85,29 @@ export function createRoom(
     resultHistory: [],
     winnerFamilyIds: null,
   }
+  claimFamily(room, player.id)
   return { room, player }
+}
+
+/** Each joining player claims the first free preset (house + city); members roll at start. */
+function claimFamily(room: Room, playerId: string): void {
+  const taken = new Set(room.families.map((f) => f.homeTownId))
+  const preset = FAMILY_PRESETS.find((p) => !taken.has(p.homeTownId))
+  if (!preset) return
+  room.families.push({
+    id: randomUUID(),
+    playerId,
+    name: preset.name,
+    color: preset.color,
+    homeTownId: preset.homeTownId,
+    members: [],
+    influence: 0,
+  })
+}
+
+/** Free a departing lobby player's house and city for the next joiner. */
+export function releaseFamily(room: Room, playerId: string): void {
+  room.families = room.families.filter((f) => f.playerId !== playerId)
 }
 
 function generateCode(): string {
@@ -107,6 +129,7 @@ export function addPlayer(room: Room, name: string): Player {
     ready: false,
   }
   room.players.push(player)
+  claimFamily(room, player.id)
   return player
 }
 
@@ -123,29 +146,8 @@ function generateMembers(): FamilyMember[] {
 export function startGame(room: Room): void {
   const config = getConfig()
   room.totalRounds = config.totalRounds
-  const presets = shuffle(FAMILY_PRESETS)
-  room.families = room.players.map((player, i) => {
-    const preset = presets[i % presets.length] as (typeof presets)[number]
-    return {
-      id: randomUUID(),
-      playerId: player.id,
-      name: preset.name,
-      color: preset.color,
-      homeTownId: preset.homeTownId,
-      members: generateMembers(),
-      influence: 0,
-    }
-  })
-  // build this game's map: the capital + every playing family's home town + random fill
-  // up to the configured town count
-  const homeIds = new Set(room.families.map((f) => f.homeTownId))
-  const fillCount = Math.max(0, config.townCount - homeIds.size)
-  const fillIds = new Set(
-    shuffle(TOWNS.filter((t) => !t.isCapital && !homeIds.has(t.id)))
-      .slice(0, fillCount)
-      .map((t) => t.id),
-  )
-  room.towns = TOWNS.filter((t) => t.isCapital || homeIds.has(t.id) || fillIds.has(t.id))
+  // houses and home cities were claimed as players joined; roll the members now
+  for (const family of room.families) family.members = generateMembers()
   room.phase = 'planning'
   room.round = 1
   beginPlanning(room)

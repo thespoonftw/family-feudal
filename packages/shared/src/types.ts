@@ -112,8 +112,6 @@ export interface GameConfig {
   membersPerFamily: number
   /** public scenarios per round (one is always at the capital; every family also gets a home scenario) */
   scenariosPerRound: number
-  /** non-capital towns on the map (home towns of playing families are always included) */
-  townCount: number
   /** member skills roll uniformly in [skillMin, skillMax] */
   skillMin: number
   skillMax: number

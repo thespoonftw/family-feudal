@@ -13,7 +13,6 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
   { key: 'totalRounds', label: 'Rounds per game', hint: 'Influence is tallied after this many rounds' },
   { key: 'membersPerFamily', label: 'Starting family members', hint: 'Members each family begins with' },
   { key: 'scenariosPerRound', label: 'Scenarios per round', hint: 'Public scenarios on the map (1 is always at the capital); each family also gets a home scenario' },
-  { key: 'townCount', label: 'Towns on the map', hint: 'Non-capital towns; playing families’ home towns are always included' },
   { key: 'skillMin', label: 'Skill minimum', hint: 'Lower bound for randomly rolled member skills' },
   { key: 'skillMax', label: 'Skill maximum', hint: 'Upper bound for randomly rolled member skills' },
   { key: 'maxPlayers', label: 'Max players per room', hint: 'Limited by the number of family presets' },

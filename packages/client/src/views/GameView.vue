@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Family, Scenario, ScenarioOutcome, SkillKey } from '@family-feudal/shared'
 import { SKILL_LABELS, SKILLS } from '@family-feudal/shared'
@@ -26,6 +26,15 @@ onMounted(async () => {
     if (err) void router.replace('/')
   }
 })
+
+// narrow screens (phones) get the portrait map + popup assignment sheet
+const narrowQuery = window.matchMedia('(max-width: 900px)')
+const isNarrow = ref(narrowQuery.matches)
+function onNarrowChange(e: MediaQueryListEvent) {
+  isNarrow.value = e.matches
+}
+onMounted(() => narrowQuery.addEventListener('change', onNarrowChange))
+onUnmounted(() => narrowQuery.removeEventListener('change', onNarrowChange))
 
 const view = computed(() => game.view)
 
@@ -65,6 +74,31 @@ async function onAssign(memberId: string, event: Event) {
   const err = await game.assign(next)
   actionError.value = err ?? ''
 }
+
+/** mobile sheet: tap to send a member to the selected scenario, tap again to recall */
+async function toggleAssign(memberId: string) {
+  if (!view.value || !selectedScenario.value) return
+  const next = { ...view.value.yourAssignments }
+  if (next[memberId] === selectedScenario.value.id) delete next[memberId]
+  else next[memberId] = selectedScenario.value.id
+  const err = await game.assign(next)
+  actionError.value = err ?? ''
+}
+
+/** town name of the scenario a member is currently assigned to (for the sheet) */
+function assignedTownLabel(memberId: string): string {
+  const scenarioId = view.value?.yourAssignments[memberId]
+  const scenario = view.value?.scenarios.find((s) => s.id === scenarioId)
+  return scenario ? townName(scenario.townId) : ''
+}
+
+function familyOf(playerId: string): Family | undefined {
+  return view.value?.families.find((f) => f.playerId === playerId)
+}
+
+const readyCount = computed(
+  () => view.value?.players.filter((p) => p.ready).length ?? 0,
+)
 
 async function onStart() {
   actionError.value = (await game.startGame()) ?? ''
@@ -115,7 +149,7 @@ const winnerNames = computed(() => {
 </script>
 
 <template>
-  <div v-if="view" class="game">
+  <div v-if="view" class="game" :class="{ 'lock-viewport': view.phase === 'planning' }">
     <header>
       <span class="brand">Family Feudal</span>
       <span class="room-code">Room {{ view.code }}</span>
@@ -144,18 +178,19 @@ const winnerNames = computed(() => {
         <p class="hint">Share this code with the other players:</p>
         <div class="big-code">{{ view.code }}</div>
         <ul class="player-list">
-          <li v-for="p in view.players" :key="p.id">
-            {{ p.isHost ? '👑' : '🛡️' }} {{ p.name }}
-            <em v-if="p.id === view.playerId">(you)</em>
+          <li v-for="p in view.players" :key="p.id" class="player-row">
+            <span>
+              {{ p.isHost ? '👑' : '🛡️' }} {{ p.name }}
+              <em v-if="p.id === view.playerId">(you)</em>
+            </span>
+            <span v-if="familyOf(p.id)" class="house-tag">
+              <span class="dot" :style="{ background: familyOf(p.id)!.color }" />
+              {{ familyOf(p.id)!.name }} of {{ townName(familyOf(p.id)!.homeTownId) }}
+            </span>
           </li>
         </ul>
-        <button v-if="game.isHost" :disabled="view.players.length < 2" @click="onStart">
-          Begin the Feud
-        </button>
+        <button v-if="game.isHost" @click="onStart">Begin the Feud</button>
         <p v-else class="hint">Waiting for the host to begin…</p>
-        <p v-if="game.isHost && view.players.length < 2" class="hint">
-          At least 2 players are needed.
-        </p>
       </div>
     </main>
 
@@ -168,9 +203,10 @@ const winnerNames = computed(() => {
           :families="view.families"
           :assigned-counts="assignedCounts"
           :selected-scenario-id="selectedScenarioId"
+          :portrait="isNarrow"
           @select="(id) => (selectedScenarioId = id)"
         />
-        <div v-if="selectedScenario" class="card scenario-detail">
+        <div v-if="selectedScenario && !isNarrow" class="card scenario-detail">
           <h3>
             {{ SKILL_ICONS[selectedScenario.skill] }} {{ selectedScenario.title }}
             <small>at {{ townName(selectedScenario.townId) }}</small>
@@ -186,7 +222,63 @@ const winnerNames = computed(() => {
             die. Beat the difficulty to win the reward.
           </p>
         </div>
+
+        <!-- mobile: assignment sheet over the map -->
+        <div
+          v-if="selectedScenario && isNarrow"
+          class="sheet-backdrop"
+          @click.self="selectedScenarioId = null"
+        >
+          <div class="card sheet">
+            <div class="sheet-head">
+              <h3>
+                {{ SKILL_ICONS[selectedScenario.skill] }} {{ selectedScenario.title }}
+                <small>at {{ townName(selectedScenario.townId) }}</small>
+              </h3>
+              <button class="secondary small" @click="selectedScenarioId = null">✕</button>
+            </div>
+            <p class="hint">{{ selectedScenario.description }}</p>
+            <p class="stats">
+              {{ SKILL_LABELS[selectedScenario.skill] }} ·
+              Difficulty <strong>{{ selectedScenario.difficulty }}</strong> ·
+              Reward <strong>{{ selectedScenario.reward }} Influence</strong>
+            </p>
+            <div class="sheet-members">
+              <div v-for="m in game.yourFamily?.members ?? []" :key="m.id" class="sheet-member">
+                <span class="sheet-member-info">
+                  <strong>{{ m.name }}</strong>
+                  <small>
+                    {{ SKILL_ICONS[selectedScenario.skill] }}
+                    {{ m.skills[selectedScenario.skill] }}
+                    <template
+                      v-if="
+                        memberAssignment(m.id) && memberAssignment(m.id) !== selectedScenario.id
+                      "
+                    >
+                      · at {{ assignedTownLabel(m.id) }}
+                    </template>
+                  </small>
+                </span>
+                <button
+                  class="small"
+                  :class="{ secondary: memberAssignment(m.id) !== selectedScenario.id }"
+                  @click="toggleAssign(m.id)"
+                >
+                  {{ memberAssignment(m.id) === selectedScenario.id ? 'Recall' : 'Send' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
+
+      <!-- mobile: ready bar pinned under the map -->
+      <div v-if="isNarrow" class="mobile-bar">
+        <span class="hint">{{ readyCount }}/{{ view.players.length }} ready</span>
+        <button class="ready-btn" @click="game.setReady(!game.you?.ready)">
+          {{ game.you?.ready ? 'Not ready after all…' : 'Ready — seal the plans' }}
+        </button>
+      </div>
 
       <aside class="side-pane">
         <div class="card">
@@ -380,6 +472,29 @@ button.small {
   gap: 0.3rem;
 }
 
+.player-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.house-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.house-tag .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .hint {
   color: var(--text-dim);
   font-size: 0.9rem;
@@ -401,6 +516,11 @@ button.small {
   gap: 1rem;
   position: sticky;
   top: 1rem;
+}
+
+/* keep the whole realm on screen on desktop */
+.map-pane .realm {
+  max-height: calc(100dvh - 8rem);
 }
 
 .scenario-detail h3 small,
@@ -562,14 +682,133 @@ button.small {
   color: var(--text-dim);
 }
 
+/* mobile planning: sheet over the map + pinned ready bar */
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: rgba(10, 7, 3, 0.55);
+  display: flex;
+  align-items: flex-end;
+  border-radius: 10px;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 80%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.sheet-head h3 small {
+  color: var(--text-dim);
+  font-weight: normal;
+  font-size: 0.8em;
+  margin-left: 0.3em;
+}
+
+.sheet .stats {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.sheet-members {
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-member {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.sheet-member-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.sheet-member-info small {
+  color: var(--text-dim);
+}
+
+.sheet-member button {
+  min-width: 5.5em;
+  flex-shrink: 0;
+}
+
+.mobile-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.mobile-bar .hint {
+  white-space: nowrap;
+}
+
+.mobile-bar .ready-btn {
+  flex: 1;
+  width: auto;
+}
+
 @media (max-width: 900px) {
-  .planning,
   .resolution {
     grid-template-columns: 1fr;
   }
 
+  /* planning fills the viewport exactly — no page scrolling on phones */
+  .game.lock-viewport {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .game.lock-viewport header {
+    gap: 0.5rem;
+    padding: 0.5rem 0.7rem;
+  }
+
+  .game.lock-viewport .brand {
+    display: none;
+  }
+
+  .planning {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    min-height: 0;
+  }
+
+  .planning .side-pane {
+    display: none;
+  }
+
   .map-pane {
-    position: static;
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+  }
+
+  .map-pane .realm {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
   }
 }
 </style>

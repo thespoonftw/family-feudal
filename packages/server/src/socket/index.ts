@@ -11,6 +11,7 @@ import {
   buildView,
   createRoom,
   nextRound,
+  releaseFamily,
   resolveRound,
   setAssignments,
   startGame,
@@ -105,7 +106,7 @@ export function registerSocketHandlers(io: IoServer): void {
       if (!player.isHost) return cb({ ok: false, error: 'Only the host can start' })
       if (room.phase !== 'lobby') return cb({ ok: false, error: 'Game already started' })
       if (room.players.length < MIN_PLAYERS) {
-        return cb({ ok: false, error: `Need at least ${MIN_PLAYERS} players` })
+        return cb({ ok: false, error: `Need at least ${MIN_PLAYERS} player(s)` })
       }
       startGame(room)
       cb({ ok: true })
@@ -174,6 +175,7 @@ function handleDeparture(socket: IoSocket, explicit: boolean): void {
   if (room.phase === 'lobby' || explicit) {
     // in the lobby (or on an explicit leave) drop the player entirely
     room.players = room.players.filter((p) => p.id !== player.id)
+    if (room.phase === 'lobby') releaseFamily(room, player.id)
     if (player.isHost && room.players.length > 0) {
       const next = room.players[0]
       if (next) next.isHost = true

@@ -1,24 +1,22 @@
 import type { SkillKey, Town } from '@family-feudal/shared'
 
-// rounds/members/scenarios/towns/max-players are runtime-tunable — see config.ts
-export const MIN_PLAYERS = 2
+// rounds/members/scenarios/max-players are runtime-tunable — see config.ts
+export const MIN_PLAYERS = 1
 
 export const CAPITAL_ID = 'kingsreach'
 
+// Fixed map: the capital plus one city per player slot (see FAMILY_PRESETS).
+// Coordinates are 0–100 in both axes; the client stretches them for portrait screens.
 export const TOWNS: Town[] = [
-  { id: 'kingsreach', name: 'Kingsreach', x: 50, y: 42, isCapital: true },
-  { id: 'ashford', name: 'Ashford', x: 18, y: 22, isCapital: false },
-  { id: 'belmont', name: 'Belmont', x: 78, y: 18, isCapital: false },
-  { id: 'caldwell', name: 'Caldwell', x: 12, y: 58, isCapital: false },
-  { id: 'draymoor', name: 'Draymoor', x: 85, y: 55, isCapital: false },
-  { id: 'everly', name: 'Everly', x: 30, y: 80, isCapital: false },
-  { id: 'fenwick', name: 'Fenwick', x: 68, y: 82, isCapital: false },
-  { id: 'grimsby', name: 'Grimsby', x: 40, y: 12, isCapital: false },
-  { id: 'harrowgate', name: 'Harrowgate', x: 92, y: 35, isCapital: false },
-  { id: 'ivywell', name: 'Ivywell', x: 8, y: 38, isCapital: false },
-  { id: 'lowmarsh', name: 'Lowmarsh', x: 55, y: 68, isCapital: false },
-  { id: 'norcliffe', name: 'Norcliffe', x: 25, y: 45, isCapital: false },
-  { id: 'thornbury', name: 'Thornbury', x: 65, y: 30, isCapital: false },
+  { id: 'kingsreach', name: 'Kingsreach', x: 50, y: 50, isCapital: true },
+  { id: 'ashford', name: 'Ashford', x: 21, y: 20, isCapital: false },
+  { id: 'belmont', name: 'Belmont', x: 79, y: 20, isCapital: false },
+  { id: 'caldwell', name: 'Caldwell', x: 12, y: 50, isCapital: false },
+  { id: 'draymoor', name: 'Draymoor', x: 78, y: 78, isCapital: false },
+  { id: 'everly', name: 'Everly', x: 22, y: 78, isCapital: false },
+  { id: 'fenwick', name: 'Fenwick', x: 50, y: 88, isCapital: false },
+  { id: 'grimsby', name: 'Grimsby', x: 50, y: 10, isCapital: false },
+  { id: 'harrowgate', name: 'Harrowgate', x: 88, y: 50, isCapital: false },
 ]
 
 export interface FamilyPreset {

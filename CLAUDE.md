@@ -71,14 +71,18 @@ Pass `-Full` to also `pnpm install` on the server.
 Two layers:
 
 - **Runtime config** (`server/src/game/config.ts`): `GameConfig` (rounds, members per
-  family, scenarios per round, town count, skill min/max, max players), editable from the
+  family, scenarios per round, skill min/max, max players), editable from the
   dev panel, clamped to `CONFIG_BOUNDS`, persisted to `game-config.json` (gitignored, in
   the server process cwd — `packages/server` in prod; override via `CONFIG_FILE`). Read at
   `startGame` — applies to games started after a change; in-progress games keep their
-  values. The per-game map is
-  built at start: capital + playing families' home towns + random fill to `townCount`.
-- **Static data** (`server/src/game/data.ts`): towns, family presets, member name pool,
-  scenario templates with difficulty ranges, `rewardFor(difficulty)`, `MIN_PLAYERS`.
+  values.
+- **Static data** (`server/src/game/data.ts`): fixed map (capital + 8 cities, one per
+  player slot), family presets, member name pool, scenario templates with difficulty
+  ranges, `rewardFor(difficulty)`, `MIN_PLAYERS` (1 — solo games allowed).
+
+Each joining player claims the first free family preset (house + home city) in the lobby
+(`claimFamily` in `engine.ts`; freed on lobby departure via `releaseFamily`); members are
+rolled at `startGame`.
 
 Resolution: sum of assigned members' relevant skill + 1d6 ≥ difficulty → family gains
 `reward` Influence (see `resolveRound` in `engine.ts`).

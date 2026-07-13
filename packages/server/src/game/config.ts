@@ -1,14 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import type { GameConfig } from '@family-feudal/shared'
-import { FAMILY_PRESETS, MEMBER_NAMES, TOWNS } from './data.js'
-
-const NON_CAPITAL_TOWNS = TOWNS.filter((t) => !t.isCapital).length
+import { FAMILY_PRESETS, MEMBER_NAMES } from './data.js'
 
 export const DEFAULT_CONFIG: GameConfig = {
   totalRounds: 5,
   membersPerFamily: 4,
   scenariosPerRound: 5,
-  townCount: NON_CAPITAL_TOWNS,
   skillMin: 1,
   skillMax: 5,
   maxPlayers: FAMILY_PRESETS.length,
@@ -19,10 +16,9 @@ export const CONFIG_BOUNDS: Record<keyof GameConfig, [number, number]> = {
   totalRounds: [1, 20],
   membersPerFamily: [1, Math.min(10, MEMBER_NAMES.length)],
   scenariosPerRound: [1, 10],
-  townCount: [3, NON_CAPITAL_TOWNS],
   skillMin: [0, 10],
   skillMax: [0, 10],
-  maxPlayers: [2, FAMILY_PRESETS.length],
+  maxPlayers: [1, FAMILY_PRESETS.length],
 }
 
 // Persisted so settings survive restarts/deploys. Resolved against the server process
