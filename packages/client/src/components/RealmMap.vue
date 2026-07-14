@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Family, Scenario, SkillKey, Town } from '@family-feudal/shared'
+import type { Family, Scenario, Town } from '@family-feudal/shared'
 
 const props = defineProps<{
   towns: Town[]
@@ -16,13 +16,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [scenarioId: string]
 }>()
-
-const SKILL_ICONS: Record<SkillKey, string> = {
-  combat: '⚔️',
-  beauty: '🌹',
-  intellect: '📜',
-  diplomacy: '🕊️',
-}
 
 // The map is designed portrait: town coords are 0–100 square, y stretched ×1.5 into a
 // 100×150 canvas. Landscape screens get the same map rotated 90° clockwise (150×100).
@@ -123,7 +116,7 @@ const homesByTown = computed(() => {
           class="scenario-icon"
           text-anchor="middle"
         >
-          {{ SKILL_ICONS[s.skill] }}
+          {{ s.emoji }}
         </text>
         <g v-if="(assignedCounts[s.id] ?? 0) > 0">
           <circle

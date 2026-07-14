@@ -1,39 +1,44 @@
-import type { SkillKey, Town } from '@family-feudal/shared'
+import type { HouseDesign, ScenarioDesign } from '@family-feudal/shared'
 
 // rounds/members/scenarios/max-players are runtime-tunable — see config.ts
+// houses and scenarios are designable — see content.ts
 export const MIN_PLAYERS = 1
 
-export const CAPITAL_ID = 'kingsreach'
+export const CAPITAL_ID = 'capital'
+export const CAPITAL_NAME = 'Kingsreach'
 
-// Fixed map: the capital plus one city per player slot (see FAMILY_PRESETS).
+// Fixed map geometry: the capital plus one city slot per player slot. City names come
+// from the house designs (slot i belongs to house i); coordinates never change.
 // Coordinates are 0–100 in both axes; the client stretches them for portrait screens.
-export const TOWNS: Town[] = [
-  { id: 'kingsreach', name: 'Kingsreach', x: 50, y: 50, isCapital: true },
-  { id: 'ashford', name: 'Ashford', x: 21, y: 20, isCapital: false },
-  { id: 'belmont', name: 'Belmont', x: 79, y: 20, isCapital: false },
-  { id: 'caldwell', name: 'Caldwell', x: 12, y: 50, isCapital: false },
-  { id: 'draymoor', name: 'Draymoor', x: 78, y: 78, isCapital: false },
-  { id: 'everly', name: 'Everly', x: 22, y: 78, isCapital: false },
-  { id: 'fenwick', name: 'Fenwick', x: 50, y: 88, isCapital: false },
-  { id: 'grimsby', name: 'Grimsby', x: 50, y: 10, isCapital: false },
-  { id: 'harrowgate', name: 'Harrowgate', x: 88, y: 50, isCapital: false },
-]
-
-export interface FamilyPreset {
-  name: string
-  color: string
-  homeTownId: string
+export interface MapSlot {
+  id: string
+  x: number
+  y: number
 }
 
-export const FAMILY_PRESETS: FamilyPreset[] = [
-  { name: 'House Ashford', color: '#b03a3a', homeTownId: 'ashford' },
-  { name: 'House Belmont', color: '#3a6fb0', homeTownId: 'belmont' },
-  { name: 'House Caldwell', color: '#2e8b57', homeTownId: 'caldwell' },
-  { name: 'House Draymoor', color: '#7d4fb0', homeTownId: 'draymoor' },
-  { name: 'House Everly', color: '#c98a2d', homeTownId: 'everly' },
-  { name: 'House Fenwick', color: '#2d9d9d', homeTownId: 'fenwick' },
-  { name: 'House Grimsby', color: '#c2439c', homeTownId: 'grimsby' },
-  { name: 'House Harrowgate', color: '#607086', homeTownId: 'harrowgate' },
+export const CAPITAL_SLOT: MapSlot = { id: CAPITAL_ID, x: 50, y: 50 }
+
+export const CITY_SLOTS: MapSlot[] = [
+  { id: 'city-1', x: 21, y: 20 },
+  { id: 'city-2', x: 79, y: 20 },
+  { id: 'city-3', x: 12, y: 50 },
+  { id: 'city-4', x: 78, y: 78 },
+  { id: 'city-5', x: 22, y: 78 },
+  { id: 'city-6', x: 50, y: 88 },
+  { id: 'city-7', x: 50, y: 10 },
+  { id: 'city-8', x: 88, y: 50 },
+]
+
+// one house per city slot, in slot order
+export const DEFAULT_HOUSES: HouseDesign[] = [
+  { name: 'House Ashford', color: '#b03a3a', cityName: 'Ashford' },
+  { name: 'House Belmont', color: '#3a6fb0', cityName: 'Belmont' },
+  { name: 'House Caldwell', color: '#2e8b57', cityName: 'Caldwell' },
+  { name: 'House Draymoor', color: '#7d4fb0', cityName: 'Draymoor' },
+  { name: 'House Everly', color: '#c98a2d', cityName: 'Everly' },
+  { name: 'House Fenwick', color: '#2d9d9d', cityName: 'Fenwick' },
+  { name: 'House Grimsby', color: '#c2439c', cityName: 'Grimsby' },
+  { name: 'House Harrowgate', color: '#607086', cityName: 'Harrowgate' },
 ]
 
 export const MEMBER_NAMES: string[] = [
@@ -45,49 +50,32 @@ export const MEMBER_NAMES: string[] = [
   'Nerissa', 'Osric', 'Petra', 'Roderick',
 ]
 
-export interface ScenarioTemplate {
-  id: string
-  title: string
-  /** {town} is replaced with the town name */
-  description: string
-  skill: SkillKey
-  minDifficulty: number
-  maxDifficulty: number
-  capitalOnly?: boolean
-}
-
-export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
+// Emoji are flavour, not skill markers — players must read the story to guess the skill.
+export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   // Combat
-  { id: 'bandit-raid', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}. Drive them off.', skill: 'combat', minDifficulty: 7, maxDifficulty: 11 },
-  { id: 'jousting-tournament', title: 'Jousting Tournament', description: 'A grand tourney is held at {town}. Glory awaits the victors.', skill: 'combat', minDifficulty: 8, maxDifficulty: 12 },
-  { id: 'border-skirmish', title: 'Border Skirmish', description: 'Raiders from beyond the realm probe the defences of {town}.', skill: 'combat', minDifficulty: 9, maxDifficulty: 12 },
-  { id: 'beast-hunt', title: 'Beast Hunt', description: 'A monstrous beast stalks the woods near {town}. Hunters are called for.', skill: 'combat', minDifficulty: 7, maxDifficulty: 10 },
+  { emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}. Drive them off.', skill: 'combat', minDifficulty: 7, maxDifficulty: 11, location: 'general' },
+  { emoji: '🏇', title: 'Jousting Tournament', description: 'A grand tourney is held at {town}. Glory awaits the victors.', skill: 'combat', minDifficulty: 8, maxDifficulty: 12, location: 'general' },
+  { emoji: '🏴', title: 'Border Skirmish', description: 'Raiders from beyond the realm probe the defences of {town}.', skill: 'combat', minDifficulty: 9, maxDifficulty: 12, location: 'general' },
+  { emoji: '🐗', title: 'Beast Hunt', description: 'A monstrous beast stalks the woods near {town}. Hunters are called for.', skill: 'combat', minDifficulty: 7, maxDifficulty: 10, location: 'general' },
   // Beauty
-  { id: 'masquerade-ball', title: 'Masquerade Ball', description: 'The nobility of {town} hosts a dazzling masquerade. Impressions matter.', skill: 'beauty', minDifficulty: 7, maxDifficulty: 11 },
-  { id: 'portrait-unveiling', title: 'Portrait Unveiling', description: 'A famed painter seeks muses in {town} for a royal commission.', skill: 'beauty', minDifficulty: 7, maxDifficulty: 10 },
-  { id: 'royal-wedding', title: 'Noble Wedding', description: 'Two great houses wed at {town}. All eyes are on the guests.', skill: 'beauty', minDifficulty: 8, maxDifficulty: 12 },
+  { emoji: '🎭', title: 'Masquerade Ball', description: 'The nobility of {town} hosts a dazzling masquerade. Impressions matter.', skill: 'beauty', minDifficulty: 7, maxDifficulty: 11, location: 'general' },
+  { emoji: '🖼️', title: 'Portrait Unveiling', description: 'A famed painter seeks muses in {town} for a royal commission.', skill: 'beauty', minDifficulty: 7, maxDifficulty: 10, location: 'general' },
+  { emoji: '💍', title: 'Noble Wedding', description: 'Two great houses wed at {town}. All eyes are on the guests.', skill: 'beauty', minDifficulty: 8, maxDifficulty: 12, location: 'general' },
   // Intellect
-  { id: 'scholars-symposium', title: "Scholars' Symposium", description: 'Learned minds gather in {town} to debate the great questions.', skill: 'intellect', minDifficulty: 7, maxDifficulty: 11 },
-  { id: 'plague-outbreak', title: 'Plague Outbreak', description: 'Sickness spreads through {town}. Physicians and scholars are needed.', skill: 'intellect', minDifficulty: 9, maxDifficulty: 12 },
-  { id: 'missing-heirloom', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. Someone must solve the mystery.', skill: 'intellect', minDifficulty: 7, maxDifficulty: 10 },
+  { emoji: '📚', title: "Scholars' Symposium", description: 'Learned minds gather in {town} to debate the great questions.', skill: 'intellect', minDifficulty: 7, maxDifficulty: 11, location: 'general' },
+  { emoji: '🐀', title: 'Plague Outbreak', description: 'Sickness spreads through {town}. Physicians and scholars are needed.', skill: 'intellect', minDifficulty: 9, maxDifficulty: 12, location: 'general' },
+  { emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. Someone must solve the mystery.', skill: 'intellect', minDifficulty: 7, maxDifficulty: 10, location: 'general' },
   // Diplomacy
-  { id: 'trade-dispute', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats. Broker a settlement.', skill: 'diplomacy', minDifficulty: 7, maxDifficulty: 11 },
-  { id: 'peace-talks', title: 'Peace Talks', description: 'Feuding lords meet at {town} under a banner of truce.', skill: 'diplomacy', minDifficulty: 9, maxDifficulty: 12 },
-  { id: 'harvest-festival', title: 'Harvest Festival', description: 'The people of {town} celebrate the harvest. Win their goodwill.', skill: 'diplomacy', minDifficulty: 7, maxDifficulty: 10 },
+  { emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats. Broker a settlement.', skill: 'diplomacy', minDifficulty: 7, maxDifficulty: 11, location: 'general' },
+  { emoji: '🕊️', title: 'Peace Talks', description: 'Feuding lords meet at {town} under a banner of truce.', skill: 'diplomacy', minDifficulty: 9, maxDifficulty: 12, location: 'general' },
+  { emoji: '🌾', title: 'Harvest Festival', description: 'The people of {town} celebrate the harvest. Win their goodwill.', skill: 'diplomacy', minDifficulty: 7, maxDifficulty: 10, location: 'general' },
   // Capital only
-  { id: 'coronation', title: 'Coronation', description: 'A new monarch is crowned at {town}. The whole realm watches.', skill: 'diplomacy', minDifficulty: 10, maxDifficulty: 12, capitalOnly: true },
-  { id: 'royal-audience', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', skill: 'diplomacy', minDifficulty: 8, maxDifficulty: 11, capitalOnly: true },
-  { id: 'queens-gala', title: "Queen's Gala", description: 'The Queen hosts a resplendent gala at {town}.', skill: 'beauty', minDifficulty: 9, maxDifficulty: 12, capitalOnly: true },
+  { emoji: '👑', title: 'Coronation', description: 'A new monarch is crowned at {town}. The whole realm watches.', skill: 'diplomacy', minDifficulty: 10, maxDifficulty: 12, location: 'capital' },
+  { emoji: '🏰', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', skill: 'diplomacy', minDifficulty: 8, maxDifficulty: 11, location: 'capital' },
+  { emoji: '🥂', title: "Queen's Gala", description: 'The Queen hosts a resplendent gala at {town}.', skill: 'beauty', minDifficulty: 9, maxDifficulty: 12, location: 'capital' },
+  // Home estates
+  { emoji: '🏹', title: 'Poachers on the Estate', description: 'Poachers have been spotted on your lands near {town}.', skill: 'combat', minDifficulty: 5, maxDifficulty: 7, location: 'home' },
+  { emoji: '🍗', title: 'Feast for the Household', description: 'Your household at {town} expects a memorable feast.', skill: 'beauty', minDifficulty: 5, maxDifficulty: 7, location: 'home' },
+  { emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray.', skill: 'intellect', minDifficulty: 5, maxDifficulty: 7, location: 'home' },
+  { emoji: '🪨', title: 'Tenant Dispute', description: 'Two tenant farmers at {town} quarrel over a boundary stone.', skill: 'diplomacy', minDifficulty: 5, maxDifficulty: 7, location: 'home' },
 ]
-
-export const HOME_TEMPLATES: ScenarioTemplate[] = [
-  { id: 'home-poachers', title: 'Poachers on the Estate', description: 'Poachers have been spotted on your lands near {town}.', skill: 'combat', minDifficulty: 5, maxDifficulty: 7 },
-  { id: 'home-feast', title: 'Feast for the Household', description: 'Your household at {town} expects a memorable feast.', skill: 'beauty', minDifficulty: 5, maxDifficulty: 7 },
-  { id: 'home-ledgers', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray.', skill: 'intellect', minDifficulty: 5, maxDifficulty: 7 },
-  { id: 'home-tenants', title: 'Tenant Dispute', description: 'Two tenant farmers at {town} quarrel over a boundary stone.', skill: 'diplomacy', minDifficulty: 5, maxDifficulty: 7 },
-]
-
-/** influence gained for succeeding at a scenario of the given difficulty */
-export function rewardFor(difficulty: number): number {
-  return Math.max(1, 1 + Math.floor((difficulty - 6) / 2))
-}

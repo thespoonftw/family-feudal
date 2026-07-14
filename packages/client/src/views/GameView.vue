@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Family, Scenario, ScenarioOutcome, SkillKey } from '@family-feudal/shared'
-import { SKILL_LABELS } from '@family-feudal/shared'
+import { SKILLS } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
@@ -210,24 +210,21 @@ const winnerNames = computed(() => {
           <div class="card sheet">
             <div class="sheet-head">
               <h3>
-                {{ SKILL_ICONS[selectedScenario.skill] }} {{ selectedScenario.title }}
+                {{ selectedScenario.emoji }} {{ selectedScenario.title }}
                 <small>at {{ townName(selectedScenario.townId) }}</small>
               </h3>
               <button class="secondary small" @click="selectedScenarioId = null">✕</button>
             </div>
             <p class="hint">{{ selectedScenario.description }}</p>
-            <p class="stats">
-              {{ SKILL_LABELS[selectedScenario.skill] }} ·
-              Difficulty <strong>{{ selectedScenario.difficulty }}</strong> ·
-              Reward <strong>{{ selectedScenario.reward }} Influence</strong>
-            </p>
             <div class="sheet-members">
               <div v-for="m in game.yourFamily?.members ?? []" :key="m.id" class="sheet-member">
                 <span class="sheet-member-info">
                   <strong>{{ m.name }}</strong>
                   <small>
-                    {{ SKILL_ICONS[selectedScenario.skill] }}
-                    {{ m.skills[selectedScenario.skill] }}
+                    <template v-for="(skill, i) in SKILLS" :key="skill">
+                      <template v-if="i > 0"> · </template>
+                      {{ SKILL_ICONS[skill] }}{{ m.skills[skill] }}
+                    </template>
                     <template
                       v-if="
                         memberAssignment(m.id) && memberAssignment(m.id) !== selectedScenario.id
@@ -264,8 +261,8 @@ const winnerNames = computed(() => {
         <h2>Round {{ view.round }} — the tales are told</h2>
         <div v-for="s in view.scenarios" :key="s.id" class="card result-card">
           <h3>
-            {{ SKILL_ICONS[s.skill] }} {{ s.title }}
-            <small>at {{ townName(s.townId) }} · difficulty {{ s.difficulty }}</small>
+            {{ s.emoji }} {{ s.title }}
+            <small>at {{ townName(s.townId) }}</small>
           </h3>
           <p v-if="outcomesFor(s.id).length === 0" class="hint">No house attended.</p>
           <div
@@ -280,7 +277,7 @@ const winnerNames = computed(() => {
               <small>{{ memberNames(o.familyId, o.memberIds) }}</small>
             </span>
             <span class="math">
-              {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }} vs {{ o.difficulty }}
+              {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}
             </span>
             <span class="verdict">
               {{ o.success ? `Success! +${o.influenceGained}` : 'Failure' }}
@@ -666,11 +663,6 @@ button.small {
   font-weight: normal;
   font-size: 0.8em;
   margin-left: 0.3em;
-}
-
-.sheet .stats {
-  color: var(--text-dim);
-  font-size: 0.9rem;
 }
 
 .sheet-members {

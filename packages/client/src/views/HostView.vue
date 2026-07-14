@@ -1,20 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import type { Family, ScenarioOutcome, SkillKey } from '@family-feudal/shared'
+import type { Family, ScenarioOutcome } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
 
 const router = useRouter()
 const game = useGameStore()
-
-const SKILL_ICONS: Record<SkillKey, string> = {
-  combat: '⚔️',
-  beauty: '🌹',
-  intellect: '📜',
-  diplomacy: '🕊️',
-}
 
 onMounted(async () => {
   if (!game.view) {
@@ -163,8 +156,8 @@ function closeBoard() {
         <h2>Round {{ view.round }} — the tales are told</h2>
         <div v-for="s in view.scenarios" :key="s.id" class="card result-card">
           <h3>
-            {{ SKILL_ICONS[s.skill] }} {{ s.title }}
-            <small>at {{ townName(s.townId) }} · difficulty {{ s.difficulty }}</small>
+            {{ s.emoji }} {{ s.title }}
+            <small>at {{ townName(s.townId) }}</small>
           </h3>
           <p v-if="outcomesFor(s.id).length === 0" class="hint">No house attended.</p>
           <div
@@ -179,7 +172,7 @@ function closeBoard() {
               <small>{{ memberNames(o.familyId, o.memberIds) }}</small>
             </span>
             <span class="math">
-              {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }} vs {{ o.difficulty }}
+              {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}
             </span>
             <span class="verdict">
               {{ o.success ? `Success! +${o.influenceGained}` : 'Failure' }}

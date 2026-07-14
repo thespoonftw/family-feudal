@@ -39,12 +39,13 @@ export interface Town {
 
 export interface Scenario {
   id: string
+  /** flavour emoji shown on the map — deliberately does not hint at the skill */
+  emoji: string
   title: string
   description: string
   townId: string
   skill: SkillKey
   difficulty: number
-  reward: number
   /** set when this is a home scenario belonging to one family */
   homeFamilyId?: string
 }
@@ -118,6 +119,46 @@ export interface GameConfig {
   skillMax: number
   /** maximum players per room */
   maxPlayers: number
+}
+
+// ---------- Editable game content (dev panel) ----------
+
+/** where a scenario design may appear on the map */
+export type ScenarioLocation = 'general' | 'capital' | 'home'
+
+export const SCENARIO_LOCATION_LABELS: Record<ScenarioLocation, string> = {
+  general: 'Any city',
+  capital: 'Capital only',
+  home: 'Home estate',
+}
+
+/** one of the eight houses a joining player can be dealt */
+export interface HouseDesign {
+  name: string
+  /** hex colour, e.g. "#b03a2e" */
+  color: string
+  /** name of the house's home city on the map (coordinates are fixed per slot) */
+  cityName: string
+}
+
+/** a scenario template; every scenario rewards 1 Influence on success */
+export interface ScenarioDesign {
+  /** flavour emoji shown on the map — should hint at the story, not the skill */
+  emoji: string
+  title: string
+  /** {town} is replaced with the town name */
+  description: string
+  skill: SkillKey
+  /** difficulty rolls uniformly in [minDifficulty, maxDifficulty] */
+  minDifficulty: number
+  maxDifficulty: number
+  location: ScenarioLocation
+}
+
+/** Designable content: applies to rooms/rounds created after saving. */
+export interface GameContent {
+  houses: HouseDesign[]
+  scenarios: ScenarioDesign[]
 }
 
 // ---------- Dev panel (REST) types ----------

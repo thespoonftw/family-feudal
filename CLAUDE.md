@@ -24,7 +24,9 @@ Five rounds of: planning (assign members to scenarios on the realm map) → reso
 packages/
   shared/    — game types (types.ts) + socket event maps (events.ts). No runtime deps.
   server/    — Fastify + Socket.io. game/ holds the engine:
-               data.ts (towns, family presets, scenario templates, tuning constants)
+               data.ts (fixed map geometry, default house/scenario designs, member names)
+               content.ts (editable house + scenario designs, persisted, dev-panel backed)
+               config.ts (numeric runtime config, persisted, dev-panel backed)
                engine.ts (room lifecycle, round generation, resolution)
                store.ts (in-memory room map)
                routes/dev.ts — REST API backing the /dev panel
@@ -75,7 +77,7 @@ Pass `-Full` to also `pnpm install` on the server.
 
 ## Game Tuning
 
-Two layers:
+Three layers:
 
 - **Runtime config** (`server/src/game/config.ts`): `GameConfig` (rounds, members per
   family, scenarios per round, skill min/max, max players), editable from the
@@ -83,20 +85,30 @@ Two layers:
   the server process cwd — `packages/server` in prod; override via `CONFIG_FILE`). Read at
   `startGame` — applies to games started after a change; in-progress games keep their
   values.
-- **Static data** (`server/src/game/data.ts`): fixed map (capital + 8 cities, one per
-  player slot), family presets, member name pool, scenario templates with difficulty
-  ranges, `rewardFor(difficulty)`, `MIN_PLAYERS` (1 — solo games allowed).
+- **Designable content** (`server/src/game/content.ts`): `GameContent` — the 8
+  `HouseDesign`s (name, colour, home city name) and the `ScenarioDesign` list (flavour
+  emoji, title, description with `{town}`, hidden skill, hidden difficulty range,
+  location: general/capital/home). Edited from the dev panel (full-replace PUT),
+  validated by `sanitizeContent` (needs ≥1 capital + ≥1 home scenario), persisted to
+  `game-content.json` (gitignored; override via `CONTENT_FILE`). Rooms snapshot towns +
+  house presets at `room:create`; scenario designs are re-read every planning phase.
+- **Fixed data** (`server/src/game/data.ts`): map slot geometry (capital + 8 city slots —
+  city *names* come from the house designs), default designs, member name pool,
+  `MIN_PLAYERS` (1 — solo games allowed).
 
-Each joining player claims the first free family preset (house + home city) in the lobby
+Each joining player claims the first free house preset (house + home city) in the lobby
 (`claimFamily` in `engine.ts`; freed on lobby departure via `releaseFamily`); members are
 rolled at `startGame`.
 
-Resolution: sum of assigned members' relevant skill + 1d6 ≥ difficulty → family gains
-`reward` Influence (see `resolveRound` in `engine.ts`).
+Resolution: sum of assigned members' relevant skill + 1d6 ≥ difficulty → success is worth
+exactly 1 Influence (see `resolveRound` in `engine.ts`). Players are never shown a
+scenario's skill or difficulty — the emoji/description are flavour clues only; players
+see all four skills for each member when assigning.
 
 ## Dev Panel
 
-`/dev` route — primary section edits the global `GameConfig` (GET/PATCH
-`/api/dev/config`, POST `/api/dev/config/reset`). Below it: read-only live room
-inspection (players, families, members, scenarios) via GET `/api/dev/rooms[/:code]` —
-in-progress games cannot be edited.
+`/dev` route — game settings (GET/PATCH `/api/dev/config`, POST
+`/api/dev/config/reset`), house designer + scenario designer (GET/PUT
+`/api/dev/content`, POST `/api/dev/content/reset`; invalid saves 400 with a message).
+Below them: read-only live room inspection (players, families, members, scenarios) via
+GET `/api/dev/rooms[/:code]` — in-progress games cannot be edited.

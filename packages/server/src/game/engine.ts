@@ -8,21 +8,14 @@ import type {
   Player,
   RoundResult,
   Scenario,
+  ScenarioDesign,
   ScenarioOutcome,
   SkillKey,
   Town,
 } from '@family-feudal/shared'
 import { SKILLS } from '@family-feudal/shared'
-import {
-  CAPITAL_ID,
-  FAMILY_PRESETS,
-  HOME_TEMPLATES,
-  MEMBER_NAMES,
-  SCENARIO_TEMPLATES,
-  TOWNS,
-  rewardFor,
-  type ScenarioTemplate,
-} from './data.js'
+import { CAPITAL_ID, MEMBER_NAMES } from './data.js'
+import { buildPresets, buildTowns, getContent, type FamilyPreset } from './content.js'
 import { getConfig } from './config.js'
 
 export interface Room {
@@ -34,6 +27,8 @@ export interface Room {
   players: Player[]
   families: Family[]
   towns: Town[]
+  /** houses claimable in this room — snapshotted at creation so design edits never hit a live room */
+  presets: FamilyPreset[]
   scenarios: Scenario[]
   /** familyId -> (memberId -> scenarioId) */
   assignments: Record<string, Assignments>
@@ -61,6 +56,7 @@ function shuffle<T>(arr: T[]): T[] {
 export function createRoom(isCodeTaken: (code: string) => boolean): Room {
   let code = generateCode()
   while (isCodeTaken(code)) code = generateCode()
+  const content = getContent()
   return {
     code,
     createdAt: new Date(),
@@ -69,7 +65,8 @@ export function createRoom(isCodeTaken: (code: string) => boolean): Room {
     totalRounds: getConfig().totalRounds,
     players: [],
     families: [],
-    towns: TOWNS,
+    towns: buildTowns(content),
+    presets: buildPresets(content),
     scenarios: [],
     assignments: {},
     lastResult: null,
@@ -81,7 +78,7 @@ export function createRoom(isCodeTaken: (code: string) => boolean): Room {
 /** Each joining player claims the first free preset (house + city); members roll at start. */
 function claimFamily(room: Room, playerId: string): void {
   const taken = new Set(room.families.map((f) => f.homeTownId))
-  const preset = FAMILY_PRESETS.find((p) => !taken.has(p.homeTownId))
+  const preset = room.presets.find((p) => !taken.has(p.homeTownId))
   if (!preset) return
   room.families.push({
     id: randomUUID(),
@@ -144,29 +141,31 @@ export function startGame(room: Room): void {
 
 function pickScenarios(room: Room): Scenario[] {
   const scenarios: Scenario[] = []
+  // designs are read afresh each round, so scenario edits reach the next planning phase
+  const designs = getContent().scenarios
 
-  // one capital scenario per round
-  const capitalTemplates = SCENARIO_TEMPLATES.filter((t) => t.capitalOnly)
-  const capital = shuffle(capitalTemplates)[0] as ScenarioTemplate
-  scenarios.push(instantiate(capital, CAPITAL_ID))
+  // one capital scenario per round (content validation guarantees at least one)
+  const capital = shuffle(designs.filter((d) => d.location === 'capital'))[0] as ScenarioDesign
+  scenarios.push(instantiate(capital, CAPITAL_ID, room.towns))
 
   // remaining scenarios at distinct non-capital, non-home towns on this game's map
   const homeTowns = new Set(room.families.map((f) => f.homeTownId))
   const eligibleTowns = shuffle(
     room.towns.filter((t) => !t.isCapital && !homeTowns.has(t.id)),
   )
-  const general = shuffle(SCENARIO_TEMPLATES.filter((t) => !t.capitalOnly))
+  const general = shuffle(designs.filter((d) => d.location === 'general'))
   const count = Math.min(getConfig().scenariosPerRound - 1, eligibleTowns.length, general.length)
   for (let i = 0; i < count; i++) {
-    const template = general[i] as ScenarioTemplate
+    const design = general[i] as ScenarioDesign
     const town = eligibleTowns[i] as Town
-    scenarios.push(instantiate(template, town.id))
+    scenarios.push(instantiate(design, town.id, room.towns))
   }
 
   // one home scenario per family, at its home town
+  const homeDesigns = designs.filter((d) => d.location === 'home')
   for (const family of room.families) {
-    const template = shuffle(HOME_TEMPLATES)[0] as ScenarioTemplate
-    const scenario = instantiate(template, family.homeTownId)
+    const design = shuffle(homeDesigns)[0] as ScenarioDesign
+    const scenario = instantiate(design, family.homeTownId, room.towns)
     scenario.homeFamilyId = family.id
     scenarios.push(scenario)
   }
@@ -174,17 +173,16 @@ function pickScenarios(room: Room): Scenario[] {
   return scenarios
 }
 
-function instantiate(template: ScenarioTemplate, townId: string): Scenario {
-  const town = TOWNS.find((t) => t.id === townId)
-  const difficulty = randomInt(template.minDifficulty, template.maxDifficulty)
+function instantiate(design: ScenarioDesign, townId: string, towns: Town[]): Scenario {
+  const town = towns.find((t) => t.id === townId)
   return {
     id: randomUUID(),
-    title: template.title,
-    description: template.description.replace('{town}', town?.name ?? 'the realm'),
+    emoji: design.emoji,
+    title: design.title,
+    description: design.description.replace('{town}', town?.name ?? 'the realm'),
     townId,
-    skill: template.skill,
-    difficulty,
-    reward: rewardFor(difficulty),
+    skill: design.skill,
+    difficulty: randomInt(design.minDifficulty, design.maxDifficulty),
   }
 }
 
@@ -239,7 +237,8 @@ export function resolveRound(room: Room): void {
       const roll = randomInt(1, 6)
       const total = skillTotal + roll
       const success = total >= scenario.difficulty
-      const influenceGained = success ? scenario.reward : 0
+      // every scenario is worth exactly 1 Influence
+      const influenceGained = success ? 1 : 0
       family.influence += influenceGained
       outcomes.push({
         scenarioId: scenario.id,
