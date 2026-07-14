@@ -256,7 +256,7 @@ onUnmounted(() => {
           min="1"
           max="20"
           class="num"
-          title="Hidden difficulty (skill total + d6 must reach it)"
+          title="Hidden difficulty (the lone member's skill + d6 must reach it)"
         />
         <button class="small secondary" title="Remove scenario" @click="removeScenario(i)">✕</button>
         <input

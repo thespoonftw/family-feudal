@@ -145,6 +145,9 @@ const homesByTown = computed(() => {
   height: 100%;
   background: radial-gradient(ellipse at 50% 40%, #2e2517 0%, #221b11 75%);
   border-radius: 10px;
+  /* dragging across the map must not text-select town names */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .realm-border {

@@ -74,6 +74,21 @@ function memberAssignment(memberId: string): string {
   return view.value?.yourAssignments[memberId] ?? ''
 }
 
+/**
+ * Button state for a member in the sheet. One member per scenario; a member already
+ * committed elsewhere shows a disabled "Used" so they can't be reallocated by accident
+ * (recall them from their own scenario first).
+ */
+function memberButton(memberId: string): { label: string; disabled: boolean } {
+  const scenario = selectedScenario.value
+  if (!scenario) return { label: 'Send', disabled: true }
+  const assigned = memberAssignment(memberId)
+  if (assigned === scenario.id) return { label: 'Recall', disabled: false }
+  if (assigned) return { label: 'Used', disabled: true }
+  if ((assignedCounts.value[scenario.id] ?? 0) > 0) return { label: 'Send', disabled: true }
+  return { label: 'Send', disabled: false }
+}
+
 /** tap to send a member to the selected scenario, tap again to recall */
 async function toggleAssign(memberId: string) {
   if (!view.value || !selectedScenario.value) return
@@ -158,6 +173,9 @@ const winnerNames = computed(() => {
         </button>
         <div v-if="menuOpen" class="menu-backdrop" @click="menuOpen = false" />
         <div v-if="menuOpen" class="card menu-panel">
+          <button class="secondary small menu-close" aria-label="Close menu" @click="menuOpen = false">
+            ✕
+          </button>
           <div class="menu-title">Family Feudal</div>
           <button class="secondary small" @click="onLeave">Leave game</button>
         </div>
@@ -236,10 +254,11 @@ const winnerNames = computed(() => {
                 </span>
                 <button
                   class="small"
-                  :class="{ secondary: memberAssignment(m.id) !== selectedScenario.id }"
+                  :class="{ secondary: memberButton(m.id).label !== 'Recall' }"
+                  :disabled="memberButton(m.id).disabled"
                   @click="toggleAssign(m.id)"
                 >
-                  {{ memberAssignment(m.id) === selectedScenario.id ? 'Recall' : 'Send' }}
+                  {{ memberButton(m.id).label }}
                 </button>
               </div>
             </div>
@@ -378,6 +397,12 @@ header {
   padding: 1.4rem;
   text-align: center;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+.menu-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
 }
 
 .menu-title {

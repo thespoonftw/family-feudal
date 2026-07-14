@@ -8,8 +8,9 @@ leaderboard — it is a spectator, not a player, but it starts the game from its
 Players join from their own devices with the 4-letter code; the first joiner is the VIP
 (`Player.isHost`), who advances rounds from their phone. Each player is assigned a noble family
 (name, colour, home town, 4 members with skills 1–5 in Combat/Beauty/Intellect/Diplomacy).
-Five rounds of: planning (assign members to scenarios on the realm map) → resolution
-(combined skill + d6 vs difficulty → Influence). Most Influence after 5 rounds wins.
+Five rounds of: planning (assign members to scenarios on the realm map, one member per
+scenario) → resolution (member's skill + d6 vs difficulty → Influence). Most Influence
+after 5 rounds wins.
 
 ## Stack
 
@@ -101,10 +102,11 @@ Each joining player is dealt a *random* free house (house + home city) in the lo
 (`claimFamily` in `engine.ts`; freed on lobby departure via `releaseFamily`); members are
 rolled at `startGame`.
 
-Resolution: sum of assigned members' relevant skill + 1d6 ≥ difficulty → success is worth
-exactly 1 Influence (see `resolveRound` in `engine.ts`). Players are never shown a
-scenario's skill or difficulty — the emoji/description are flavour clues only; players
-see all four skills for each member when assigning.
+Resolution: the assigned member's relevant skill + 1d6 ≥ difficulty → success is worth
+exactly 1 Influence (see `resolveRound` in `engine.ts`). Only one member per family may
+attend each scenario (enforced in `setAssignments` and greyed out as "Used" in the UI).
+Players are never shown a scenario's skill or difficulty — the emoji/description are
+flavour clues only; players see all four skills for each member when assigning.
 
 ## Dev Panel
 

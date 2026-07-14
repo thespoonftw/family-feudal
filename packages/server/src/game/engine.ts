@@ -206,6 +206,7 @@ export function setAssignments(
   if (!family) return 'You have no family in this game'
   const memberIds = new Set(family.members.map((m) => m.id))
   const clean: Assignments = {}
+  const usedScenarios = new Set<string>()
   for (const [memberId, scenarioId] of Object.entries(assignments)) {
     if (!memberIds.has(memberId)) return 'Unknown family member'
     const scenario = room.scenarios.find((s) => s.id === scenarioId)
@@ -213,6 +214,8 @@ export function setAssignments(
     if (scenario.homeFamilyId && scenario.homeFamilyId !== family.id) {
       return 'That scenario belongs to another family'
     }
+    if (usedScenarios.has(scenarioId)) return 'Only one family member can attend each scenario'
+    usedScenarios.add(scenarioId)
     clean[memberId] = scenarioId
   }
   room.assignments[family.id] = clean
