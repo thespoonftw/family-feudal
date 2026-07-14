@@ -68,6 +68,12 @@ const winnerNames = computed(() => {
     .join(' & ')
 })
 
+const actionError = ref('')
+
+async function onStart() {
+  actionError.value = (await game.startGame()) ?? ''
+}
+
 function closeBoard() {
   game.leave()
   void router.replace('/')
@@ -103,13 +109,12 @@ function closeBoard() {
             <span>{{ p.isHost ? '👑' : '🛡️' }} {{ p.name }}</span>
             <span v-if="familyOf(p.id)" class="house-tag">
               <span class="dot" :style="{ background: familyOf(p.id)!.color }" />
-              {{ familyOf(p.id)!.name }} of {{ townName(familyOf(p.id)!.homeTownId) }}
+              of {{ townName(familyOf(p.id)!.homeTownId) }}
             </span>
           </li>
         </ul>
-        <p v-if="view.players.length > 0" class="hint">
-          👑 {{ view.players[0]?.name }} begins the feud from their phone.
-        </p>
+        <button :disabled="view.players.length === 0" @click="onStart">Begin the Feud</button>
+        <p v-if="actionError" class="error">{{ actionError }}</p>
       </div>
     </main>
 

@@ -26,6 +26,7 @@ export interface ClientToServerEvents {
   'room:join': (code: string, playerName: string, cb: (ack: JoinAck) => void) => void
   'room:rejoin': (code: string, playerId: string, cb: (ack: JoinAck) => void) => void
   'room:leave': () => void
+  /** the host board screen starts the game from the lobby */
   'game:start': (cb: (ack: Ack) => void) => void
   /** replace your full assignment map for this round */
   'plan:assign': (assignments: Assignments, cb: (ack: Ack) => void) => void

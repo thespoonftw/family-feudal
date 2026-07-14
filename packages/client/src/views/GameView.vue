@@ -87,14 +87,6 @@ function familyOf(playerId: string): Family | undefined {
   return view.value?.families.find((f) => f.playerId === playerId)
 }
 
-const readyCount = computed(
-  () => view.value?.players.filter((p) => p.ready).length ?? 0,
-)
-
-async function onStart() {
-  actionError.value = (await game.startGame()) ?? ''
-}
-
 async function onNextRound() {
   actionError.value = (await game.nextRound()) ?? ''
 }
@@ -142,10 +134,6 @@ const winnerNames = computed(() => {
 <template>
   <div v-if="view" class="game" :class="{ 'lock-viewport': view.phase === 'planning' }">
     <header>
-      <span class="brand">Family Feudal</span>
-      <span v-if="view.phase !== 'lobby'" class="round">
-        Round {{ view.round }} / {{ view.totalRounds }}
-      </span>
       <span
         v-if="game.yourFamily"
         class="family-chip"
@@ -162,10 +150,7 @@ const winnerNames = computed(() => {
         </button>
         <div v-if="menuOpen" class="menu-backdrop" @click="menuOpen = false" />
         <div v-if="menuOpen" class="card menu-panel">
-          <div class="menu-room">
-            Room code
-            <strong class="menu-code">{{ view.code }}</strong>
-          </div>
+          <div class="menu-title">Family Feudal</div>
           <button class="secondary small" @click="onLeave">Leave game</button>
         </div>
       </div>
@@ -187,12 +172,11 @@ const winnerNames = computed(() => {
             </span>
             <span v-if="familyOf(p.id)" class="house-tag">
               <span class="dot" :style="{ background: familyOf(p.id)!.color }" />
-              {{ familyOf(p.id)!.name }} of {{ townName(familyOf(p.id)!.homeTownId) }}
+              of {{ townName(familyOf(p.id)!.homeTownId) }}
             </span>
           </li>
         </ul>
-        <button v-if="game.isVip" @click="onStart">Begin the Feud</button>
-        <p v-else class="hint">Waiting for the first player to begin…</p>
+        <p class="hint">The host screen begins the feud…</p>
       </div>
     </main>
 
@@ -260,7 +244,6 @@ const winnerNames = computed(() => {
 
       <!-- ready bar pinned under the map -->
       <div class="plan-bar">
-        <span class="hint">{{ readyCount }}/{{ view.players.length }} ready</span>
         <button class="ready-btn" @click="game.setReady(!game.you?.ready)">
           {{ game.you?.ready ? 'Not ready after all…' : 'Ready — seal the plans' }}
         </button>
@@ -343,17 +326,7 @@ header {
   flex-wrap: wrap;
 }
 
-.brand {
-  color: var(--gold-soft);
-  font-weight: bold;
-}
-
-.round {
-  color: var(--text-dim);
-  font-size: 0.9rem;
-}
-
-/* hamburger menu (room code + leave) */
+/* hamburger menu (title + leave) */
 .menu-wrap {
   position: relative;
 }
@@ -402,18 +375,10 @@ header {
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
 }
 
-.menu-room {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  color: var(--text-dim);
-  font-size: 0.85rem;
-}
-
-.menu-code {
+.menu-title {
   color: var(--gold-soft);
-  font-size: 1.3rem;
-  letter-spacing: 0.25em;
+  font-size: 1.2rem;
+  font-weight: bold;
 }
 
 .family-chip {
@@ -751,10 +716,6 @@ button.small {
   header {
     gap: 0.5rem;
     padding: 0.5rem 0.7rem;
-  }
-
-  .brand {
-    display: none;
   }
 }
 </style>

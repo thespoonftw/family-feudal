@@ -105,10 +105,11 @@ export function registerSocketHandlers(io: IoServer): void {
     })
 
     socket.on('game:start', (cb) => {
-      const ctx = context(socket)
-      if (!ctx) return cb({ ok: false, error: 'Not in a room' })
-      const { room, player } = ctx
-      if (!player.isHost) return cb({ ok: false, error: 'Only the host can start' })
+      // only the host board screen (a room socket with no player seat) may start
+      const { roomCode, playerId } = socket.data
+      const room = roomCode ? getRoom(roomCode) : undefined
+      if (!room) return cb({ ok: false, error: 'Not in a room' })
+      if (playerId) return cb({ ok: false, error: 'Only the host screen can start' })
       if (room.phase !== 'lobby') return cb({ ok: false, error: 'Game already started' })
       if (room.players.length < MIN_PLAYERS) {
         return cb({ ok: false, error: `Need at least ${MIN_PLAYERS} player(s)` })
