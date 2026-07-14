@@ -94,7 +94,11 @@ Three layers:
   hidden skill and difficulty — and location: general/capital/home). Edited from the dev panel (full-replace PUT — the saved designs
   ARE the settings; there is no reset), validated by `sanitizeContent` (needs ≥1 capital
   + ≥1 home scenario), persisted to `game-content.json` (gitignored; override via
-  `CONTENT_FILE`). Rooms snapshot towns + house presets at `room:create`; scenario
+  `CONTENT_FILE`). On load, files written by older builds are upgraded by
+  `migrateContent` so design edits survive schema changes — **extend `migrateContent`
+  whenever the content schema changes**; a file that is still invalid is backed up to
+  `game-content.json.invalid-<timestamp>` before falling back to defaults, never
+  silently discarded. Rooms snapshot towns + house presets at `room:create`; scenario
   designs are re-read every planning phase.
 - **Fixed data** (`server/src/game/data.ts`): map slot geometry (capital + 8 city slots —
   city *names* come from the house designs), default designs, member name pool,

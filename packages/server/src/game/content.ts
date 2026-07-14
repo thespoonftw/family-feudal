@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
 import type {
   ApproachDesign,
   GameContent,
@@ -129,15 +129,70 @@ function sanitizeContent(raw: unknown): GameContent | string {
   return { houses: cleanHouses, scenarios: cleanScenarios }
 }
 
+/**
+ * Upgrade a persisted content file written by an older build so design edits (titles,
+ * descriptions, …) survive schema changes. Currently handles the pre-approach format:
+ * scenarios with a single `skill`/`difficulty` (and the old `beauty` skill) become
+ * two generically-labelled approaches that keep the original text and numbers.
+ */
+function migrateContent(raw: unknown): unknown {
+  const obj = raw as Record<string, unknown> | null
+  if (!obj || !Array.isArray(obj['scenarios'])) return raw
+  const scenarios = obj['scenarios'].map((s) => {
+    const sc = (s ?? {}) as Record<string, unknown>
+    if (Array.isArray(sc['approaches']) || sc['skill'] === undefined) return sc
+    const skill = sc['skill'] === 'beauty' ? 'charm' : sc['skill']
+    const difficulty = sc['difficulty']
+    return {
+      emoji: sc['emoji'],
+      title: sc['title'],
+      description: sc['description'],
+      location: sc['location'],
+      approaches: [
+        { label: 'See it done', skill, difficulty },
+        { label: 'Find another way', skill: skill === 'cunning' ? 'charm' : 'cunning', difficulty },
+      ],
+    }
+  })
+  return { ...obj, scenarios }
+}
+
 function loadContent(): GameContent {
+  let text: string
   try {
-    const parsed = sanitizeContent(JSON.parse(readFileSync(CONTENT_FILE, 'utf8')))
-    if (typeof parsed === 'string') throw new Error(parsed)
-    return parsed
+    text = readFileSync(CONTENT_FILE, 'utf8')
   } catch {
-    // missing or invalid file → defaults
+    // no file yet → defaults
     return structuredClone(DEFAULT_CONTENT)
   }
+  let failure: string
+  try {
+    const raw: unknown = JSON.parse(text)
+    const parsed = sanitizeContent(migrateContent(raw))
+    if (typeof parsed !== 'string') {
+      // persist a successful migration so the upgraded designs are the file from now on
+      if (JSON.stringify(parsed) !== JSON.stringify(raw)) {
+        try {
+          writeFileSync(CONTENT_FILE, JSON.stringify(parsed, null, 2) + '\n')
+        } catch (err) {
+          console.error('failed to persist migrated game content:', err)
+        }
+      }
+      return parsed
+    }
+    failure = parsed
+  } catch (err) {
+    failure = `not valid JSON: ${String(err)}`
+  }
+  // invalid even after migration: never silently destroy designs — keep a backup
+  const backup = `${CONTENT_FILE}.invalid-${new Date().toISOString().replace(/[:.]/g, '-')}`
+  try {
+    copyFileSync(CONTENT_FILE, backup)
+    console.error(`game content file is invalid (${failure}); backed up to ${backup}, using defaults`)
+  } catch (err) {
+    console.error(`game content file is invalid (${failure}) and could not be backed up:`, err)
+  }
+  return structuredClone(DEFAULT_CONTENT)
 }
 
 function persistContent(): void {

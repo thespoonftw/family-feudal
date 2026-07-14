@@ -96,14 +96,16 @@ function memberButton(memberId: string): { label: string; disabled: boolean } {
   return { label: 'Send', disabled: false }
 }
 
-/** tap to send a member to the selected scenario, tap again to recall */
+/** tap to send a member to the selected scenario (closes the sheet), tap again to recall */
 async function toggleAssign(memberId: string) {
   if (!view.value || !selectedScenario.value) return
   const next = { ...view.value.yourAssignments }
-  if (next[memberId] === selectedScenario.value.id) delete next[memberId]
-  else next[memberId] = selectedScenario.value.id
+  const sending = next[memberId] !== selectedScenario.value.id
+  if (sending) next[memberId] = selectedScenario.value.id
+  else delete next[memberId]
   const err = await game.assign(next)
   actionError.value = err ?? ''
+  if (!err && sending) selectedScenarioId.value = null
 }
 
 /** town name of the scenario a member is currently assigned to (for the sheet) */
@@ -139,10 +141,44 @@ const allChosen = computed(() =>
   yourDeployments.value.every((d) => chosenIndex(d.scenario.id) !== null),
 )
 
+/** decisions are made one card at a time; past the last card is the summary */
+const choiceIndex = ref(0)
+
+const currentDeployment = computed(
+  () => yourDeployments.value[choiceIndex.value] ?? null,
+)
+
+// entering the approach phase (or rejoining mid-phase): resume at the first unchosen scenario
+watch(
+  () => [view.value?.phase, view.value?.round],
+  () => {
+    if (view.value?.phase !== 'approach') return
+    const idx = yourDeployments.value.findIndex((d) => chosenIndex(d.scenario.id) === null)
+    choiceIndex.value = idx === -1 ? yourDeployments.value.length : idx
+  },
+  { immediate: true },
+)
+
 async function pickApproach(scenarioId: string, index: number) {
   if (!view.value) return
   const next = { ...view.value.yourChoices, [scenarioId]: index }
-  actionError.value = (await game.choose(next)) ?? ''
+  const err = await game.choose(next)
+  actionError.value = err ?? ''
+  if (err) return
+  // fade on to the next undecided scenario, or the summary once all are decided
+  const idx = yourDeployments.value.findIndex((d) => next[d.scenario.id] === undefined)
+  choiceIndex.value = idx === -1 ? yourDeployments.value.length : idx
+}
+
+function revisitChoice(index: number) {
+  choiceIndex.value = index
+}
+
+function chosenLabel(scenarioId: string): string {
+  const index = chosenIndex(scenarioId)
+  if (index === null) return '—'
+  const scenario = view.value?.scenarios.find((s) => s.id === scenarioId)
+  return scenario?.approaches[index]?.label ?? '—'
 }
 
 async function onNextRound() {
@@ -324,37 +360,65 @@ const winnerNames = computed(() => {
     <!-- ================= APPROACH ================= -->
     <main v-else-if="view.phase === 'approach'" class="approach">
       <section class="choices-pane">
-        <h2>Round {{ view.round }} — choose your approach</h2>
-        <p v-if="yourDeployments.length === 0" class="hint">
-          You sent no one out this round. Confirm below while the other houses decide…
-        </p>
-        <div v-for="d in yourDeployments" :key="d.scenario.id" class="card choice-card">
-          <h3>
-            {{ d.scenario.emoji }} {{ d.scenario.title }}
-            <small>at {{ townName(d.scenario.townId) }}</small>
-          </h3>
-          <p class="hint">{{ d.scenario.description }}</p>
-          <p class="attendee">
-            <strong>{{ d.member.name }}</strong> attends —
-            <small>
-              <template v-for="(skill, i) in SKILLS" :key="skill">
-                <template v-if="i > 0"> · </template>
-                {{ SKILL_ICONS[skill] }}{{ d.member.skills[skill] }}
-              </template>
-            </small>
-          </p>
-          <div class="approach-options">
-            <button
-              v-for="(a, i) in d.scenario.approaches"
-              :key="i"
-              class="approach-btn"
-              :class="{ secondary: chosenIndex(d.scenario.id) !== i }"
-              @click="pickApproach(d.scenario.id, i)"
-            >
-              {{ a.label }}
-            </button>
+        <Transition name="card-rise" mode="out-in">
+          <!-- one decision at a time -->
+          <div
+            v-if="currentDeployment"
+            :key="currentDeployment.scenario.id"
+            class="card choice-card"
+          >
+            <p class="progress hint">
+              Round {{ view.round }} · decision {{ choiceIndex + 1 }} of
+              {{ yourDeployments.length }}
+            </p>
+            <h3>
+              {{ currentDeployment.scenario.emoji }} {{ currentDeployment.scenario.title }}
+              <small>at {{ townName(currentDeployment.scenario.townId) }}</small>
+            </h3>
+            <p class="hint">{{ currentDeployment.scenario.description }}</p>
+            <p class="attendee">
+              <strong>{{ currentDeployment.member.name }}</strong> attends —
+              <small>
+                <template v-for="(skill, i) in SKILLS" :key="skill">
+                  <template v-if="i > 0"> · </template>
+                  {{ SKILL_ICONS[skill] }}{{ currentDeployment.member.skills[skill] }}
+                </template>
+              </small>
+            </p>
+            <div class="approach-options">
+              <button
+                v-for="(a, i) in currentDeployment.scenario.approaches"
+                :key="i"
+                class="approach-btn"
+                :class="{ secondary: chosenIndex(currentDeployment.scenario.id) !== i }"
+                @click="pickApproach(currentDeployment.scenario.id, i)"
+              >
+                {{ a.label }}
+              </button>
+            </div>
           </div>
-        </div>
+
+          <!-- all decided (or nothing deployed): summary -->
+          <div v-else key="summary" class="card choice-card">
+            <h3>{{ yourDeployments.length > 0 ? 'The plans are laid' : 'A quiet round' }}</h3>
+            <p v-if="yourDeployments.length === 0" class="hint">
+              You sent no one out this round. Confirm below while the other houses decide…
+            </p>
+            <div
+              v-for="(d, i) in yourDeployments"
+              :key="d.scenario.id"
+              class="summary-row"
+            >
+              <span class="summary-info">
+                <strong>{{ d.scenario.emoji }} {{ d.scenario.title }}</strong>
+                <small>{{ d.member.name }} — “{{ chosenLabel(d.scenario.id) }}”</small>
+              </span>
+              <button class="small secondary" :disabled="game.you?.ready" @click="revisitChoice(i)">
+                Change
+              </button>
+            </div>
+          </div>
+        </Transition>
       </section>
       <div class="plan-bar">
         <button
@@ -644,7 +708,7 @@ button.small {
   margin-left: 0.4em;
 }
 
-/* approach phase */
+/* approach phase: one centered decision card at a time */
 .approach {
   flex: 1;
   display: flex;
@@ -660,17 +724,21 @@ button.small {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
-}
-
-.choices-pane h2 {
-  color: var(--gold-soft);
+  align-items: center;
+  justify-content: center;
 }
 
 .choice-card {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  width: min(520px, 100%);
+}
+
+.choice-card .progress {
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .choice-card h3 small {
@@ -688,11 +756,50 @@ button.small {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  margin-top: 0.3rem;
 }
 
 .approach-btn {
   width: 100%;
   text-align: left;
+}
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.summary-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.summary-info small {
+  color: var(--text-dim);
+}
+
+/* fade/rise between decision cards */
+.card-rise-enter-active {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.card-rise-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.card-rise-enter-from {
+  opacity: 0;
+  transform: translateY(28px) scale(0.95);
+}
+
+.card-rise-leave-to {
+  opacity: 0;
+  transform: translateY(-18px) scale(0.97);
 }
 
 .side-pane {

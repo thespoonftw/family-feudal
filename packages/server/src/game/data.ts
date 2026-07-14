@@ -52,14 +52,16 @@ export const MEMBER_NAMES: string[] = [
 
 // Emoji are flavour, not skill markers. Each scenario offers 2–3 approaches; the labels
 // are shown to players in the approach phase, but the skill and difficulty stay hidden —
-// the wording of each label is the only clue.
+// the wording of each label is the only clue. Descriptions are pure story: they must NOT
+// telegraph the approaches (those are revealed after deployment, so the description is
+// what players deploy on).
 export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   // General
-  { emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}. Meet them with steel — or with schemes.', location: 'general', approaches: [
+  { emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}. The merchants beg for aid.', location: 'general', approaches: [
     { label: 'Ride them down', skill: 'combat', difficulty: 8 },
     { label: 'Infiltrate their camp', skill: 'cunning', difficulty: 8 },
   ] },
-  { emoji: '🏇', title: 'Jousting Tournament', description: 'A grand tourney is held at {town}. Glory awaits in the lists — and in the stands.', location: 'general', approaches: [
+  { emoji: '🏇', title: 'Jousting Tournament', description: 'A grand tourney is held at {town}, and every eye in the realm turns to watch.', location: 'general', approaches: [
     { label: 'Enter the lists', skill: 'combat', difficulty: 8 },
     { label: 'Dazzle the royal box', skill: 'charm', difficulty: 7 },
   ] },
@@ -67,27 +69,27 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     { label: 'Hold the wall', skill: 'combat', difficulty: 9 },
     { label: 'Sabotage their supplies', skill: 'cunning', difficulty: 8 },
   ] },
-  { emoji: '🐗', title: 'Beast Hunt', description: 'A monstrous beast stalks the woods near {town}. It can be fought — or outwitted.', location: 'general', approaches: [
+  { emoji: '🐗', title: 'Beast Hunt', description: 'A monstrous beast stalks the woods near {town}. None dare go out after dark.', location: 'general', approaches: [
     { label: 'Face it head-on', skill: 'combat', difficulty: 8 },
     { label: 'Study its habits and lay a trap', skill: 'intellect', difficulty: 7 },
   ] },
-  { emoji: '🎭', title: 'Masquerade Ball', description: 'The nobility of {town} hosts a dazzling masquerade. Much is said behind the masks.', location: 'general', approaches: [
+  { emoji: '🎭', title: 'Masquerade Ball', description: 'The nobility of {town} hosts a dazzling masquerade.', location: 'general', approaches: [
     { label: 'Be the talk of the ball', skill: 'charm', difficulty: 8 },
     { label: 'Trade whispers behind masks', skill: 'cunning', difficulty: 8 },
   ] },
-  { emoji: '💍', title: 'Noble Wedding', description: 'Two great houses wed at {town}. All eyes are on the guests — and old grudges simmer.', location: 'general', approaches: [
+  { emoji: '💍', title: 'Noble Wedding', description: 'Two great houses wed at {town}. All eyes are on the guests.', location: 'general', approaches: [
     { label: 'Outshine the bridal party', skill: 'charm', difficulty: 8 },
     { label: 'Toast both houses', skill: 'diplomacy', difficulty: 7 },
   ] },
-  { emoji: '📚', title: "Scholars' Symposium", description: 'Learned minds gather in {town} to debate the great questions — heatedly.', location: 'general', approaches: [
+  { emoji: '📚', title: "Scholars' Symposium", description: 'Learned minds gather in {town} to debate the great questions.', location: 'general', approaches: [
     { label: 'Win the great debate', skill: 'intellect', difficulty: 8 },
     { label: 'Keep the rival schools civil', skill: 'diplomacy', difficulty: 8 },
   ] },
-  { emoji: '🐀', title: 'Plague Outbreak', description: 'Sickness spreads through {town}, and panic spreads faster.', location: 'general', approaches: [
+  { emoji: '🐀', title: 'Plague Outbreak', description: 'Sickness spreads through {town}. The gates may soon be barred.', location: 'general', approaches: [
     { label: 'Find the source', skill: 'intellect', difficulty: 9 },
     { label: 'Calm the terrified town', skill: 'diplomacy', difficulty: 8 },
   ] },
-  { emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. Follow the clues — or the thieves.', location: 'general', approaches: [
+  { emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. The reward for its return is generous.', location: 'general', approaches: [
     { label: 'Follow the clues', skill: 'intellect', difficulty: 8 },
     { label: 'Shake down the fences', skill: 'cunning', difficulty: 7 },
   ] },
@@ -95,7 +97,7 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     { label: 'Broker a settlement', skill: 'diplomacy', difficulty: 8 },
     { label: 'Quietly rig the ledgers', skill: 'cunning', difficulty: 8 },
   ] },
-  { emoji: '🕊️', title: 'Peace Talks', description: 'Feuding lords meet at {town} under a banner of truce. Every house wants the credit.', location: 'general', approaches: [
+  { emoji: '🕊️', title: 'Peace Talks', description: 'Feuding lords meet at {town} under a banner of truce.', location: 'general', approaches: [
     { label: 'Draft the truce', skill: 'diplomacy', difficulty: 9 },
     { label: 'Soften hearts at the feast', skill: 'charm', difficulty: 8 },
     { label: 'Blackmail both sides into peace', skill: 'cunning', difficulty: 9 },
@@ -104,12 +106,12 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     { label: 'Crown the festival in style', skill: 'charm', difficulty: 7 },
     { label: 'Judge the contests fairly', skill: 'diplomacy', difficulty: 7 },
   ] },
-  { emoji: '🕯️', title: 'Whispers of Treason', description: 'A plot brews in the back rooms of {town}. Expose it — quietly or loudly.', location: 'general', approaches: [
+  { emoji: '🕯️', title: 'Whispers of Treason', description: 'A plot brews in the back rooms of {town}.', location: 'general', approaches: [
     { label: 'Turn their spy', skill: 'cunning', difficulty: 8 },
     { label: 'Kick down the door', skill: 'combat', difficulty: 9 },
   ] },
   // Capital only
-  { emoji: '👑', title: 'Coronation', description: 'A new monarch is crowned at {town}. The whole realm watches every move.', location: 'capital', approaches: [
+  { emoji: '👑', title: 'Coronation', description: 'A new monarch is crowned at {town}. The whole realm watches.', location: 'capital', approaches: [
     { label: 'Swear fealty with grace', skill: 'diplomacy', difficulty: 10 },
     { label: 'Steal the spotlight', skill: 'charm', difficulty: 10 },
     { label: 'Work the shadowed halls', skill: 'cunning', difficulty: 10 },
@@ -118,7 +120,7 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     { label: 'Petition the crown', skill: 'diplomacy', difficulty: 9 },
     { label: 'Bribe the chamberlain', skill: 'cunning', difficulty: 9 },
   ] },
-  { emoji: '🥂', title: "Queen's Gala", description: 'The Queen hosts a resplendent gala at {town}. She favours wit as much as beauty.', location: 'capital', approaches: [
+  { emoji: '🥂', title: "Queen's Gala", description: 'The Queen hosts a resplendent gala at {town}.', location: 'capital', approaches: [
     { label: 'Charm the court', skill: 'charm', difficulty: 9 },
     { label: 'Compose a verse for the Queen', skill: 'intellect', difficulty: 8 },
   ] },
@@ -127,7 +129,7 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     { label: 'Run them off', skill: 'combat', difficulty: 5 },
     { label: 'Set snares of your own', skill: 'cunning', difficulty: 5 },
   ] },
-  { emoji: '🍗', title: 'Feast for the Household', description: 'Your household at {town} expects a memorable feast — with half the guests feuding.', location: 'home', approaches: [
+  { emoji: '🍗', title: 'Feast for the Household', description: 'Your household at {town} expects a memorable feast.', location: 'home', approaches: [
     { label: 'Host with flair', skill: 'charm', difficulty: 5 },
     { label: 'Seat the rivals apart', skill: 'diplomacy', difficulty: 5 },
   ] },
