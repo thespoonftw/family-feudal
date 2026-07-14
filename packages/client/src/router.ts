@@ -6,6 +6,7 @@ export const router = createRouter({
   routes: [
     { path: '/', component: LandingView },
     { path: '/play', component: () => import('./views/GameView.vue') },
+    { path: '/host', component: () => import('./views/HostView.vue') },
     { path: '/dev', component: () => import('./views/DevView.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

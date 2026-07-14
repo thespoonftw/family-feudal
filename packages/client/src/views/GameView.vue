@@ -191,8 +191,8 @@ const winnerNames = computed(() => {
             </span>
           </li>
         </ul>
-        <button v-if="game.isHost" @click="onStart">Begin the Feud</button>
-        <p v-else class="hint">Waiting for the host to begin…</p>
+        <button v-if="game.isVip" @click="onStart">Begin the Feud</button>
+        <p v-else class="hint">Waiting for the first player to begin…</p>
       </div>
     </main>
 
@@ -296,10 +296,10 @@ const winnerNames = computed(() => {
             </span>
           </div>
         </div>
-        <button v-if="game.isHost" class="next-btn" @click="onNextRound">
+        <button v-if="game.isVip" class="next-btn" @click="onNextRound">
           {{ view.round >= view.totalRounds ? 'See Final Results' : 'Next Round' }}
         </button>
-        <p v-else class="hint">Waiting for the host to continue…</p>
+        <p v-else class="hint">Waiting for the first player to continue…</p>
       </section>
       <aside class="side-pane">
         <ScoreBoard :families="view.families" :players="view.players" />

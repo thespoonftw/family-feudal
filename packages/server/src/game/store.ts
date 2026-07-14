@@ -24,12 +24,16 @@ export function roomCodeExists(code: string): boolean {
   return rooms.has(code)
 }
 
-/** Drop rooms older than the TTL or with no players left. */
+const EMPTY_ROOM_TTL_MS = 60 * 60 * 1000
+
+/** Drop rooms older than the TTL, or playerless rooms (board-only lobbies) after an hour. */
 export function sweepRooms(): void {
   const now = Date.now()
   for (const [code, room] of rooms) {
-    const expired = now - room.createdAt.getTime() > ROOM_TTL_MS
-    if (expired || room.players.length === 0) rooms.delete(code)
+    const age = now - room.createdAt.getTime()
+    const expired = age > ROOM_TTL_MS
+    const abandoned = room.players.length === 0 && age > EMPTY_ROOM_TTL_MS
+    if (expired || abandoned) rooms.delete(code)
   }
 }
 

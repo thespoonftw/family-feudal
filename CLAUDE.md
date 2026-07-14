@@ -3,7 +3,10 @@
 ## Project
 
 Jackbox-style multiplayer party game hosted at https://family-feudal.brunch-projects.co.uk.
-Players create/join a room with a 4-letter code. Each player is assigned a noble family
+A shared "host board" tab creates the room and shows the code, realm map, round number and
+leaderboard — it is a spectator, not a player. Players join from their own devices with
+the 4-letter code; the first joiner is the VIP (`Player.isHost`), who starts the game and
+advances rounds from their phone. Each player is assigned a noble family
 (name, colour, home town, 4 members with skills 1–5 in Combat/Beauty/Intellect/Diplomacy).
 Five rounds of: planning (assign members to scenarios on the realm map) → resolution
 (combined skill + d6 vs difficulty → Influence). Most Influence after 5 rounds wins.
@@ -25,8 +28,8 @@ packages/
                engine.ts (room lifecycle, round generation, resolution)
                store.ts (in-memory room map)
                routes/dev.ts — REST API backing the /dev panel
-  client/    — Vue 3 SPA. views/ Landing, Game (lobby/planning/resolution/finished), Dev.
-               stores/game.ts owns the socket + per-player GameView.
+  client/    — Vue 3 SPA. views/ Landing, Game (player phone UI), Host (spectator board),
+               Dev. stores/game.ts owns the socket + GameView (playerId null = board).
 ```
 
 ## Running Locally
@@ -65,6 +68,9 @@ Pass `-Full` to also `pnpm install` on the server.
   from dev REST routes (via `broadcastRoomByCode`).
 - Players rejoin mid-game via localStorage session (`room:rejoin`); lobby departures drop
   the player, mid-game departures keep the seat marked disconnected.
+- The host board attaches via `room:create` (new room) or `room:watch` (refresh; code kept
+  in localStorage `family-feudal-host`) and gets a spectator view (`buildView(room, null)`).
+  Playerless rooms are swept after 1h; board disconnects never delete a room.
 
 ## Game Tuning
 

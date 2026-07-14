@@ -11,6 +11,7 @@ import type {
 } from '@family-feudal/shared'
 
 const SESSION_KEY = 'family-feudal-session'
+const HOST_KEY = 'family-feudal-host'
 
 interface StoredSession {
   code: string
@@ -26,6 +27,10 @@ function loadSession(): StoredSession | null {
   }
 }
 
+function loadHostCode(): string | null {
+  return localStorage.getItem(HOST_KEY)
+}
+
 export const useGameStore = defineStore('game', () => {
   const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
     autoConnect: false,
@@ -38,9 +43,13 @@ export const useGameStore = defineStore('game', () => {
   socket.on('connect', () => {
     connected.value = true
     // transparently re-attach after a dropped connection
-    const session = loadSession()
-    if (session && view.value) {
-      socket.emit('room:rejoin', session.code, session.playerId, () => {})
+    if (!view.value) return
+    if (view.value.playerId === null) {
+      const code = loadHostCode()
+      if (code) socket.emit('room:watch', code, () => {})
+    } else {
+      const session = loadSession()
+      if (session) socket.emit('room:rejoin', session.code, session.playerId, () => {})
     }
   })
   socket.on('disconnect', () => {
@@ -58,7 +67,8 @@ export const useGameStore = defineStore('game', () => {
   })
 
   const you = computed(() => view.value?.players.find((p) => p.id === view.value?.playerId))
-  const isHost = computed(() => you.value?.isHost ?? false)
+  const isVip = computed(() => you.value?.isHost ?? false)
+  const isBoard = computed(() => view.value !== null && view.value.playerId === null)
   const yourFamily = computed<Family | undefined>(() =>
     view.value?.families.find((f) => f.playerId === view.value?.playerId),
   )
@@ -84,10 +94,35 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
-  function createRoom(playerName: string): Promise<string | null> {
+  /** Open a room as the host board screen (not a player). */
+  function hostRoom(): Promise<string | null> {
     connect()
     return new Promise((resolve) => {
-      socket.emit('room:create', playerName, (ack) => handleAck(ack, resolve))
+      socket.emit('room:create', (ack) => {
+        if (ack.ok && ack.code) {
+          localStorage.setItem(HOST_KEY, ack.code)
+          resolve(null)
+        } else {
+          resolve(ack.error ?? 'Something went wrong')
+        }
+      })
+    })
+  }
+
+  /** Re-attach the board screen to its room (page refresh). */
+  function rewatch(): Promise<string | null> {
+    const code = loadHostCode()
+    if (!code) return Promise.resolve('No hosted game')
+    connect()
+    return new Promise((resolve) => {
+      socket.emit('room:watch', code, (ack) => {
+        if (ack.ok) {
+          resolve(null)
+        } else {
+          localStorage.removeItem(HOST_KEY)
+          resolve(ack.error ?? 'Something went wrong')
+        }
+      })
     })
   }
 
@@ -116,6 +151,7 @@ export const useGameStore = defineStore('game', () => {
   function leave(): void {
     socket.emit('room:leave')
     clearSession()
+    localStorage.removeItem(HOST_KEY)
     view.value = null
   }
 
@@ -147,14 +183,20 @@ export const useGameStore = defineStore('game', () => {
     return loadSession() !== null
   }
 
+  function hasHostSession(): boolean {
+    return loadHostCode() !== null
+  }
+
   return {
     view,
     lastError,
     connected,
     you,
-    isHost,
+    isVip,
+    isBoard,
     yourFamily,
-    createRoom,
+    hostRoom,
+    rewatch,
     joinRoom,
     rejoin,
     leave,
@@ -163,5 +205,6 @@ export const useGameStore = defineStore('game', () => {
     setReady,
     nextRound,
     hasStoredSession,
+    hasHostSession,
   }
 })

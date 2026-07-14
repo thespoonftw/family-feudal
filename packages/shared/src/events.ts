@@ -7,13 +7,22 @@ export interface JoinAck {
   playerId?: string
 }
 
+export interface HostAck {
+  ok: boolean
+  error?: string
+  code?: string
+}
+
 export interface Ack {
   ok: boolean
   error?: string
 }
 
 export interface ClientToServerEvents {
-  'room:create': (playerName: string, cb: (ack: JoinAck) => void) => void
+  /** open a room as the host board screen (not a player) */
+  'room:create': (cb: (ack: HostAck) => void) => void
+  /** re-attach a board screen to an existing room */
+  'room:watch': (code: string, cb: (ack: HostAck) => void) => void
   'room:join': (code: string, playerName: string, cb: (ack: JoinAck) => void) => void
   'room:rejoin': (code: string, playerId: string, cb: (ack: JoinAck) => void) => void
   'room:leave': () => void
@@ -21,7 +30,7 @@ export interface ClientToServerEvents {
   /** replace your full assignment map for this round */
   'plan:assign': (assignments: Assignments, cb: (ack: Ack) => void) => void
   'plan:ready': (ready: boolean) => void
-  /** host advances from resolution to next planning round (or to finished) */
+  /** the VIP (first player) advances from resolution to next planning round (or to finished) */
   'round:next': (cb: (ack: Ack) => void) => void
 }
 

@@ -17,7 +17,7 @@ import {
   startGame,
   type Room,
 } from '../game/engine.js'
-import { deleteRoom, getRoom, roomCodeExists, saveRoom } from '../game/store.js'
+import { getRoom, roomCodeExists, saveRoom } from '../game/store.js'
 import { MIN_PLAYERS } from '../game/data.js'
 import { getConfig } from '../game/config.js'
 
@@ -37,13 +37,12 @@ type IoSocket = Socket<
 
 let ioRef: IoServer | null = null
 
-/** Re-send a personalised view to every connected socket in the room. */
+/** Re-send a personalised view to every connected socket in the room (boards get a spectator view). */
 export async function broadcastRoom(room: Room): Promise<void> {
   if (!ioRef) return
   const sockets = await ioRef.in(room.code).fetchSockets()
   for (const socket of sockets) {
-    const playerId = socket.data.playerId
-    if (playerId) socket.emit('game:state', buildView(room, playerId))
+    socket.emit('game:state', buildView(room, socket.data.playerId ?? null))
   }
 }
 
@@ -56,14 +55,20 @@ export function registerSocketHandlers(io: IoServer): void {
   ioRef = io
 
   io.on('connection', (socket: IoSocket) => {
-    socket.on('room:create', (playerName, cb) => {
-      const name = playerName.trim().slice(0, 24)
-      if (!name) return cb({ ok: false, error: 'Enter a name' })
-      const { room, player } = createRoom(name, roomCodeExists)
+    socket.on('room:create', (cb) => {
+      const room = createRoom(roomCodeExists)
       saveRoom(room)
-      bind(socket, room, player.id)
-      cb({ ok: true, code: room.code, playerId: player.id })
-      void broadcastRoom(room)
+      bindBoard(socket, room)
+      cb({ ok: true, code: room.code })
+      socket.emit('game:state', buildView(room, null))
+    })
+
+    socket.on('room:watch', (code, cb) => {
+      const room = getRoom(code)
+      if (!room) return cb({ ok: false, error: 'Room not found' })
+      bindBoard(socket, room)
+      cb({ ok: true, code: room.code })
+      socket.emit('game:state', buildView(room, null))
     })
 
     socket.on('room:join', (code, playerName, cb) => {
@@ -154,6 +159,13 @@ function bind(socket: IoSocket, room: Room, playerId: string): void {
   void socket.join(room.code)
 }
 
+/** Attach a host board screen: in the room channel, but with no player seat. */
+function bindBoard(socket: IoSocket, room: Room): void {
+  socket.data.roomCode = room.code
+  delete socket.data.playerId
+  void socket.join(room.code)
+}
+
 function context(socket: IoSocket) {
   const { roomCode, playerId } = socket.data
   if (!roomCode || !playerId) return null
@@ -165,12 +177,18 @@ function context(socket: IoSocket) {
 }
 
 function handleDeparture(socket: IoSocket, explicit: boolean): void {
-  const ctx = context(socket)
+  const { roomCode, playerId } = socket.data
   delete socket.data.roomCode
   delete socket.data.playerId
-  if (!ctx) return
-  const { room, player } = ctx
+  if (!roomCode) return
+  const room = getRoom(roomCode)
+  if (!room) return
   void socket.leave(room.code)
+
+  // a board screen detaching leaves the room untouched (it can re-watch; sweep reaps abandoned rooms)
+  if (!playerId) return
+  const player = room.players.find((p) => p.id === playerId)
+  if (!player) return
 
   if (room.phase === 'lobby' || explicit) {
     // in the lobby (or on an explicit leave) drop the player entirely
@@ -180,10 +198,6 @@ function handleDeparture(socket: IoSocket, explicit: boolean): void {
       const next = room.players[0]
       if (next) next.isHost = true
     }
-    if (room.players.length === 0) {
-      deleteRoom(room.code)
-      return
-    }
   } else {
     // mid-game: keep the seat so they can rejoin
     player.connected = false
@@ -191,7 +205,7 @@ function handleDeparture(socket: IoSocket, explicit: boolean): void {
   }
 
   // a departure may unblock the round
-  if (room.phase === 'planning' && allReady(room)) {
+  if (room.phase === 'planning' && room.players.length > 0 && allReady(room)) {
     resolveRound(room)
   }
   void broadcastRoom(room)

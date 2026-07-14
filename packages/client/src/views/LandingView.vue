@@ -8,7 +8,7 @@ const game = useGameStore()
 
 const NAME_KEY = 'family-feudal-name'
 
-const mode = ref<'menu' | 'create' | 'join'>('menu')
+const mode = ref<'menu' | 'join'>('menu')
 const name = ref(localStorage.getItem(NAME_KEY) ?? '')
 const code = ref('')
 const error = ref('')
@@ -19,18 +19,28 @@ function rememberName(): void {
   if (trimmed) localStorage.setItem(NAME_KEY, trimmed)
 }
 
-async function submitCreate() {
+/** Open this tab as the shared board screen — it is not a player. */
+async function submitHost() {
   if (busy.value) return
   busy.value = true
   error.value = ''
-  rememberName()
-  const err = await game.createRoom(name.value)
+  const err = await game.hostRoom()
   busy.value = false
   if (err) {
     error.value = err
   } else {
-    void router.push('/play')
+    void router.push('/host')
   }
+}
+
+async function reopenBoard() {
+  if (busy.value) return
+  busy.value = true
+  error.value = ''
+  const err = await game.rewatch()
+  busy.value = false
+  if (err) error.value = err
+  else void router.push('/host')
 }
 
 async function submitJoin() {
@@ -62,21 +72,21 @@ async function resume() {
     <p class="tagline">Scheme, joust and charm your house to glory.</p>
 
     <div v-if="mode === 'menu'" class="menu">
-      <button @click="mode = 'create'">Start New Game</button>
+      <button :disabled="busy" @click="submitHost">Host a Game</button>
+      <p class="hint">Open on the shared screen — players join from their phones.</p>
       <button class="secondary" @click="mode = 'join'">Join Game</button>
       <button v-if="game.hasStoredSession()" class="secondary" :disabled="busy" @click="resume">
         Rejoin Last Game
       </button>
+      <button
+        v-if="game.hasHostSession()"
+        class="secondary"
+        :disabled="busy"
+        @click="reopenBoard"
+      >
+        Reopen Host Screen
+      </button>
     </div>
-
-    <form v-else-if="mode === 'create'" class="menu card" @submit.prevent="submitCreate">
-      <label>
-        Your name
-        <input v-model="name" maxlength="24" placeholder="e.g. Mike" autofocus />
-      </label>
-      <button type="submit" :disabled="busy || !name.trim()">Create Room</button>
-      <button type="button" class="secondary" @click="mode = 'menu'; error = ''">Back</button>
-    </form>
 
     <form v-else class="menu card" @submit.prevent="submitJoin">
       <label>
@@ -137,6 +147,13 @@ async function resume() {
   gap: 0.3rem;
   color: var(--text-dim);
   font-size: 0.9rem;
+}
+
+.hint {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: -0.4rem;
 }
 
 .code-input {

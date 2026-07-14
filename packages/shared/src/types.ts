@@ -52,6 +52,7 @@ export interface Scenario {
 export interface Player {
   id: string
   name: string
+  /** the VIP — first player to join; starts the game and advances rounds */
   isHost: boolean
   connected: boolean
   ready: boolean
@@ -89,8 +90,8 @@ export interface GameView {
   families: Family[]
   towns: Town[]
   scenarios: Scenario[]
-  /** your own player id */
-  playerId: string
+  /** your own player id (null on the host board screen, which is not a player) */
+  playerId: string | null
   /** your own assignments during planning (others' are hidden until resolution) */
   yourAssignments: Assignments
   /** all assignments — only populated during resolution/finished */

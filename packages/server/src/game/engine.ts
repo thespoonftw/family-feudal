@@ -57,26 +57,17 @@ function shuffle<T>(arr: T[]): T[] {
   return out
 }
 
-export function createRoom(
-  hostName: string,
-  isCodeTaken: (code: string) => boolean,
-): { room: Room; player: Player } {
-  const player: Player = {
-    id: randomUUID(),
-    name: hostName,
-    isHost: true,
-    connected: true,
-    ready: false,
-  }
+/** Open a room for a host board screen. The board is not a player — players all join. */
+export function createRoom(isCodeTaken: (code: string) => boolean): Room {
   let code = generateCode()
   while (isCodeTaken(code)) code = generateCode()
-  const room: Room = {
+  return {
     code,
     createdAt: new Date(),
     phase: 'lobby',
     round: 0,
     totalRounds: getConfig().totalRounds,
-    players: [player],
+    players: [],
     families: [],
     towns: TOWNS,
     scenarios: [],
@@ -85,8 +76,6 @@ export function createRoom(
     resultHistory: [],
     winnerFamilyIds: null,
   }
-  claimFamily(room, player.id)
-  return { room, player }
 }
 
 /** Each joining player claims the first free preset (house + city); members roll at start. */
@@ -283,8 +272,9 @@ export function nextRound(room: Room): void {
   beginPlanning(room)
 }
 
-export function buildView(room: Room, playerId: string): GameView {
-  const family = room.families.find((f) => f.playerId === playerId)
+/** Build a snapshot for one client; pass null for the host board screen (spectator). */
+export function buildView(room: Room, playerId: string | null): GameView {
+  const family = playerId ? room.families.find((f) => f.playerId === playerId) : undefined
   const revealed = room.phase === 'resolution' || room.phase === 'finished'
   return {
     code: room.code,
