@@ -2,6 +2,7 @@ import type { Server, Socket } from 'socket.io'
 import type {
   ClientToServerEvents,
   InterServerEvents,
+  Player,
   ServerToClientEvents,
   SocketData,
 } from '@family-feudal/shared'
@@ -36,6 +37,21 @@ type IoSocket = Socket<
 >
 
 let ioRef: IoServer | null = null
+
+/** How long a lobby player may be disconnected (e.g. a page refresh) before losing their seat. */
+const LOBBY_DROP_GRACE_MS = 60_000
+
+/** `${roomCode}:${playerId}` -> pending lobby-drop timer */
+const pendingDrops = new Map<string, NodeJS.Timeout>()
+
+function cancelPendingDrop(roomCode: string, playerId: string): void {
+  const key = `${roomCode}:${playerId}`
+  const timer = pendingDrops.get(key)
+  if (timer) {
+    clearTimeout(timer)
+    pendingDrops.delete(key)
+  }
+}
 
 /** Re-send a personalised view to every connected socket in the room (boards get a spectator view). */
 export async function broadcastRoom(room: Room): Promise<void> {
@@ -94,6 +110,7 @@ export function registerSocketHandlers(io: IoServer): void {
       if (!room) return cb({ ok: false, error: 'Room not found' })
       const player = room.players.find((p) => p.id === playerId)
       if (!player) return cb({ ok: false, error: 'Player not found in this room' })
+      cancelPendingDrop(room.code, player.id)
       player.connected = true
       bind(socket, room, player.id)
       cb({ ok: true, code: room.code, playerId: player.id })
@@ -191,18 +208,14 @@ function handleDeparture(socket: IoSocket, explicit: boolean): void {
   const player = room.players.find((p) => p.id === playerId)
   if (!player) return
 
-  if (room.phase === 'lobby' || explicit) {
-    // in the lobby (or on an explicit leave) drop the player entirely
-    room.players = room.players.filter((p) => p.id !== player.id)
-    if (room.phase === 'lobby') releaseFamily(room, player.id)
-    if (player.isHost && room.players.length > 0) {
-      const next = room.players[0]
-      if (next) next.isHost = true
-    }
+  if (explicit) {
+    cancelPendingDrop(room.code, player.id)
+    dropPlayer(room, player)
   } else {
-    // mid-game: keep the seat so they can rejoin
+    // keep the seat so a refresh/reconnect can reclaim it; lobby seats expire after a grace period
     player.connected = false
     player.ready = false
+    if (room.phase === 'lobby') schedulePendingDrop(room.code, player.id)
   }
 
   // a departure may unblock the round
@@ -210,4 +223,30 @@ function handleDeparture(socket: IoSocket, explicit: boolean): void {
     resolveRound(room)
   }
   void broadcastRoom(room)
+}
+
+/** Remove a player's seat; in the lobby also free their house for the next joiner. */
+function dropPlayer(room: Room, player: Player): void {
+  room.players = room.players.filter((p) => p.id !== player.id)
+  if (room.phase === 'lobby') releaseFamily(room, player.id)
+  if (player.isHost && room.players.length > 0) {
+    const next = room.players[0]
+    if (next) next.isHost = true
+  }
+}
+
+function schedulePendingDrop(roomCode: string, playerId: string): void {
+  cancelPendingDrop(roomCode, playerId)
+  const key = `${roomCode}:${playerId}`
+  const timer = setTimeout(() => {
+    pendingDrops.delete(key)
+    const room = getRoom(roomCode)
+    if (!room || room.phase !== 'lobby') return
+    const player = room.players.find((p) => p.id === playerId)
+    if (!player || player.connected) return
+    dropPlayer(room, player)
+    void broadcastRoom(room)
+  }, LOBBY_DROP_GRACE_MS)
+  timer.unref()
+  pendingDrops.set(key, timer)
 }

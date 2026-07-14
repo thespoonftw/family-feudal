@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Family, ScenarioOutcome, SkillKey } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
@@ -22,6 +22,14 @@ onMounted(async () => {
     if (err) void router.replace('/')
   }
 })
+
+// if the room vanishes after a reconnect, return to the landing page
+watch(
+  () => game.view,
+  (v, old) => {
+    if (old && !v) void router.replace('/')
+  },
+)
 
 // the board is usually a landscape screen; keep the map orientation-aware anyway
 const landscapeQuery = window.matchMedia('(orientation: landscape)')

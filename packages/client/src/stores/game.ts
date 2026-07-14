@@ -42,14 +42,27 @@ export const useGameStore = defineStore('game', () => {
 
   socket.on('connect', () => {
     connected.value = true
-    // transparently re-attach after a dropped connection
+    // transparently re-attach after a dropped connection; if the seat is gone, reset so
+    // the views can fall back to the landing page instead of showing a dead game
     if (!view.value) return
     if (view.value.playerId === null) {
       const code = loadHostCode()
-      if (code) socket.emit('room:watch', code, () => {})
+      if (!code) return
+      socket.emit('room:watch', code, (ack) => {
+        if (!ack.ok) {
+          localStorage.removeItem(HOST_KEY)
+          view.value = null
+        }
+      })
     } else {
       const session = loadSession()
-      if (session) socket.emit('room:rejoin', session.code, session.playerId, () => {})
+      if (!session) return
+      socket.emit('room:rejoin', session.code, session.playerId, (ack) => {
+        if (!ack.ok) {
+          clearSession()
+          view.value = null
+        }
+      })
     }
   })
   socket.on('disconnect', () => {

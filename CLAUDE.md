@@ -66,8 +66,9 @@ Pass `-Full` to also `pnpm install` on the server.
   planning; everything revealed at resolution). `broadcastRoom` in `socket/index.ts`
   re-emits views to every socket in the room — call it after any state mutation, including
   from dev REST routes (via `broadcastRoomByCode`).
-- Players rejoin mid-game via localStorage session (`room:rejoin`); lobby departures drop
-  the player, mid-game departures keep the seat marked disconnected.
+- Players rejoin via localStorage session (`room:rejoin`). Disconnects keep the seat
+  marked disconnected (refresh-safe); lobby seats are dropped after a 60s grace period,
+  mid-game seats are kept until the room is swept. Explicit `room:leave` drops immediately.
 - The host board attaches via `room:create` (new room) or `room:watch` (refresh; code kept
   in localStorage `family-feudal-host`) and gets a spectator view (`buildView(room, null)`).
   Playerless rooms are swept after 1h; board disconnects never delete a room.

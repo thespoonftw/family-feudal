@@ -28,6 +28,14 @@ onMounted(async () => {
   }
 })
 
+// if the game vanishes (room closed, seat lost after reconnecting), return to the landing page
+watch(
+  () => game.view,
+  (v, old) => {
+    if (old && !v) void router.replace('/')
+  },
+)
+
 // portrait map by default; landscape screens (desktop, phone held sideways) rotate it 90°
 const landscapeQuery = window.matchMedia('(orientation: landscape)')
 const isLandscape = ref(landscapeQuery.matches)
