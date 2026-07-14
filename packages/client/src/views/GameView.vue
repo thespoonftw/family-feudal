@@ -12,6 +12,7 @@ const game = useGameStore()
 
 const actionError = ref('')
 const selectedScenarioId = ref<string | null>(null)
+const menuOpen = ref(false)
 
 const SKILL_ICONS: Record<SkillKey, string> = {
   combat: '⚔️',
@@ -142,7 +143,6 @@ const winnerNames = computed(() => {
   <div v-if="view" class="game" :class="{ 'lock-viewport': view.phase === 'planning' }">
     <header>
       <span class="brand">Family Feudal</span>
-      <span class="room-code">Room {{ view.code }}</span>
       <span v-if="view.phase !== 'lobby'" class="round">
         Round {{ view.round }} / {{ view.totalRounds }}
       </span>
@@ -156,7 +156,19 @@ const winnerNames = computed(() => {
       </span>
       <span class="spacer" />
       <span v-if="!game.connected" class="offline">reconnecting…</span>
-      <button class="secondary small" @click="onLeave">Leave</button>
+      <div class="menu-wrap">
+        <button class="secondary small menu-btn" aria-label="Menu" @click="menuOpen = !menuOpen">
+          <span class="menu-lines"><span /><span /><span /></span>
+        </button>
+        <div v-if="menuOpen" class="menu-backdrop" @click="menuOpen = false" />
+        <div v-if="menuOpen" class="card menu-panel">
+          <div class="menu-room">
+            Room code
+            <strong class="menu-code">{{ view.code }}</strong>
+          </div>
+          <button class="secondary small" @click="onLeave">Leave game</button>
+        </div>
+      </div>
     </header>
 
     <p v-if="actionError" class="error bar">{{ actionError }}</p>
@@ -336,10 +348,68 @@ header {
   font-weight: bold;
 }
 
-.room-code,
 .round {
   color: var(--text-dim);
   font-size: 0.9rem;
+}
+
+/* hamburger menu (room code + leave) */
+.menu-wrap {
+  position: relative;
+}
+
+.menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45em 0.6em;
+}
+
+.menu-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.menu-lines span {
+  display: block;
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-width: 11rem;
+  padding: 0.9rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+.menu-room {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.menu-code {
+  color: var(--gold-soft);
+  font-size: 1.3rem;
+  letter-spacing: 0.25em;
 }
 
 .family-chip {
@@ -591,15 +661,16 @@ button.small {
   z-index: 10;
   background: rgba(10, 7, 3, 0.55);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
+  padding: 0.8rem;
   border-radius: 10px;
 }
 
 .sheet {
   width: 100%;
   max-width: 520px;
-  max-height: 80%;
+  max-height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
