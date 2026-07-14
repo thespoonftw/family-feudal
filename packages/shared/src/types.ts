@@ -149,9 +149,8 @@ export interface ScenarioDesign {
   /** {town} is replaced with the town name */
   description: string
   skill: SkillKey
-  /** difficulty rolls uniformly in [minDifficulty, maxDifficulty] */
-  minDifficulty: number
-  maxDifficulty: number
+  /** the assigned members' combined skill + d6 must reach this */
+  difficulty: number
   location: ScenarioLocation
 }
 

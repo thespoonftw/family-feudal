@@ -175,7 +175,7 @@ const winnerNames = computed(() => {
         <ul class="player-list">
           <li v-for="p in view.players" :key="p.id" class="player-row">
             <span>
-              {{ p.isHost ? '👑' : '🛡️' }} {{ p.name }}
+              {{ p.name }}
               <em v-if="p.id === view.playerId">(you)</em>
             </span>
             <span v-if="familyOf(p.id)" class="house-tag">

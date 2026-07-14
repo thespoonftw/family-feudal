@@ -75,10 +75,11 @@ export function createRoom(isCodeTaken: (code: string) => boolean): Room {
   }
 }
 
-/** Each joining player claims the first free preset (house + city); members roll at start. */
+/** Each joining player is dealt a random free house (house + city); members roll at start. */
 function claimFamily(room: Room, playerId: string): void {
   const taken = new Set(room.families.map((f) => f.homeTownId))
-  const preset = room.presets.find((p) => !taken.has(p.homeTownId))
+  const free = room.presets.filter((p) => !taken.has(p.homeTownId))
+  const preset = free[Math.floor(Math.random() * free.length)]
   if (!preset) return
   room.families.push({
     id: randomUUID(),
@@ -182,7 +183,7 @@ function instantiate(design: ScenarioDesign, townId: string, towns: Town[]): Sce
     description: design.description.replace('{town}', town?.name ?? 'the realm'),
     townId,
     skill: design.skill,
-    difficulty: randomInt(design.minDifficulty, design.maxDifficulty),
+    difficulty: design.difficulty,
   }
 }
 

@@ -53,29 +53,29 @@ export const MEMBER_NAMES: string[] = [
 // Emoji are flavour, not skill markers — players must read the story to guess the skill.
 export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   // Combat
-  { emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}. Drive them off.', skill: 'combat', minDifficulty: 7, maxDifficulty: 11, location: 'general' },
-  { emoji: '🏇', title: 'Jousting Tournament', description: 'A grand tourney is held at {town}. Glory awaits the victors.', skill: 'combat', minDifficulty: 8, maxDifficulty: 12, location: 'general' },
-  { emoji: '🏴', title: 'Border Skirmish', description: 'Raiders from beyond the realm probe the defences of {town}.', skill: 'combat', minDifficulty: 9, maxDifficulty: 12, location: 'general' },
-  { emoji: '🐗', title: 'Beast Hunt', description: 'A monstrous beast stalks the woods near {town}. Hunters are called for.', skill: 'combat', minDifficulty: 7, maxDifficulty: 10, location: 'general' },
+  { emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}. Drive them off.', skill: 'combat', difficulty: 9, location: 'general' },
+  { emoji: '🏇', title: 'Jousting Tournament', description: 'A grand tourney is held at {town}. Glory awaits the victors.', skill: 'combat', difficulty: 10, location: 'general' },
+  { emoji: '🏴', title: 'Border Skirmish', description: 'Raiders from beyond the realm probe the defences of {town}.', skill: 'combat', difficulty: 11, location: 'general' },
+  { emoji: '🐗', title: 'Beast Hunt', description: 'A monstrous beast stalks the woods near {town}. Hunters are called for.', skill: 'combat', difficulty: 9, location: 'general' },
   // Beauty
-  { emoji: '🎭', title: 'Masquerade Ball', description: 'The nobility of {town} hosts a dazzling masquerade. Impressions matter.', skill: 'beauty', minDifficulty: 7, maxDifficulty: 11, location: 'general' },
-  { emoji: '🖼️', title: 'Portrait Unveiling', description: 'A famed painter seeks muses in {town} for a royal commission.', skill: 'beauty', minDifficulty: 7, maxDifficulty: 10, location: 'general' },
-  { emoji: '💍', title: 'Noble Wedding', description: 'Two great houses wed at {town}. All eyes are on the guests.', skill: 'beauty', minDifficulty: 8, maxDifficulty: 12, location: 'general' },
+  { emoji: '🎭', title: 'Masquerade Ball', description: 'The nobility of {town} hosts a dazzling masquerade. Impressions matter.', skill: 'beauty', difficulty: 9, location: 'general' },
+  { emoji: '🖼️', title: 'Portrait Unveiling', description: 'A famed painter seeks muses in {town} for a royal commission.', skill: 'beauty', difficulty: 9, location: 'general' },
+  { emoji: '💍', title: 'Noble Wedding', description: 'Two great houses wed at {town}. All eyes are on the guests.', skill: 'beauty', difficulty: 10, location: 'general' },
   // Intellect
-  { emoji: '📚', title: "Scholars' Symposium", description: 'Learned minds gather in {town} to debate the great questions.', skill: 'intellect', minDifficulty: 7, maxDifficulty: 11, location: 'general' },
-  { emoji: '🐀', title: 'Plague Outbreak', description: 'Sickness spreads through {town}. Physicians and scholars are needed.', skill: 'intellect', minDifficulty: 9, maxDifficulty: 12, location: 'general' },
-  { emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. Someone must solve the mystery.', skill: 'intellect', minDifficulty: 7, maxDifficulty: 10, location: 'general' },
+  { emoji: '📚', title: "Scholars' Symposium", description: 'Learned minds gather in {town} to debate the great questions.', skill: 'intellect', difficulty: 9, location: 'general' },
+  { emoji: '🐀', title: 'Plague Outbreak', description: 'Sickness spreads through {town}. Physicians and scholars are needed.', skill: 'intellect', difficulty: 11, location: 'general' },
+  { emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. Someone must solve the mystery.', skill: 'intellect', difficulty: 9, location: 'general' },
   // Diplomacy
-  { emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats. Broker a settlement.', skill: 'diplomacy', minDifficulty: 7, maxDifficulty: 11, location: 'general' },
-  { emoji: '🕊️', title: 'Peace Talks', description: 'Feuding lords meet at {town} under a banner of truce.', skill: 'diplomacy', minDifficulty: 9, maxDifficulty: 12, location: 'general' },
-  { emoji: '🌾', title: 'Harvest Festival', description: 'The people of {town} celebrate the harvest. Win their goodwill.', skill: 'diplomacy', minDifficulty: 7, maxDifficulty: 10, location: 'general' },
+  { emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats. Broker a settlement.', skill: 'diplomacy', difficulty: 9, location: 'general' },
+  { emoji: '🕊️', title: 'Peace Talks', description: 'Feuding lords meet at {town} under a banner of truce.', skill: 'diplomacy', difficulty: 11, location: 'general' },
+  { emoji: '🌾', title: 'Harvest Festival', description: 'The people of {town} celebrate the harvest. Win their goodwill.', skill: 'diplomacy', difficulty: 9, location: 'general' },
   // Capital only
-  { emoji: '👑', title: 'Coronation', description: 'A new monarch is crowned at {town}. The whole realm watches.', skill: 'diplomacy', minDifficulty: 10, maxDifficulty: 12, location: 'capital' },
-  { emoji: '🏰', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', skill: 'diplomacy', minDifficulty: 8, maxDifficulty: 11, location: 'capital' },
-  { emoji: '🥂', title: "Queen's Gala", description: 'The Queen hosts a resplendent gala at {town}.', skill: 'beauty', minDifficulty: 9, maxDifficulty: 12, location: 'capital' },
+  { emoji: '👑', title: 'Coronation', description: 'A new monarch is crowned at {town}. The whole realm watches.', skill: 'diplomacy', difficulty: 11, location: 'capital' },
+  { emoji: '🏰', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', skill: 'diplomacy', difficulty: 10, location: 'capital' },
+  { emoji: '🥂', title: "Queen's Gala", description: 'The Queen hosts a resplendent gala at {town}.', skill: 'beauty', difficulty: 11, location: 'capital' },
   // Home estates
-  { emoji: '🏹', title: 'Poachers on the Estate', description: 'Poachers have been spotted on your lands near {town}.', skill: 'combat', minDifficulty: 5, maxDifficulty: 7, location: 'home' },
-  { emoji: '🍗', title: 'Feast for the Household', description: 'Your household at {town} expects a memorable feast.', skill: 'beauty', minDifficulty: 5, maxDifficulty: 7, location: 'home' },
-  { emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray.', skill: 'intellect', minDifficulty: 5, maxDifficulty: 7, location: 'home' },
-  { emoji: '🪨', title: 'Tenant Dispute', description: 'Two tenant farmers at {town} quarrel over a boundary stone.', skill: 'diplomacy', minDifficulty: 5, maxDifficulty: 7, location: 'home' },
+  { emoji: '🏹', title: 'Poachers on the Estate', description: 'Poachers have been spotted on your lands near {town}.', skill: 'combat', difficulty: 6, location: 'home' },
+  { emoji: '🍗', title: 'Feast for the Household', description: 'Your household at {town} expects a memorable feast.', skill: 'beauty', difficulty: 6, location: 'home' },
+  { emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray.', skill: 'intellect', difficulty: 6, location: 'home' },
+  { emoji: '🪨', title: 'Tenant Dispute', description: 'Two tenant farmers at {town} quarrel over a boundary stone.', skill: 'diplomacy', difficulty: 6, location: 'home' },
 ]

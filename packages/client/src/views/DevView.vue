@@ -18,7 +18,6 @@ interface ConfigResponse {
 
 interface ContentResponse {
   content: GameContent
-  defaults: GameContent
 }
 
 const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = [
@@ -105,24 +104,13 @@ async function saveContent() {
   }
 }
 
-async function resetContentDesigns() {
-  try {
-    contentData.value = await api<ContentResponse>('/dev/content/reset', { method: 'POST' })
-    status.value = 'Designs reset to defaults ✓'
-    error.value = ''
-  } catch (e) {
-    error.value = String(e)
-  }
-}
-
 function addScenario() {
   contentData.value?.content.scenarios.push({
     emoji: '❔',
     title: 'New Scenario',
     description: 'Something is afoot at {town}.',
     skill: 'combat',
-    minDifficulty: 7,
-    maxDifficulty: 11,
+    difficulty: 9,
     location: 'general',
   })
 }
@@ -235,9 +223,6 @@ onUnmounted(() => {
       </table>
       <div class="settings-actions">
         <button class="small" @click="saveContent">Save designs</button>
-        <button class="small secondary" @click="resetContentDesigns">
-          Reset houses &amp; scenarios to defaults
-        </button>
       </div>
     </section>
 
@@ -265,11 +250,14 @@ onUnmounted(() => {
             {{ SCENARIO_LOCATION_LABELS[loc] }}
           </option>
         </select>
-        <span class="difficulty" title="Hidden difficulty range (skill total + d6 must reach it)">
-          <input v-model.number="s.minDifficulty" type="number" min="1" max="20" class="num" />
-          –
-          <input v-model.number="s.maxDifficulty" type="number" min="1" max="20" class="num" />
-        </span>
+        <input
+          v-model.number="s.difficulty"
+          type="number"
+          min="1"
+          max="20"
+          class="num"
+          title="Hidden difficulty (skill total + d6 must reach it)"
+        />
         <button class="small secondary" title="Remove scenario" @click="removeScenario(i)">✕</button>
         <input
           v-model="s.description"
@@ -282,9 +270,6 @@ onUnmounted(() => {
       <div class="settings-actions">
         <button class="small" @click="addScenario">+ Add scenario</button>
         <button class="small" @click="saveContent">Save designs</button>
-        <button class="small secondary" @click="resetContentDesigns">
-          Reset houses &amp; scenarios to defaults
-        </button>
       </div>
     </section>
 

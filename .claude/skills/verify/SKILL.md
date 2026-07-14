@@ -13,8 +13,9 @@ cd packages/server && node dist/index.js     # serves API + sockets on :3002 (ru
 ```
 
 The server persists `game-config.json` / `game-content.json` into its cwd
-(`packages/server`, gitignored). Delete them first for a defaults run; POST
-`/api/dev/config/reset` and `/api/dev/content/reset` to clean up after edits.
+(`packages/server`, gitignored). Delete them first for a defaults run. Content has no
+reset endpoint (saved designs are the settings) — delete `game-content.json` and restart
+to restore the code defaults after test edits.
 
 ## Drive the surfaces
 

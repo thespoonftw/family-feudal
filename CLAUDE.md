@@ -87,16 +87,17 @@ Three layers:
   values.
 - **Designable content** (`server/src/game/content.ts`): `GameContent` — the 8
   `HouseDesign`s (name, colour, home city name) and the `ScenarioDesign` list (flavour
-  emoji, title, description with `{town}`, hidden skill, hidden difficulty range,
-  location: general/capital/home). Edited from the dev panel (full-replace PUT),
-  validated by `sanitizeContent` (needs ≥1 capital + ≥1 home scenario), persisted to
-  `game-content.json` (gitignored; override via `CONTENT_FILE`). Rooms snapshot towns +
-  house presets at `room:create`; scenario designs are re-read every planning phase.
+  emoji, title, description with `{town}`, hidden skill, hidden difficulty, location:
+  general/capital/home). Edited from the dev panel (full-replace PUT — the saved designs
+  ARE the settings; there is no reset), validated by `sanitizeContent` (needs ≥1 capital
+  + ≥1 home scenario), persisted to `game-content.json` (gitignored; override via
+  `CONTENT_FILE`). Rooms snapshot towns + house presets at `room:create`; scenario
+  designs are re-read every planning phase.
 - **Fixed data** (`server/src/game/data.ts`): map slot geometry (capital + 8 city slots —
   city *names* come from the house designs), default designs, member name pool,
   `MIN_PLAYERS` (1 — solo games allowed).
 
-Each joining player claims the first free house preset (house + home city) in the lobby
+Each joining player is dealt a *random* free house (house + home city) in the lobby
 (`claimFamily` in `engine.ts`; freed on lobby departure via `releaseFamily`); members are
 rolled at `startGame`.
 
@@ -109,6 +110,6 @@ see all four skills for each member when assigning.
 
 `/dev` route — game settings (GET/PATCH `/api/dev/config`, POST
 `/api/dev/config/reset`), house designer + scenario designer (GET/PUT
-`/api/dev/content`, POST `/api/dev/content/reset`; invalid saves 400 with a message).
+`/api/dev/content`; invalid saves 400 with a message; no reset — saves are the settings).
 Below them: read-only live room inspection (players, families, members, scenarios) via
 GET `/api/dev/rooms[/:code]` — in-progress games cannot be edited.

@@ -63,22 +63,17 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
   const location = obj['location']
   if (!LOCATIONS.includes(location as ScenarioLocation)) return `${label}: unknown location`
   const [min, max] = DIFFICULTY_BOUNDS
-  const clamp = (value: unknown): number | null =>
-    typeof value === 'number' && Number.isFinite(value)
-      ? Math.min(max, Math.max(min, Math.round(value)))
-      : null
-  const minDifficulty = clamp(obj['minDifficulty'])
-  const maxDifficulty = clamp(obj['maxDifficulty'])
-  if (minDifficulty === null || maxDifficulty === null) {
-    return `${label}: difficulties must be numbers`
+  const rawDifficulty = obj['difficulty']
+  if (typeof rawDifficulty !== 'number' || !Number.isFinite(rawDifficulty)) {
+    return `${label}: difficulty must be a number`
   }
+  const difficulty = Math.min(max, Math.max(min, Math.round(rawDifficulty)))
   return {
     emoji,
     title,
     description,
     skill: skill as SkillKey,
-    minDifficulty: Math.min(minDifficulty, maxDifficulty),
-    maxDifficulty: Math.max(minDifficulty, maxDifficulty),
+    difficulty,
     location: location as ScenarioLocation,
   }
 }
@@ -146,12 +141,6 @@ export function updateContent(raw: unknown): GameContent | string {
   const next = sanitizeContent(raw)
   if (typeof next === 'string') return next
   content = next
-  persistContent()
-  return content
-}
-
-export function resetContent(): GameContent {
-  content = structuredClone(DEFAULT_CONTENT)
   persistContent()
   return content
 }

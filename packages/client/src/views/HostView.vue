@@ -107,7 +107,7 @@ function closeBoard() {
         <p v-if="view.players.length === 0" class="hint">Waiting for players to join…</p>
         <ul class="player-list">
           <li v-for="p in view.players" :key="p.id" class="player-row">
-            <span>{{ p.isHost ? '👑' : '🛡️' }} {{ p.name }}</span>
+            <span>{{ p.name }}</span>
             <span v-if="familyOf(p.id)" class="house-tag">
               <span class="dot" :style="{ background: familyOf(p.id)!.color }" />
               of {{ townName(familyOf(p.id)!.homeTownId) }}
@@ -180,7 +180,7 @@ function closeBoard() {
           </div>
         </div>
         <p class="hint">
-          👑 {{ view.players.find((p) => p.isHost)?.name ?? 'The first player' }} continues from
+          {{ view.players.find((p) => p.isHost)?.name ?? 'The first player' }} continues from
           their phone.
         </p>
       </section>
