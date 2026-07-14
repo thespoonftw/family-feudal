@@ -180,8 +180,7 @@ function closeBoard() {
           </div>
         </div>
         <p class="hint">
-          {{ view.players.find((p) => p.isHost)?.name ?? 'The first player' }} continues from
-          their phone.
+          {{ readyCount }}/{{ view.players.length }} houses ready to continue…
         </p>
       </section>
       <aside class="side-pane">

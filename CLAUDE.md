@@ -6,11 +6,11 @@ Jackbox-style multiplayer party game hosted at https://family-feudal.brunch-proj
 A shared "host board" tab creates the room and shows the code, realm map, round number and
 leaderboard — it is a spectator, not a player, but it starts the game from its lobby.
 Players join from their own devices with the 4-letter code; the first joiner is the VIP
-(`Player.isHost`), who advances rounds from their phone. Each player is assigned a noble family
+(`Player.isHost`, display only). Each player is assigned a noble family
 (name, colour, home town, 4 members with skills 1–5 in Combat/Beauty/Intellect/Diplomacy).
 Five rounds of: planning (assign members to scenarios on the realm map, one member per
-scenario) → resolution (member's skill + d6 vs difficulty → Influence). Most Influence
-after 5 rounds wins.
+scenario) → resolution (member's skill + d6 vs difficulty → Influence); each round advances
+when every connected player has confirmed. Most Influence after 5 rounds wins.
 
 ## Stack
 

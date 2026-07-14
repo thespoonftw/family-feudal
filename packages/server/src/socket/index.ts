@@ -158,9 +158,9 @@ export function registerSocketHandlers(io: IoServer): void {
     socket.on('round:next', (cb) => {
       const ctx = context(socket)
       if (!ctx) return cb({ ok: false, error: 'Not in a room' })
-      if (!ctx.player.isHost) return cb({ ok: false, error: 'Only the host can continue' })
       if (ctx.room.phase !== 'resolution') return cb({ ok: false, error: 'Nothing to continue' })
-      nextRound(ctx.room)
+      ctx.player.ready = true
+      if (allReady(ctx.room)) nextRound(ctx.room)
       cb({ ok: true })
       void broadcastRoom(ctx.room)
     })
@@ -219,8 +219,9 @@ function handleDeparture(socket: IoSocket, explicit: boolean): void {
   }
 
   // a departure may unblock the round
-  if (room.phase === 'planning' && room.players.length > 0 && allReady(room)) {
-    resolveRound(room)
+  if (room.players.length > 0 && allReady(room)) {
+    if (room.phase === 'planning') resolveRound(room)
+    else if (room.phase === 'resolution') nextRound(room)
   }
   void broadcastRoom(room)
 }

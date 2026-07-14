@@ -53,7 +53,7 @@ export interface Scenario {
 export interface Player {
   id: string
   name: string
-  /** the VIP — first player to join; starts the game and advances rounds */
+  /** the VIP — first player to join (display only; rounds advance when everyone confirms) */
   isHost: boolean
   connected: boolean
   ready: boolean

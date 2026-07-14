@@ -146,6 +146,13 @@ function memberNames(familyId: string, memberIds: string[]): string {
     .join(', ')
 }
 
+const confirmedCount = computed(
+  () => view.value?.players.filter((p) => p.connected && p.ready).length ?? 0,
+)
+const activePlayerCount = computed(
+  () => view.value?.players.filter((p) => p.connected).length ?? 0,
+)
+
 const winnerNames = computed(() => {
   if (!view.value?.winnerFamilyIds) return ''
   return view.value.winnerFamilyIds
@@ -303,10 +310,12 @@ const winnerNames = computed(() => {
             </span>
           </div>
         </div>
-        <button v-if="game.isVip" class="next-btn" @click="onNextRound">
+        <button v-if="!game.you?.ready" class="next-btn" @click="onNextRound">
           {{ view.round >= view.totalRounds ? 'See Final Results' : 'Next Round' }}
         </button>
-        <p v-else class="hint">Waiting for the first player to continue…</p>
+        <p v-else class="hint">
+          Waiting for the other houses… ({{ confirmedCount }} / {{ activePlayerCount }} confirmed)
+        </p>
       </section>
       <aside class="side-pane">
         <ScoreBoard :families="view.families" :players="view.players" />

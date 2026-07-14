@@ -80,7 +80,6 @@ export const useGameStore = defineStore('game', () => {
   })
 
   const you = computed(() => view.value?.players.find((p) => p.id === view.value?.playerId))
-  const isVip = computed(() => you.value?.isHost ?? false)
   const isBoard = computed(() => view.value !== null && view.value.playerId === null)
   const yourFamily = computed<Family | undefined>(() =>
     view.value?.families.find((f) => f.playerId === view.value?.playerId),
@@ -205,7 +204,6 @@ export const useGameStore = defineStore('game', () => {
     lastError,
     connected,
     you,
-    isVip,
     isBoard,
     yourFamily,
     hostRoom,

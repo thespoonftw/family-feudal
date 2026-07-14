@@ -31,7 +31,7 @@ export interface ClientToServerEvents {
   /** replace your full assignment map for this round */
   'plan:assign': (assignments: Assignments, cb: (ack: Ack) => void) => void
   'plan:ready': (ready: boolean) => void
-  /** the VIP (first player) advances from resolution to next planning round (or to finished) */
+  /** confirm the round's results; once every connected player confirms, the game advances */
   'round:next': (cb: (ack: Ack) => void) => void
 }
 
