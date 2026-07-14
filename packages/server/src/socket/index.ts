@@ -11,10 +11,12 @@ import {
   allReady,
   buildView,
   createRoom,
+  finishPlanning,
   nextRound,
   releaseFamily,
   resolveRound,
   setAssignments,
+  setChoices,
   startGame,
   type Room,
 } from '../game/engine.js'
@@ -145,13 +147,21 @@ export function registerSocketHandlers(io: IoServer): void {
       void broadcastRoom(ctx.room)
     })
 
+    socket.on('approach:choose', (choices, cb) => {
+      const ctx = context(socket)
+      if (!ctx) return cb({ ok: false, error: 'Not in a room' })
+      const error = setChoices(ctx.room, ctx.player.id, choices)
+      if (error) return cb({ ok: false, error })
+      cb({ ok: true })
+      void broadcastRoom(ctx.room)
+    })
+
     socket.on('plan:ready', (ready) => {
       const ctx = context(socket)
-      if (!ctx || ctx.room.phase !== 'planning') return
+      const phase = ctx?.room.phase
+      if (!ctx || (phase !== 'planning' && phase !== 'approach')) return
       ctx.player.ready = ready
-      if (allReady(ctx.room)) {
-        resolveRound(ctx.room)
-      }
+      if (allReady(ctx.room)) advancePhase(ctx.room)
       void broadcastRoom(ctx.room)
     })
 
@@ -219,11 +229,15 @@ function handleDeparture(socket: IoSocket, explicit: boolean): void {
   }
 
   // a departure may unblock the round
-  if (room.players.length > 0 && allReady(room)) {
-    if (room.phase === 'planning') resolveRound(room)
-    else if (room.phase === 'resolution') nextRound(room)
-  }
+  if (room.players.length > 0 && allReady(room)) advancePhase(room)
   void broadcastRoom(room)
+}
+
+/** Move the room forward once every connected player is ready. */
+function advancePhase(room: Room): void {
+  if (room.phase === 'planning') finishPlanning(room)
+  else if (room.phase === 'approach') resolveRound(room)
+  else if (room.phase === 'resolution') nextRound(room)
 }
 
 /** Remove a player's seat; in the lobby also free their house for the next joiner. */

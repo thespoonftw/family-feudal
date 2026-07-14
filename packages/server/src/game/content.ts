@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import type {
+  ApproachDesign,
   GameContent,
   HouseDesign,
   ScenarioDesign,
@@ -49,6 +50,22 @@ function sanitizeHouse(raw: unknown, index: number): HouseDesign | string {
   return { name, color: color.toLowerCase(), cityName }
 }
 
+function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): ApproachDesign | string {
+  const obj = (raw ?? {}) as Record<string, unknown>
+  const where = `${scenarioLabel}, approach ${index + 1}`
+  const label = cleanString(obj['label'], 60)
+  if (!label) return `${where}: label must be 1–60 characters`
+  const skill = obj['skill']
+  if (!SKILLS.includes(skill as SkillKey)) return `${where}: unknown skill`
+  const [min, max] = DIFFICULTY_BOUNDS
+  const rawDifficulty = obj['difficulty']
+  if (typeof rawDifficulty !== 'number' || !Number.isFinite(rawDifficulty)) {
+    return `${where}: difficulty must be a number`
+  }
+  const difficulty = Math.min(max, Math.max(min, Math.round(rawDifficulty)))
+  return { label, skill: skill as SkillKey, difficulty }
+}
+
 function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const label = `Scenario ${index + 1}`
@@ -58,22 +75,23 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
   if (!title) return `${label}: title must be 1–60 characters`
   const description = cleanString(obj['description'], 240)
   if (!description) return `${label}: description must be 1–240 characters`
-  const skill = obj['skill']
-  if (!SKILLS.includes(skill as SkillKey)) return `${label}: unknown skill`
   const location = obj['location']
   if (!LOCATIONS.includes(location as ScenarioLocation)) return `${label}: unknown location`
-  const [min, max] = DIFFICULTY_BOUNDS
-  const rawDifficulty = obj['difficulty']
-  if (typeof rawDifficulty !== 'number' || !Number.isFinite(rawDifficulty)) {
-    return `${label}: difficulty must be a number`
+  const approaches = obj['approaches']
+  if (!Array.isArray(approaches) || approaches.length < 2 || approaches.length > 3) {
+    return `${label}: needs 2–3 approaches`
   }
-  const difficulty = Math.min(max, Math.max(min, Math.round(rawDifficulty)))
+  const cleanApproaches: ApproachDesign[] = []
+  for (const [i, approach] of approaches.entries()) {
+    const result = sanitizeApproach(approach, label, i)
+    if (typeof result === 'string') return result
+    cleanApproaches.push(result)
+  }
   return {
     emoji,
     title,
     description,
-    skill: skill as SkillKey,
-    difficulty,
+    approaches: cleanApproaches,
     location: location as ScenarioLocation,
   }
 }

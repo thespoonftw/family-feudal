@@ -5,6 +5,8 @@ import type {
   DevRoomSummary,
   GameConfig,
   GameContent,
+  Scenario,
+  ScenarioDesign,
   ScenarioLocation,
   SkillKey,
 } from '@family-feudal/shared'
@@ -109,14 +111,33 @@ function addScenario() {
     emoji: '❔',
     title: 'New Scenario',
     description: 'Something is afoot at {town}.',
-    skill: 'combat',
-    difficulty: 9,
+    approaches: [
+      { label: 'Meet it head-on', skill: 'combat', difficulty: 8 },
+      { label: 'Find another way', skill: 'cunning', difficulty: 8 },
+    ],
     location: 'general',
   })
 }
 
 function removeScenario(index: number) {
   contentData.value?.content.scenarios.splice(index, 1)
+}
+
+function addApproach(s: ScenarioDesign) {
+  if (s.approaches.length < 3) {
+    s.approaches.push({ label: 'New approach', skill: 'combat', difficulty: 8 })
+  }
+}
+
+function removeApproach(s: ScenarioDesign, index: number) {
+  if (s.approaches.length > 2) s.approaches.splice(index, 1)
+}
+
+/** compact "label (Skill diff)" list for the room inspector */
+function approachSummary(s: Scenario): string {
+  return s.approaches
+    .map((a) => `${a.label} (${SKILL_LABELS[a.skill]} ${a.difficulty})`)
+    .join(' / ')
 }
 
 function locationKeys(): ScenarioLocation[] {
@@ -229,9 +250,10 @@ onUnmounted(() => {
     <section v-if="contentData" class="card">
       <h2>Scenarios</h2>
       <p class="dim">
-        Every scenario rewards 1 Influence. Players never see the skill or difficulty — the
-        emoji and description are pure flavour, so write them as the only clue. Use
-        <code>{town}</code> for the town name. Applies to rounds planned after saving.
+        Every scenario rewards 1 Influence and offers 2–3 approaches. Players see the
+        approach labels but never the skill or difficulty behind them — the wording is the
+        only clue, so write labels that hint at the skill. Use <code>{town}</code> for the
+        town name. Applies to rounds planned after saving.
       </p>
       <div
         v-for="(s, i) in contentData.content.scenarios"
@@ -240,24 +262,11 @@ onUnmounted(() => {
       >
         <input v-model="s.emoji" type="text" maxlength="8" class="emoji" title="Flavour emoji" />
         <input v-model="s.title" type="text" maxlength="60" class="title" placeholder="Title" />
-        <select v-model="s.skill" title="Hidden skill tested">
-          <option v-for="skill in skillKeys()" :key="skill" :value="skill">
-            {{ SKILL_LABELS[skill] }}
-          </option>
-        </select>
         <select v-model="s.location" title="Where this scenario can appear">
           <option v-for="loc in locationKeys()" :key="loc" :value="loc">
             {{ SCENARIO_LOCATION_LABELS[loc] }}
           </option>
         </select>
-        <input
-          v-model.number="s.difficulty"
-          type="number"
-          min="1"
-          max="20"
-          class="num"
-          title="Hidden difficulty (the lone member's skill + d6 must reach it)"
-        />
         <button class="small secondary" title="Remove scenario" @click="removeScenario(i)">✕</button>
         <input
           v-model="s.description"
@@ -266,6 +275,44 @@ onUnmounted(() => {
           class="description"
           placeholder="Description — {town} becomes the town name"
         />
+        <div class="approaches">
+          <div v-for="(a, j) in s.approaches" :key="j" class="approach-edit">
+            <input
+              v-model="a.label"
+              type="text"
+              maxlength="60"
+              placeholder="Approach label (shown to players)"
+            />
+            <select v-model="a.skill" title="Hidden skill tested">
+              <option v-for="skill in skillKeys()" :key="skill" :value="skill">
+                {{ SKILL_LABELS[skill] }}
+              </option>
+            </select>
+            <input
+              v-model.number="a.difficulty"
+              type="number"
+              min="1"
+              max="20"
+              class="num"
+              title="Hidden difficulty (the member's skill + d6 must reach it)"
+            />
+            <button
+              class="small secondary"
+              title="Remove approach"
+              :disabled="s.approaches.length <= 2"
+              @click="removeApproach(s, j)"
+            >
+              ✕
+            </button>
+          </div>
+          <button
+            v-if="s.approaches.length < 3"
+            class="small secondary"
+            @click="addApproach(s)"
+          >
+            + approach
+          </button>
+        </div>
       </div>
       <div class="settings-actions">
         <button class="small" @click="addScenario">+ Add scenario</button>
@@ -353,14 +400,13 @@ onUnmounted(() => {
         <h2>Scenarios (current round)</h2>
         <table>
           <thead>
-            <tr><th>Title</th><th>Town</th><th>Skill</th><th>Difficulty</th></tr>
+            <tr><th>Title</th><th>Town</th><th>Approaches</th></tr>
           </thead>
           <tbody>
             <tr v-for="s in detail.scenarios" :key="s.id">
               <td>{{ s.emoji }} {{ s.title }}</td>
               <td>{{ townName(s.townId) }}{{ s.homeFamilyId ? ' 🏠' : '' }}</td>
-              <td>{{ SKILL_LABELS[s.skill] }}</td>
-              <td>{{ s.difficulty }}</td>
+              <td>{{ approachSummary(s) }}</td>
             </tr>
           </tbody>
         </table>
@@ -484,7 +530,7 @@ input.swatch {
 /* scenario editor */
 .scenario-row {
   display: grid;
-  grid-template-columns: 3.2em 1fr auto auto auto auto;
+  grid-template-columns: 3.2em 1fr auto auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding: 0.55rem 0;
@@ -504,11 +550,23 @@ input.swatch {
   font-size: 0.85rem;
 }
 
-.scenario-row .difficulty {
-  display: inline-flex;
+.scenario-row .approaches {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-left: 1.2rem;
+}
+
+.approach-edit {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 0.35rem 0.5rem;
   align-items: center;
-  gap: 0.25rem;
-  color: var(--text-dim);
+}
+
+.scenario-row .approaches > button {
+  align-self: flex-start;
 }
 
 @media (max-width: 800px) {

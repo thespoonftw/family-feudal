@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import type {
+  ApproachChoices,
   Assignments,
   Family,
   FamilyMember,
@@ -8,6 +9,7 @@ import type {
   Player,
   RoundResult,
   Scenario,
+  ScenarioApproach,
   ScenarioDesign,
   ScenarioOutcome,
   SkillKey,
@@ -32,6 +34,8 @@ export interface Room {
   scenarios: Scenario[]
   /** familyId -> (memberId -> scenarioId) */
   assignments: Record<string, Assignments>
+  /** familyId -> (scenarioId -> approach index), set during the approach phase */
+  choices: Record<string, ApproachChoices>
   lastResult: RoundResult | null
   resultHistory: RoundResult[]
   winnerFamilyIds: string[] | null
@@ -69,6 +73,7 @@ export function createRoom(isCodeTaken: (code: string) => boolean): Room {
     presets: buildPresets(content),
     scenarios: [],
     assignments: {},
+    choices: {},
     lastResult: null,
     resultHistory: [],
     winnerFamilyIds: null,
@@ -182,15 +187,18 @@ function instantiate(design: ScenarioDesign, townId: string, towns: Town[]): Sce
     title: design.title,
     description: design.description.replace('{town}', town?.name ?? 'the realm'),
     townId,
-    skill: design.skill,
-    difficulty: design.difficulty,
+    approaches: design.approaches.map((a) => ({ ...a })),
   }
 }
 
 function beginPlanning(room: Room): void {
   room.scenarios = pickScenarios(room)
   room.assignments = {}
-  for (const family of room.families) room.assignments[family.id] = {}
+  room.choices = {}
+  for (const family of room.families) {
+    room.assignments[family.id] = {}
+    room.choices[family.id] = {}
+  }
   for (const player of room.players) player.ready = false
   room.phase = 'planning'
 }
@@ -227,6 +235,46 @@ export function allReady(room: Room): boolean {
   return active.length > 0 && active.every((p) => p.ready)
 }
 
+/**
+ * End the planning phase. Normally moves to the approach phase; if no house deployed
+ * anyone there is nothing to choose, so the round resolves immediately.
+ */
+export function finishPlanning(room: Room): void {
+  const anyDeployed = Object.values(room.assignments).some(
+    (a) => Object.keys(a).length > 0,
+  )
+  if (!anyDeployed) {
+    resolveRound(room)
+    return
+  }
+  room.phase = 'approach'
+  for (const player of room.players) player.ready = false
+}
+
+/** Validate and store a player's full approach-choice map. Returns an error message or null. */
+export function setChoices(
+  room: Room,
+  playerId: string,
+  choices: ApproachChoices,
+): string | null {
+  if (room.phase !== 'approach') return 'Not in the approach phase'
+  const family = room.families.find((f) => f.playerId === playerId)
+  if (!family) return 'You have no family in this game'
+  const assigned = new Set(Object.values(room.assignments[family.id] ?? {}))
+  const clean: ApproachChoices = {}
+  for (const [scenarioId, index] of Object.entries(choices)) {
+    if (!assigned.has(scenarioId)) return 'You have no one at that scenario'
+    const scenario = room.scenarios.find((s) => s.id === scenarioId)
+    if (!scenario) return 'Unknown scenario'
+    if (!Number.isInteger(index) || index < 0 || index >= scenario.approaches.length) {
+      return 'Unknown approach'
+    }
+    clean[scenarioId] = index
+  }
+  room.choices[family.id] = clean
+  return null
+}
+
 export function resolveRound(room: Room): void {
   const outcomes: ScenarioOutcome[] = []
   for (const scenario of room.scenarios) {
@@ -237,10 +285,13 @@ export function resolveRound(room: Room): void {
         .map(([mid]) => mid)
       if (memberIds.length === 0) continue
       const members = family.members.filter((m) => memberIds.includes(m.id))
-      const skillTotal = members.reduce((sum, m) => sum + m.skills[scenario.skill], 0)
+      // families that never picked take the first approach
+      const approachIndex = room.choices[family.id]?.[scenario.id] ?? 0
+      const approach = scenario.approaches[approachIndex] as ScenarioApproach
+      const skillTotal = members.reduce((sum, m) => sum + m.skills[approach.skill], 0)
       const roll = randomInt(1, 6)
       const total = skillTotal + roll
-      const success = total >= scenario.difficulty
+      const success = total >= approach.difficulty
       // every scenario is worth exactly 1 Influence
       const influenceGained = success ? 1 : 0
       family.influence += influenceGained
@@ -248,10 +299,11 @@ export function resolveRound(room: Room): void {
         scenarioId: scenario.id,
         familyId: family.id,
         memberIds,
+        approachIndex,
         skillTotal,
         roll,
         total,
-        difficulty: scenario.difficulty,
+        difficulty: approach.difficulty,
         success,
         influenceGained,
       })
@@ -290,6 +342,7 @@ export function buildView(room: Room, playerId: string | null): GameView {
     scenarios: room.scenarios,
     playerId,
     yourAssignments: family ? (room.assignments[family.id] ?? {}) : {},
+    yourChoices: family ? (room.choices[family.id] ?? {}) : {},
     revealedAssignments: revealed ? room.assignments : null,
     lastResult: room.phase === 'resolution' || room.phase === 'finished' ? room.lastResult : null,
     resultHistory: room.phase === 'finished' ? room.resultHistory : [],

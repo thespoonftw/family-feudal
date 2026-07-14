@@ -50,32 +50,93 @@ export const MEMBER_NAMES: string[] = [
   'Nerissa', 'Osric', 'Petra', 'Roderick',
 ]
 
-// Emoji are flavour, not skill markers — players must read the story to guess the skill.
+// Emoji are flavour, not skill markers. Each scenario offers 2–3 approaches; the labels
+// are shown to players in the approach phase, but the skill and difficulty stay hidden —
+// the wording of each label is the only clue.
 export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
-  // Combat
-  { emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}. Drive them off.', skill: 'combat', difficulty: 8, location: 'general' },
-  { emoji: '🏇', title: 'Jousting Tournament', description: 'A grand tourney is held at {town}. Glory awaits the victors.', skill: 'combat', difficulty: 8, location: 'general' },
-  { emoji: '🏴', title: 'Border Skirmish', description: 'Raiders from beyond the realm probe the defences of {town}.', skill: 'combat', difficulty: 9, location: 'general' },
-  { emoji: '🐗', title: 'Beast Hunt', description: 'A monstrous beast stalks the woods near {town}. Hunters are called for.', skill: 'combat', difficulty: 7, location: 'general' },
-  // Beauty
-  { emoji: '🎭', title: 'Masquerade Ball', description: 'The nobility of {town} hosts a dazzling masquerade. Impressions matter.', skill: 'beauty', difficulty: 8, location: 'general' },
-  { emoji: '🖼️', title: 'Portrait Unveiling', description: 'A famed painter seeks muses in {town} for a royal commission.', skill: 'beauty', difficulty: 7, location: 'general' },
-  { emoji: '💍', title: 'Noble Wedding', description: 'Two great houses wed at {town}. All eyes are on the guests.', skill: 'beauty', difficulty: 8, location: 'general' },
-  // Intellect
-  { emoji: '📚', title: "Scholars' Symposium", description: 'Learned minds gather in {town} to debate the great questions.', skill: 'intellect', difficulty: 8, location: 'general' },
-  { emoji: '🐀', title: 'Plague Outbreak', description: 'Sickness spreads through {town}. Physicians and scholars are needed.', skill: 'intellect', difficulty: 9, location: 'general' },
-  { emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. Someone must solve the mystery.', skill: 'intellect', difficulty: 7, location: 'general' },
-  // Diplomacy
-  { emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats. Broker a settlement.', skill: 'diplomacy', difficulty: 8, location: 'general' },
-  { emoji: '🕊️', title: 'Peace Talks', description: 'Feuding lords meet at {town} under a banner of truce.', skill: 'diplomacy', difficulty: 9, location: 'general' },
-  { emoji: '🌾', title: 'Harvest Festival', description: 'The people of {town} celebrate the harvest. Win their goodwill.', skill: 'diplomacy', difficulty: 7, location: 'general' },
+  // General
+  { emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}. Meet them with steel — or with schemes.', location: 'general', approaches: [
+    { label: 'Ride them down', skill: 'combat', difficulty: 8 },
+    { label: 'Infiltrate their camp', skill: 'cunning', difficulty: 8 },
+  ] },
+  { emoji: '🏇', title: 'Jousting Tournament', description: 'A grand tourney is held at {town}. Glory awaits in the lists — and in the stands.', location: 'general', approaches: [
+    { label: 'Enter the lists', skill: 'combat', difficulty: 8 },
+    { label: 'Dazzle the royal box', skill: 'charm', difficulty: 7 },
+  ] },
+  { emoji: '🏴', title: 'Border Skirmish', description: 'Raiders from beyond the realm probe the defences of {town}.', location: 'general', approaches: [
+    { label: 'Hold the wall', skill: 'combat', difficulty: 9 },
+    { label: 'Sabotage their supplies', skill: 'cunning', difficulty: 8 },
+  ] },
+  { emoji: '🐗', title: 'Beast Hunt', description: 'A monstrous beast stalks the woods near {town}. It can be fought — or outwitted.', location: 'general', approaches: [
+    { label: 'Face it head-on', skill: 'combat', difficulty: 8 },
+    { label: 'Study its habits and lay a trap', skill: 'intellect', difficulty: 7 },
+  ] },
+  { emoji: '🎭', title: 'Masquerade Ball', description: 'The nobility of {town} hosts a dazzling masquerade. Much is said behind the masks.', location: 'general', approaches: [
+    { label: 'Be the talk of the ball', skill: 'charm', difficulty: 8 },
+    { label: 'Trade whispers behind masks', skill: 'cunning', difficulty: 8 },
+  ] },
+  { emoji: '💍', title: 'Noble Wedding', description: 'Two great houses wed at {town}. All eyes are on the guests — and old grudges simmer.', location: 'general', approaches: [
+    { label: 'Outshine the bridal party', skill: 'charm', difficulty: 8 },
+    { label: 'Toast both houses', skill: 'diplomacy', difficulty: 7 },
+  ] },
+  { emoji: '📚', title: "Scholars' Symposium", description: 'Learned minds gather in {town} to debate the great questions — heatedly.', location: 'general', approaches: [
+    { label: 'Win the great debate', skill: 'intellect', difficulty: 8 },
+    { label: 'Keep the rival schools civil', skill: 'diplomacy', difficulty: 8 },
+  ] },
+  { emoji: '🐀', title: 'Plague Outbreak', description: 'Sickness spreads through {town}, and panic spreads faster.', location: 'general', approaches: [
+    { label: 'Find the source', skill: 'intellect', difficulty: 9 },
+    { label: 'Calm the terrified town', skill: 'diplomacy', difficulty: 8 },
+  ] },
+  { emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. Follow the clues — or the thieves.', location: 'general', approaches: [
+    { label: 'Follow the clues', skill: 'intellect', difficulty: 8 },
+    { label: 'Shake down the fences', skill: 'cunning', difficulty: 7 },
+  ] },
+  { emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats over a fortune in cargo.', location: 'general', approaches: [
+    { label: 'Broker a settlement', skill: 'diplomacy', difficulty: 8 },
+    { label: 'Quietly rig the ledgers', skill: 'cunning', difficulty: 8 },
+  ] },
+  { emoji: '🕊️', title: 'Peace Talks', description: 'Feuding lords meet at {town} under a banner of truce. Every house wants the credit.', location: 'general', approaches: [
+    { label: 'Draft the truce', skill: 'diplomacy', difficulty: 9 },
+    { label: 'Soften hearts at the feast', skill: 'charm', difficulty: 8 },
+    { label: 'Blackmail both sides into peace', skill: 'cunning', difficulty: 9 },
+  ] },
+  { emoji: '🌾', title: 'Harvest Festival', description: 'The people of {town} celebrate the harvest. Win their goodwill.', location: 'general', approaches: [
+    { label: 'Crown the festival in style', skill: 'charm', difficulty: 7 },
+    { label: 'Judge the contests fairly', skill: 'diplomacy', difficulty: 7 },
+  ] },
+  { emoji: '🕯️', title: 'Whispers of Treason', description: 'A plot brews in the back rooms of {town}. Expose it — quietly or loudly.', location: 'general', approaches: [
+    { label: 'Turn their spy', skill: 'cunning', difficulty: 8 },
+    { label: 'Kick down the door', skill: 'combat', difficulty: 9 },
+  ] },
   // Capital only
-  { emoji: '👑', title: 'Coronation', description: 'A new monarch is crowned at {town}. The whole realm watches.', skill: 'diplomacy', difficulty: 10, location: 'capital' },
-  { emoji: '🏰', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', skill: 'diplomacy', difficulty: 9, location: 'capital' },
-  { emoji: '🥂', title: "Queen's Gala", description: 'The Queen hosts a resplendent gala at {town}.', skill: 'beauty', difficulty: 9, location: 'capital' },
+  { emoji: '👑', title: 'Coronation', description: 'A new monarch is crowned at {town}. The whole realm watches every move.', location: 'capital', approaches: [
+    { label: 'Swear fealty with grace', skill: 'diplomacy', difficulty: 10 },
+    { label: 'Steal the spotlight', skill: 'charm', difficulty: 10 },
+    { label: 'Work the shadowed halls', skill: 'cunning', difficulty: 10 },
+  ] },
+  { emoji: '🏰', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', location: 'capital', approaches: [
+    { label: 'Petition the crown', skill: 'diplomacy', difficulty: 9 },
+    { label: 'Bribe the chamberlain', skill: 'cunning', difficulty: 9 },
+  ] },
+  { emoji: '🥂', title: "Queen's Gala", description: 'The Queen hosts a resplendent gala at {town}. She favours wit as much as beauty.', location: 'capital', approaches: [
+    { label: 'Charm the court', skill: 'charm', difficulty: 9 },
+    { label: 'Compose a verse for the Queen', skill: 'intellect', difficulty: 8 },
+  ] },
   // Home estates
-  { emoji: '🏹', title: 'Poachers on the Estate', description: 'Poachers have been spotted on your lands near {town}.', skill: 'combat', difficulty: 5, location: 'home' },
-  { emoji: '🍗', title: 'Feast for the Household', description: 'Your household at {town} expects a memorable feast.', skill: 'beauty', difficulty: 5, location: 'home' },
-  { emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray.', skill: 'intellect', difficulty: 5, location: 'home' },
-  { emoji: '🪨', title: 'Tenant Dispute', description: 'Two tenant farmers at {town} quarrel over a boundary stone.', skill: 'diplomacy', difficulty: 5, location: 'home' },
+  { emoji: '🏹', title: 'Poachers on the Estate', description: 'Poachers have been spotted on your lands near {town}.', location: 'home', approaches: [
+    { label: 'Run them off', skill: 'combat', difficulty: 5 },
+    { label: 'Set snares of your own', skill: 'cunning', difficulty: 5 },
+  ] },
+  { emoji: '🍗', title: 'Feast for the Household', description: 'Your household at {town} expects a memorable feast — with half the guests feuding.', location: 'home', approaches: [
+    { label: 'Host with flair', skill: 'charm', difficulty: 5 },
+    { label: 'Seat the rivals apart', skill: 'diplomacy', difficulty: 5 },
+  ] },
+  { emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray — and the tax collector is due.', location: 'home', approaches: [
+    { label: 'Balance the books', skill: 'intellect', difficulty: 5 },
+    { label: 'Cook the books', skill: 'cunning', difficulty: 5 },
+  ] },
+  { emoji: '🪨', title: 'Tenant Dispute', description: 'Two tenant farmers at {town} quarrel over a boundary stone.', location: 'home', approaches: [
+    { label: 'Hear both farmers out', skill: 'diplomacy', difficulty: 5 },
+    { label: 'Survey the old maps', skill: 'intellect', difficulty: 5 },
+  ] },
 ]

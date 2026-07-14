@@ -6,11 +6,13 @@ Jackbox-style multiplayer party game hosted at https://family-feudal.brunch-proj
 A shared "host board" tab creates the room and shows the code, realm map, round number and
 leaderboard — it is a spectator, not a player, but it starts the game from its lobby.
 Players join from their own devices with the 4-letter code; the first joiner is the VIP
-(`Player.isHost`, display only). Each player is assigned a noble family
-(name, colour, home town, 4 members with skills 1–5 in Combat/Beauty/Intellect/Diplomacy).
+(`Player.isHost`, display only). Each player is assigned a noble family (name, colour,
+home town, 4 members with skills 1–5 in Combat/Charm/Intellect/Diplomacy/Cunning).
 Five rounds of: planning (assign members to scenarios on the realm map, one member per
-scenario) → resolution (member's skill + d6 vs difficulty → Influence); each round advances
-when every connected player has confirmed. Most Influence after 5 rounds wins.
+scenario) → approach (each scenario offers 2–3 approaches; pick one per deployed member;
+skipped if nobody deployed) → resolution (member's skill for the chosen approach + d6 vs
+that approach's difficulty → Influence); each phase advances when every connected player
+has confirmed. Most Influence after 5 rounds wins.
 
 ## Stack
 
@@ -88,8 +90,8 @@ Three layers:
   values.
 - **Designable content** (`server/src/game/content.ts`): `GameContent` — the 8
   `HouseDesign`s (name, colour, home city name) and the `ScenarioDesign` list (flavour
-  emoji, title, description with `{town}`, hidden skill, hidden difficulty, location:
-  general/capital/home). Edited from the dev panel (full-replace PUT — the saved designs
+  emoji, title, description with `{town}`, 2–3 approaches — each a public label plus a
+  hidden skill and difficulty — and location: general/capital/home). Edited from the dev panel (full-replace PUT — the saved designs
   ARE the settings; there is no reset), validated by `sanitizeContent` (needs ≥1 capital
   + ≥1 home scenario), persisted to `game-content.json` (gitignored; override via
   `CONTENT_FILE`). Rooms snapshot towns + house presets at `room:create`; scenario
@@ -102,11 +104,14 @@ Each joining player is dealt a *random* free house (house + home city) in the lo
 (`claimFamily` in `engine.ts`; freed on lobby departure via `releaseFamily`); members are
 rolled at `startGame`.
 
-Resolution: the assigned member's relevant skill + 1d6 ≥ difficulty → success is worth
-exactly 1 Influence (see `resolveRound` in `engine.ts`). Only one member per family may
-attend each scenario (enforced in `setAssignments` and greyed out as "Used" in the UI).
-Players are never shown a scenario's skill or difficulty — the emoji/description are
-flavour clues only; players see all four skills for each member when assigning.
+Resolution: the member's skill for the chosen approach + 1d6 ≥ that approach's difficulty
+→ success is worth exactly 1 Influence (see `resolveRound` in `engine.ts`; unchosen
+assignments default to the first approach). Only one member per family may attend each
+scenario (enforced in `setAssignments` and greyed out as "Used" in the UI). Approach
+choices are validated in `setChoices` (approach phase only, only for scenarios you
+deployed to). Players see approach *labels* but never the skill or difficulty behind
+them — labels/emoji/description are the only clues; players see all five skills for each
+member when assigning.
 
 ## Dev Panel
 

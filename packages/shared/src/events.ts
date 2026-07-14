@@ -1,4 +1,4 @@
-import type { Assignments, GameView } from './types.js'
+import type { ApproachChoices, Assignments, GameView } from './types.js'
 
 export interface JoinAck {
   ok: boolean
@@ -30,6 +30,9 @@ export interface ClientToServerEvents {
   'game:start': (cb: (ack: Ack) => void) => void
   /** replace your full assignment map for this round */
   'plan:assign': (assignments: Assignments, cb: (ack: Ack) => void) => void
+  /** replace your full approach-choice map for this round (approach phase) */
+  'approach:choose': (choices: ApproachChoices, cb: (ack: Ack) => void) => void
+  /** ready toggle for the planning and approach phases */
   'plan:ready': (ready: boolean) => void
   /** confirm the round's results; once every connected player confirms, the game advances */
   'round:next': (cb: (ack: Ack) => void) => void

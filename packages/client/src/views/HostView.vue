@@ -60,6 +60,11 @@ function outcomesFor(scenarioId: string): ScenarioOutcome[] {
   return view.value?.lastResult?.outcomes.filter((o) => o.scenarioId === scenarioId) ?? []
 }
 
+function approachLabel(o: ScenarioOutcome): string {
+  const scenario = view.value?.scenarios.find((s) => s.id === o.scenarioId)
+  return scenario?.approaches[o.approachIndex]?.label ?? ''
+}
+
 const readyCount = computed(() => view.value?.players.filter((p) => p.ready).length ?? 0)
 
 const winnerNames = computed(() => {
@@ -119,8 +124,8 @@ function closeBoard() {
       </div>
     </main>
 
-    <!-- ================= PLANNING ================= -->
-    <main v-else-if="view.phase === 'planning'" class="stage">
+    <!-- ================= PLANNING / APPROACH ================= -->
+    <main v-else-if="view.phase === 'planning' || view.phase === 'approach'" class="stage">
       <section class="map-pane">
         <RealmMap
           :towns="view.towns"
@@ -134,7 +139,7 @@ function closeBoard() {
       <aside class="side-pane">
         <ScoreBoard :families="view.families" :players="view.players" />
         <div class="card ready-card">
-          <h3>Planning</h3>
+          <h3>{{ view.phase === 'planning' ? 'Planning' : 'Choosing approaches' }}</h3>
           <p class="hint">{{ readyCount }}/{{ view.players.length }} houses ready</p>
           <ul class="ready-list">
             <li v-for="p in view.players" :key="p.id">
@@ -143,7 +148,7 @@ function closeBoard() {
               <span class="spacer" />
               <span v-if="!p.connected" class="offline">away</span>
               <span v-else-if="p.ready" class="ready">✓ ready</span>
-              <span v-else class="hint">scheming…</span>
+              <span v-else class="hint">{{ view.phase === 'planning' ? 'scheming…' : 'deciding…' }}</span>
             </li>
           </ul>
         </div>
@@ -169,7 +174,7 @@ function closeBoard() {
             <span class="chip" :style="{ background: familyById(o.familyId)?.color }" />
             <span class="who">
               <strong>{{ familyById(o.familyId)?.name }}</strong>
-              <small>{{ memberNames(o.familyId, o.memberIds) }}</small>
+              <small>{{ memberNames(o.familyId, o.memberIds) }} — “{{ approachLabel(o) }}”</small>
             </span>
             <span class="math">
               {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}

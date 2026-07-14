@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { io, type Socket } from 'socket.io-client'
 import type {
+  ApproachChoices,
   Assignments,
   ClientToServerEvents,
   Family,
@@ -181,6 +182,14 @@ export const useGameStore = defineStore('game', () => {
     })
   }
 
+  function choose(choices: ApproachChoices): Promise<string | null> {
+    return new Promise((resolve) => {
+      socket.emit('approach:choose', choices, (ack) =>
+        resolve(ack.ok ? null : (ack.error ?? 'Failed')),
+      )
+    })
+  }
+
   function setReady(ready: boolean): void {
     socket.emit('plan:ready', ready)
   }
@@ -213,6 +222,7 @@ export const useGameStore = defineStore('game', () => {
     leave,
     startGame,
     assign,
+    choose,
     setReady,
     nextRound,
     hasStoredSession,

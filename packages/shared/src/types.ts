@@ -1,13 +1,14 @@
 // ---------- Core game types ----------
 
-export const SKILLS = ['combat', 'beauty', 'intellect', 'diplomacy'] as const
+export const SKILLS = ['combat', 'charm', 'intellect', 'diplomacy', 'cunning'] as const
 export type SkillKey = (typeof SKILLS)[number]
 
 export const SKILL_LABELS: Record<SkillKey, string> = {
   combat: 'Combat',
-  beauty: 'Beauty',
+  charm: 'Charm',
   intellect: 'Intellect',
   diplomacy: 'Diplomacy',
+  cunning: 'Cunning',
 }
 
 export interface FamilyMember {
@@ -37,15 +38,23 @@ export interface Town {
   isCapital: boolean
 }
 
+/** one way of tackling a scenario — the label is public, the skill and difficulty are not */
+export interface ScenarioApproach {
+  /** short verb phrase shown to players when choosing, e.g. "Storm the gates" */
+  label: string
+  skill: SkillKey
+  difficulty: number
+}
+
 export interface Scenario {
   id: string
-  /** flavour emoji shown on the map — deliberately does not hint at the skill */
+  /** flavour emoji shown on the map — deliberately does not hint at the skills */
   emoji: string
   title: string
   description: string
   townId: string
-  skill: SkillKey
-  difficulty: number
+  /** 2–3 ways to tackle it; players pick one in the approach phase */
+  approaches: ScenarioApproach[]
   /** set when this is a home scenario belonging to one family */
   homeFamilyId?: string
 }
@@ -62,10 +71,15 @@ export interface Player {
 /** memberId -> scenarioId (members absent from the map stay idle at home) */
 export type Assignments = Record<string, string>
 
+/** scenarioId -> index into that scenario's approaches (unchosen assignments default to 0) */
+export type ApproachChoices = Record<string, number>
+
 export interface ScenarioOutcome {
   scenarioId: string
   familyId: string
   memberIds: string[]
+  /** which of the scenario's approaches the family took */
+  approachIndex: number
   skillTotal: number
   roll: number
   total: number
@@ -79,7 +93,7 @@ export interface RoundResult {
   outcomes: ScenarioOutcome[]
 }
 
-export type GamePhase = 'lobby' | 'planning' | 'resolution' | 'finished'
+export type GamePhase = 'lobby' | 'planning' | 'approach' | 'resolution' | 'finished'
 
 /** Personalised snapshot sent to each client. */
 export interface GameView {
@@ -95,6 +109,8 @@ export interface GameView {
   playerId: string | null
   /** your own assignments during planning (others' are hidden until resolution) */
   yourAssignments: Assignments
+  /** your own approach choices during the approach phase */
+  yourChoices: ApproachChoices
   /** all assignments — only populated during resolution/finished */
   revealedAssignments: Record<string, Assignments> | null
   /** results of the round just resolved (resolution phase) */
@@ -141,16 +157,25 @@ export interface HouseDesign {
   cityName: string
 }
 
+/** one designed way of tackling a scenario */
+export interface ApproachDesign {
+  /** short verb phrase shown to players when choosing, e.g. "Storm the gates" */
+  label: string
+  /** hidden skill this approach tests */
+  skill: SkillKey
+  /** the member's skill + d6 must reach this */
+  difficulty: number
+}
+
 /** a scenario template; every scenario rewards 1 Influence on success */
 export interface ScenarioDesign {
-  /** flavour emoji shown on the map — should hint at the story, not the skill */
+  /** flavour emoji shown on the map — should hint at the story, not the skills */
   emoji: string
   title: string
   /** {town} is replaced with the town name */
   description: string
-  skill: SkillKey
-  /** the assigned members' combined skill + d6 must reach this */
-  difficulty: number
+  /** 2–3 approaches players can pick between */
+  approaches: ApproachDesign[]
   location: ScenarioLocation
 }
 

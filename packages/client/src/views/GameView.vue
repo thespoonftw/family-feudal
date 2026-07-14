@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import type { Family, Scenario, ScenarioOutcome, SkillKey } from '@family-feudal/shared'
+import type {
+  Family,
+  FamilyMember,
+  Scenario,
+  ScenarioOutcome,
+  SkillKey,
+} from '@family-feudal/shared'
 import { SKILLS } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
@@ -16,9 +22,10 @@ const menuOpen = ref(false)
 
 const SKILL_ICONS: Record<SkillKey, string> = {
   combat: '⚔️',
-  beauty: '🌹',
+  charm: '🌹',
   intellect: '📜',
   diplomacy: '🕊️',
+  cunning: '🦊',
 }
 
 onMounted(async () => {
@@ -110,6 +117,34 @@ function familyOf(playerId: string): Family | undefined {
   return view.value?.families.find((f) => f.playerId === playerId)
 }
 
+// ---------- approach phase helpers ----------
+
+/** the member+scenario pairs you deployed this round, in map order */
+const yourDeployments = computed<{ scenario: Scenario; member: FamilyMember }[]>(() => {
+  if (!view.value) return []
+  const out: { scenario: Scenario; member: FamilyMember }[] = []
+  for (const [memberId, scenarioId] of Object.entries(view.value.yourAssignments)) {
+    const scenario = view.value.scenarios.find((s) => s.id === scenarioId)
+    const member = game.yourFamily?.members.find((m) => m.id === memberId)
+    if (scenario && member) out.push({ scenario, member })
+  }
+  return out
+})
+
+function chosenIndex(scenarioId: string): number | null {
+  return view.value?.yourChoices[scenarioId] ?? null
+}
+
+const allChosen = computed(() =>
+  yourDeployments.value.every((d) => chosenIndex(d.scenario.id) !== null),
+)
+
+async function pickApproach(scenarioId: string, index: number) {
+  if (!view.value) return
+  const next = { ...view.value.yourChoices, [scenarioId]: index }
+  actionError.value = (await game.choose(next)) ?? ''
+}
+
 async function onNextRound() {
   actionError.value = (await game.nextRound()) ?? ''
 }
@@ -131,6 +166,11 @@ watch(
 
 function outcomesFor(scenarioId: string): ScenarioOutcome[] {
   return view.value?.lastResult?.outcomes.filter((o) => o.scenarioId === scenarioId) ?? []
+}
+
+function approachLabel(o: ScenarioOutcome): string {
+  const scenario = view.value?.scenarios.find((s) => s.id === o.scenarioId)
+  return scenario?.approaches[o.approachIndex]?.label ?? ''
 }
 
 function familyById(familyId: string): Family | undefined {
@@ -281,6 +321,58 @@ const winnerNames = computed(() => {
       </div>
     </main>
 
+    <!-- ================= APPROACH ================= -->
+    <main v-else-if="view.phase === 'approach'" class="approach">
+      <section class="choices-pane">
+        <h2>Round {{ view.round }} — choose your approach</h2>
+        <p v-if="yourDeployments.length === 0" class="hint">
+          You sent no one out this round. Confirm below while the other houses decide…
+        </p>
+        <div v-for="d in yourDeployments" :key="d.scenario.id" class="card choice-card">
+          <h3>
+            {{ d.scenario.emoji }} {{ d.scenario.title }}
+            <small>at {{ townName(d.scenario.townId) }}</small>
+          </h3>
+          <p class="hint">{{ d.scenario.description }}</p>
+          <p class="attendee">
+            <strong>{{ d.member.name }}</strong> attends —
+            <small>
+              <template v-for="(skill, i) in SKILLS" :key="skill">
+                <template v-if="i > 0"> · </template>
+                {{ SKILL_ICONS[skill] }}{{ d.member.skills[skill] }}
+              </template>
+            </small>
+          </p>
+          <div class="approach-options">
+            <button
+              v-for="(a, i) in d.scenario.approaches"
+              :key="i"
+              class="approach-btn"
+              :class="{ secondary: chosenIndex(d.scenario.id) !== i }"
+              @click="pickApproach(d.scenario.id, i)"
+            >
+              {{ a.label }}
+            </button>
+          </div>
+        </div>
+      </section>
+      <div class="plan-bar">
+        <button
+          class="ready-btn"
+          :disabled="!allChosen && !game.you?.ready"
+          @click="game.setReady(!game.you?.ready)"
+        >
+          {{
+            game.you?.ready
+              ? 'Not ready after all…'
+              : allChosen
+                ? 'Commit — the die is cast'
+                : 'Choose an approach for each scenario…'
+          }}
+        </button>
+      </div>
+    </main>
+
     <!-- ================= RESOLUTION ================= -->
     <main v-else-if="view.phase === 'resolution'" class="resolution">
       <section class="results-pane">
@@ -300,7 +392,7 @@ const winnerNames = computed(() => {
             <span class="chip" :style="{ background: familyById(o.familyId)?.color }" />
             <span class="who">
               <strong>{{ familyById(o.familyId)?.name }}</strong>
-              <small>{{ memberNames(o.familyId, o.memberIds) }}</small>
+              <small>{{ memberNames(o.familyId, o.memberIds) }} — “{{ approachLabel(o) }}”</small>
             </span>
             <span class="math">
               {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}
@@ -550,6 +642,57 @@ button.small {
   font-weight: normal;
   font-size: 0.8em;
   margin-left: 0.4em;
+}
+
+/* approach phase */
+.approach {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.choices-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.choices-pane h2 {
+  color: var(--gold-soft);
+}
+
+.choice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.choice-card h3 small {
+  color: var(--text-dim);
+  font-weight: normal;
+  font-size: 0.8em;
+  margin-left: 0.4em;
+}
+
+.choice-card .attendee small {
+  color: var(--text-dim);
+}
+
+.approach-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.approach-btn {
+  width: 100%;
+  text-align: left;
 }
 
 .side-pane {
