@@ -218,7 +218,9 @@ function closeBoard() {
 
 <style scoped>
 .board {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -275,6 +277,8 @@ button.small {
 /* lobby */
 .lobby {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -459,6 +463,8 @@ button.small {
 /* finished */
 .finished {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -495,6 +501,8 @@ button.small {
 
   .side-pane {
     width: 100%;
+    flex: 0 1 auto;
+    max-height: 40%;
   }
 }
 </style>
