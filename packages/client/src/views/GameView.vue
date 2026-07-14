@@ -383,18 +383,22 @@ header {
   position: fixed;
   inset: 0;
   z-index: 20;
+  background: rgba(10, 7, 3, 0.55);
 }
 
 .menu-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
-  min-width: 11rem;
-  padding: 0.9rem;
+  align-items: center;
+  gap: 1rem;
+  width: min(18rem, 90vw);
+  padding: 1.4rem;
+  text-align: center;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
 }
 

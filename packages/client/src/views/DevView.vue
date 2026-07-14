@@ -87,46 +87,6 @@ async function openRoom(code: string) {
   }
 }
 
-async function patch(path: string, body: unknown) {
-  if (!detail.value) return
-  try {
-    detail.value = await api<DevRoomDetail>(`/dev/rooms/${detail.value.code}${path}`, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    })
-    status.value = `Saved ✓ (${new Date().toLocaleTimeString()})`
-    error.value = ''
-  } catch (e) {
-    error.value = String(e)
-  }
-}
-
-function saveFamily(familyId: string) {
-  const family = detail.value?.families.find((f) => f.id === familyId)
-  if (!family) return
-  void patch(`/families/${familyId}`, {
-    name: family.name,
-    color: family.color,
-    influence: family.influence,
-  })
-}
-
-function saveMember(memberId: string) {
-  const member = detail.value?.families.flatMap((f) => f.members).find((m) => m.id === memberId)
-  if (!member) return
-  void patch(`/members/${memberId}`, { name: member.name, skills: member.skills })
-}
-
-function saveScenario(scenarioId: string) {
-  const scenario = detail.value?.scenarios.find((s) => s.id === scenarioId)
-  if (!scenario) return
-  void patch(`/scenarios/${scenarioId}`, {
-    title: scenario.title,
-    difficulty: scenario.difficulty,
-    reward: scenario.reward,
-  })
-}
-
 function townName(townId: string): string {
   return detail.value?.towns.find((t) => t.id === townId)?.name ?? '?'
 }
@@ -228,15 +188,13 @@ onUnmounted(() => {
         <h2>Families</h2>
         <table>
           <thead>
-            <tr><th>Name</th><th>Colour</th><th>Home</th><th>Influence</th><th /></tr>
+            <tr><th>Name</th><th>Home</th><th>Influence</th></tr>
           </thead>
           <tbody>
             <tr v-for="f in detail.families" :key="f.id">
-              <td><input v-model="f.name" /></td>
-              <td><input v-model="f.color" type="color" class="color" /></td>
+              <td><span class="chip" :style="{ background: f.color }" /> {{ f.name }}</td>
               <td>{{ townName(f.homeTownId) }}</td>
-              <td><input v-model.number="f.influence" type="number" min="0" class="num" /></td>
-              <td><button class="small" @click="saveFamily(f.id)">Save</button></td>
+              <td>{{ f.influence }}</td>
             </tr>
           </tbody>
         </table>
@@ -250,7 +208,6 @@ onUnmounted(() => {
               <th>Family</th>
               <th>Name</th>
               <th v-for="skill in skillKeys()" :key="skill">{{ SKILL_LABELS[skill] }}</th>
-              <th />
             </tr>
           </thead>
           <tbody>
@@ -259,11 +216,8 @@ onUnmounted(() => {
                 <td>
                   <span class="chip" :style="{ background: f.color }" /> {{ f.name }}
                 </td>
-                <td><input v-model="m.name" /></td>
-                <td v-for="skill in skillKeys()" :key="skill">
-                  <input v-model.number="m.skills[skill]" type="number" min="1" max="5" class="num" />
-                </td>
-                <td><button class="small" @click="saveMember(m.id)">Save</button></td>
+                <td>{{ m.name }}</td>
+                <td v-for="skill in skillKeys()" :key="skill">{{ m.skills[skill] }}</td>
               </tr>
             </template>
           </tbody>
@@ -274,16 +228,15 @@ onUnmounted(() => {
         <h2>Scenarios (current round)</h2>
         <table>
           <thead>
-            <tr><th>Title</th><th>Town</th><th>Skill</th><th>Difficulty</th><th>Reward</th><th /></tr>
+            <tr><th>Title</th><th>Town</th><th>Skill</th><th>Difficulty</th><th>Reward</th></tr>
           </thead>
           <tbody>
             <tr v-for="s in detail.scenarios" :key="s.id">
-              <td><input v-model="s.title" /></td>
+              <td>{{ s.title }}</td>
               <td>{{ townName(s.townId) }}{{ s.homeFamilyId ? ' 🏠' : '' }}</td>
               <td>{{ SKILL_LABELS[s.skill] }}</td>
-              <td><input v-model.number="s.difficulty" type="number" min="1" max="30" class="num" /></td>
-              <td><input v-model.number="s.reward" type="number" min="0" max="20" class="num" /></td>
-              <td><button class="small" @click="saveScenario(s.id)">Save</button></td>
+              <td>{{ s.difficulty }}</td>
+              <td>{{ s.reward }}</td>
             </tr>
           </tbody>
         </table>
@@ -355,12 +308,6 @@ input {
 
 input.num {
   width: 4.5em;
-}
-
-input.color {
-  width: 3em;
-  height: 2em;
-  padding: 0.1em;
 }
 
 button.small {

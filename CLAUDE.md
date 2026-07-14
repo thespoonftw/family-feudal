@@ -90,6 +90,6 @@ Resolution: sum of assigned members' relevant skill + 1d6 ≥ difficulty → fam
 ## Dev Panel
 
 `/dev` route — primary section edits the global `GameConfig` (GET/PATCH
-`/api/dev/config`, POST `/api/dev/config/reset`). Below it: live room inspection — edit
-family name/colour/influence, member names/skills, scenario title/difficulty/reward via
-`/api/dev/...` PATCH routes; changes broadcast live to players.
+`/api/dev/config`, POST `/api/dev/config/reset`). Below it: read-only live room
+inspection (players, families, members, scenarios) via GET `/api/dev/rooms[/:code]` —
+in-progress games cannot be edited.

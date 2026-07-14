@@ -6,16 +6,24 @@ import { useGameStore } from '../stores/game'
 const router = useRouter()
 const game = useGameStore()
 
+const NAME_KEY = 'family-feudal-name'
+
 const mode = ref<'menu' | 'create' | 'join'>('menu')
-const name = ref('')
+const name = ref(localStorage.getItem(NAME_KEY) ?? '')
 const code = ref('')
 const error = ref('')
 const busy = ref(false)
+
+function rememberName(): void {
+  const trimmed = name.value.trim()
+  if (trimmed) localStorage.setItem(NAME_KEY, trimmed)
+}
 
 async function submitCreate() {
   if (busy.value) return
   busy.value = true
   error.value = ''
+  rememberName()
   const err = await game.createRoom(name.value)
   busy.value = false
   if (err) {
@@ -29,6 +37,7 @@ async function submitJoin() {
   if (busy.value) return
   busy.value = true
   error.value = ''
+  rememberName()
   const err = await game.joinRoom(code.value, name.value)
   busy.value = false
   if (err) {
