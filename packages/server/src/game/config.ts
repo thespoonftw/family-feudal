@@ -8,6 +8,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   scenariosPerRound: 5,
   skillMin: 1,
   skillMax: 5,
+  checkDC: 6,
   maxPlayers: CITY_SLOTS.length,
 }
 
@@ -18,6 +19,7 @@ export const CONFIG_BOUNDS: Record<keyof GameConfig, [number, number]> = {
   scenariosPerRound: [1, 10],
   skillMin: [0, 10],
   skillMax: [0, 10],
+  checkDC: [1, 16],
   maxPlayers: [1, CITY_SLOTS.length],
 }
 

@@ -209,6 +209,17 @@ function approachLabel(o: ScenarioOutcome): string {
   return scenario?.approaches[o.approachIndex]?.label ?? ''
 }
 
+/** won the scenario / passed but beaten by a rival / failed the check outright */
+function verdictClass(o: ScenarioOutcome): string {
+  return o.influenceGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
+}
+
+function verdictText(o: ScenarioOutcome): string {
+  if (o.influenceGained > 0) return `Success! +${o.influenceGained}`
+  if (o.success) return 'Outdone!'
+  return 'Failure'
+}
+
 function familyById(familyId: string): Family | undefined {
   return view.value?.families.find((f) => f.id === familyId)
 }
@@ -451,7 +462,7 @@ const winnerNames = computed(() => {
             v-for="o in outcomesFor(s.id)"
             :key="o.familyId"
             class="outcome"
-            :class="o.success ? 'ok' : 'fail'"
+            :class="verdictClass(o)"
           >
             <span class="chip" :style="{ background: familyById(o.familyId)?.color }" />
             <span class="who">
@@ -461,9 +472,7 @@ const winnerNames = computed(() => {
             <span class="math">
               {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}
             </span>
-            <span class="verdict">
-              {{ o.success ? `Success! +${o.influenceGained}` : 'Failure' }}
-            </span>
+            <span class="verdict">{{ verdictText(o) }}</span>
           </div>
         </div>
         <button v-if="!game.you?.ready" class="next-btn" @click="onNextRound">
@@ -871,6 +880,10 @@ button.small {
 
 .outcome.ok .verdict {
   color: var(--success);
+}
+
+.outcome.beat .verdict {
+  color: var(--gold-soft);
 }
 
 .outcome.fail .verdict {

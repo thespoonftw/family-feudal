@@ -22,8 +22,6 @@ export const DEFAULT_CONTENT: GameContent = {
   scenarios: DEFAULT_SCENARIOS,
 }
 
-export const DIFFICULTY_BOUNDS: [number, number] = [1, 20]
-
 // Persisted so designs survive restarts/deploys. Resolved against the server process
 // cwd (packages/server under the systemd unit); override with CONTENT_FILE.
 const CONTENT_FILE = process.env['CONTENT_FILE'] ?? 'game-content.json'
@@ -57,13 +55,8 @@ function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): A
   if (!label) return `${where}: label must be 1–60 characters`
   const skill = obj['skill']
   if (!SKILLS.includes(skill as SkillKey)) return `${where}: unknown skill`
-  const [min, max] = DIFFICULTY_BOUNDS
-  const rawDifficulty = obj['difficulty']
-  if (typeof rawDifficulty !== 'number' || !Number.isFinite(rawDifficulty)) {
-    return `${where}: difficulty must be a number`
-  }
-  const difficulty = Math.min(max, Math.max(min, Math.round(rawDifficulty)))
-  return { label, skill: skill as SkillKey, difficulty }
+  // a legacy per-approach `difficulty` is simply ignored (checks now roll against the DC)
+  return { label, skill: skill as SkillKey }
 }
 
 function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string {
@@ -132,8 +125,8 @@ function sanitizeContent(raw: unknown): GameContent | string {
 /**
  * Upgrade a persisted content file written by an older build so design edits (titles,
  * descriptions, …) survive schema changes. Currently handles the pre-approach format:
- * scenarios with a single `skill`/`difficulty` (and the old `beauty` skill) become
- * two generically-labelled approaches that keep the original text and numbers.
+ * scenarios with a single `skill` (and the old `beauty` skill) become two
+ * generically-labelled approaches that keep the original text.
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
@@ -142,15 +135,14 @@ function migrateContent(raw: unknown): unknown {
     const sc = (s ?? {}) as Record<string, unknown>
     if (Array.isArray(sc['approaches']) || sc['skill'] === undefined) return sc
     const skill = sc['skill'] === 'beauty' ? 'charm' : sc['skill']
-    const difficulty = sc['difficulty']
     return {
       emoji: sc['emoji'],
       title: sc['title'],
       description: sc['description'],
       location: sc['location'],
       approaches: [
-        { label: 'See it done', skill, difficulty },
-        { label: 'Find another way', skill: skill === 'cunning' ? 'charm' : 'cunning', difficulty },
+        { label: 'See it done', skill },
+        { label: 'Find another way', skill: skill === 'cunning' ? 'charm' : 'cunning' },
       ],
     }
   })

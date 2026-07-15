@@ -276,8 +276,11 @@ export function setChoices(
 }
 
 export function resolveRound(room: Room): void {
+  const dc = getConfig().checkDC
   const outcomes: ScenarioOutcome[] = []
   for (const scenario of room.scenarios) {
+    // every attending family rolls skill + d6 against the DC…
+    const contenders: ScenarioOutcome[] = []
     for (const family of room.families) {
       const familyAssignments = room.assignments[family.id] ?? {}
       const memberIds = Object.entries(familyAssignments)
@@ -291,11 +294,7 @@ export function resolveRound(room: Room): void {
       const skillTotal = members.reduce((sum, m) => sum + m.skills[approach.skill], 0)
       const roll = randomInt(1, 6)
       const total = skillTotal + roll
-      const success = total >= approach.difficulty
-      // every scenario is worth exactly 1 Influence
-      const influenceGained = success ? 1 : 0
-      family.influence += influenceGained
-      outcomes.push({
+      contenders.push({
         scenarioId: scenario.id,
         familyId: family.id,
         memberIds,
@@ -303,10 +302,19 @@ export function resolveRound(room: Room): void {
         skillTotal,
         roll,
         total,
-        difficulty: approach.difficulty,
-        success,
-        influenceGained,
+        success: total >= dc,
+        influenceGained: 0,
       })
+    }
+    // …and the highest passing total takes the Influence; ties all score
+    const best = Math.max(...contenders.filter((c) => c.success).map((c) => c.total))
+    for (const contender of contenders) {
+      if (contender.success && contender.total === best) {
+        contender.influenceGained = 1
+        const family = room.families.find((f) => f.id === contender.familyId)
+        if (family) family.influence += 1
+      }
+      outcomes.push(contender)
     }
   }
   const result: RoundResult = { round: room.round, outcomes }

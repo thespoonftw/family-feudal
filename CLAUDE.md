@@ -11,8 +11,9 @@ home town, 4 members with skills 1–5 in Combat/Charm/Intellect/Diplomacy/Cunni
 Five rounds of: planning (assign members to scenarios on the realm map, one member per
 scenario) → approach (each scenario offers 2–3 approaches; pick one per deployed member;
 skipped if nobody deployed) → resolution (member's skill for the chosen approach + d6 vs
-that approach's difficulty → Influence); each phase advances when every connected player
-has confirmed. Most Influence after 5 rounds wins.
+the check DC; highest passing total at a scenario takes the Influence, ties share); each
+phase advances when every connected player has confirmed. Most Influence after 5 rounds
+wins.
 
 ## Stack
 
@@ -83,7 +84,7 @@ Pass `-Full` to also `pnpm install` on the server.
 Three layers:
 
 - **Runtime config** (`server/src/game/config.ts`): `GameConfig` (rounds, members per
-  family, scenarios per round, skill min/max, max players), editable from the
+  family, scenarios per round, skill min/max, check DC, max players), editable from the
   dev panel, clamped to `CONFIG_BOUNDS`, persisted to `game-config.json` (gitignored, in
   the server process cwd — `packages/server` in prod; override via `CONFIG_FILE`). Read at
   `startGame` — applies to games started after a change; in-progress games keep their
@@ -108,12 +109,14 @@ Each joining player is dealt a *random* free house (house + home city) in the lo
 (`claimFamily` in `engine.ts`; freed on lobby departure via `releaseFamily`); members are
 rolled at `startGame`.
 
-Resolution: the member's skill for the chosen approach + 1d6 ≥ that approach's difficulty
-→ success is worth exactly 1 Influence (see `resolveRound` in `engine.ts`; unchosen
-assignments default to the first approach). Only one member per family may attend each
-scenario (enforced in `setAssignments` and greyed out as "Used" in the UI). Approach
-choices are validated in `setChoices` (approach phase only, only for scenarios you
-deployed to). Players see approach *labels* but never the skill or difficulty behind
+Resolution (see `resolveRound` in `engine.ts`): every attending family rolls the member's
+skill for its chosen approach + 1d6 against the configured check DC (`checkDC`, default
+6; unchosen assignments default to the first approach). Scenarios are contested: among
+the families that meet the DC, the highest total takes the 1 Influence — ties all score;
+passing but being beaten shows as "Outdone" in the results. Only one member per family
+may attend each scenario (enforced in `setAssignments` and greyed out as "Used" in the
+UI). Approach choices are validated in `setChoices` (approach phase only, only for
+scenarios you deployed to). Players see approach *labels* but never the skill behind
 them — labels/emoji/description are the only clues; players see all five skills for each
 member when assigning.
 

@@ -28,6 +28,7 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
   { key: 'scenariosPerRound', label: 'Scenarios per round', hint: 'Public scenarios on the map (1 is always at the capital); each family also gets a home scenario' },
   { key: 'skillMin', label: 'Skill minimum', hint: 'Lower bound for randomly rolled member skills' },
   { key: 'skillMax', label: 'Skill maximum', hint: 'Upper bound for randomly rolled member skills' },
+  { key: 'checkDC', label: 'Check DC', hint: 'Every check is skill + d6 vs this; the highest passing total at a scenario takes the Influence, ties share' },
   { key: 'maxPlayers', label: 'Max players per room', hint: 'Limited by the number of family presets' },
 ]
 
@@ -112,8 +113,8 @@ function addScenario() {
     title: 'New Scenario',
     description: 'Something is afoot at {town}.',
     approaches: [
-      { label: 'Meet it head-on', skill: 'combat', difficulty: 8 },
-      { label: 'Find another way', skill: 'cunning', difficulty: 8 },
+      { label: 'Meet it head-on', skill: 'combat' },
+      { label: 'Find another way', skill: 'cunning' },
     ],
     location: 'general',
   })
@@ -125,7 +126,7 @@ function removeScenario(index: number) {
 
 function addApproach(s: ScenarioDesign) {
   if (s.approaches.length < 3) {
-    s.approaches.push({ label: 'New approach', skill: 'combat', difficulty: 8 })
+    s.approaches.push({ label: 'New approach', skill: 'combat' })
   }
 }
 
@@ -133,11 +134,9 @@ function removeApproach(s: ScenarioDesign, index: number) {
   if (s.approaches.length > 2) s.approaches.splice(index, 1)
 }
 
-/** compact "label (Skill diff)" list for the room inspector */
+/** compact "label (Skill)" list for the room inspector */
 function approachSummary(s: Scenario): string {
-  return s.approaches
-    .map((a) => `${a.label} (${SKILL_LABELS[a.skill]} ${a.difficulty})`)
-    .join(' / ')
+  return s.approaches.map((a) => `${a.label} (${SKILL_LABELS[a.skill]})`).join(' / ')
 }
 
 function locationKeys(): ScenarioLocation[] {
@@ -250,10 +249,11 @@ onUnmounted(() => {
     <section v-if="contentData" class="card">
       <h2>Scenarios</h2>
       <p class="dim">
-        Every scenario rewards 1 Influence and offers 2–3 approaches. Players see the
-        approach labels but never the skill or difficulty behind them — the wording is the
-        only clue, so write labels that hint at the skill. Use <code>{town}</code> for the
-        town name. Applies to rounds planned after saving.
+        Every scenario offers 2–3 approaches; checks roll skill + d6 against the Check DC,
+        and when several houses attend, the highest passing total takes the 1 Influence
+        (ties share). Players see the approach labels but never the skill behind them —
+        the wording is the only clue, so write labels that hint at the skill. Use
+        <code>{town}</code> for the town name. Applies to rounds planned after saving.
       </p>
       <div
         v-for="(s, i) in contentData.content.scenarios"
@@ -288,14 +288,6 @@ onUnmounted(() => {
                 {{ SKILL_LABELS[skill] }}
               </option>
             </select>
-            <input
-              v-model.number="a.difficulty"
-              type="number"
-              min="1"
-              max="20"
-              class="num"
-              title="Hidden difficulty (the member's skill + d6 must reach it)"
-            />
             <button
               class="small secondary"
               title="Remove approach"
@@ -560,7 +552,7 @@ input.swatch {
 
 .approach-edit {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
 }

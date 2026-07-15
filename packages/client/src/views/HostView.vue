@@ -65,6 +65,17 @@ function approachLabel(o: ScenarioOutcome): string {
   return scenario?.approaches[o.approachIndex]?.label ?? ''
 }
 
+/** won the scenario / passed but beaten by a rival / failed the check outright */
+function verdictClass(o: ScenarioOutcome): string {
+  return o.influenceGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
+}
+
+function verdictText(o: ScenarioOutcome): string {
+  if (o.influenceGained > 0) return `Success! +${o.influenceGained}`
+  if (o.success) return 'Outdone!'
+  return 'Failure'
+}
+
 const readyCount = computed(() => view.value?.players.filter((p) => p.ready).length ?? 0)
 
 const winnerNames = computed(() => {
@@ -169,7 +180,7 @@ function closeBoard() {
             v-for="o in outcomesFor(s.id)"
             :key="o.familyId"
             class="outcome"
-            :class="o.success ? 'ok' : 'fail'"
+            :class="verdictClass(o)"
           >
             <span class="chip" :style="{ background: familyById(o.familyId)?.color }" />
             <span class="who">
@@ -179,9 +190,7 @@ function closeBoard() {
             <span class="math">
               {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}
             </span>
-            <span class="verdict">
-              {{ o.success ? `Success! +${o.influenceGained}` : 'Failure' }}
-            </span>
+            <span class="verdict">{{ verdictText(o) }}</span>
           </div>
         </div>
         <p class="hint">
@@ -451,6 +460,10 @@ button.small {
 
 .outcome.ok .verdict {
   color: var(--success);
+}
+
+.outcome.beat .verdict {
+  color: var(--gold-soft);
 }
 
 .outcome.fail .verdict {

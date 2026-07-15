@@ -38,12 +38,11 @@ export interface Town {
   isCapital: boolean
 }
 
-/** one way of tackling a scenario — the label is public, the skill and difficulty are not */
+/** one way of tackling a scenario — the label is public, the skill behind it is not */
 export interface ScenarioApproach {
   /** short verb phrase shown to players when choosing, e.g. "Storm the gates" */
   label: string
   skill: SkillKey
-  difficulty: number
 }
 
 export interface Scenario {
@@ -83,8 +82,9 @@ export interface ScenarioOutcome {
   skillTotal: number
   roll: number
   total: number
-  difficulty: number
+  /** met the DC — but a rival with a higher total can still take the prize */
   success: boolean
+  /** 1 for the highest successful total(s) at the scenario, else 0 */
   influenceGained: number
 }
 
@@ -133,6 +133,8 @@ export interface GameConfig {
   /** member skills roll uniformly in [skillMin, skillMax] */
   skillMin: number
   skillMax: number
+  /** every check is skill + d6 vs this DC; highest passing total at a scenario wins */
+  checkDC: number
   /** maximum players per room */
   maxPlayers: number
 }
@@ -163,8 +165,6 @@ export interface ApproachDesign {
   label: string
   /** hidden skill this approach tests */
   skill: SkillKey
-  /** the member's skill + d6 must reach this */
-  difficulty: number
 }
 
 /** a scenario template; every scenario rewards 1 Influence on success */
