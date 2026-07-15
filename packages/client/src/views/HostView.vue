@@ -86,11 +86,22 @@ const steps = computed(() =>
   view.value ? revealSteps(view.value.scenarios, view.value.lastResult) : [],
 )
 
-/** the scenario currently on stage; null once the sequence ends (score card) */
+const currentStep = computed(() => steps.value[revealIndex.value] ?? null)
+
+/** the attended scenario currently on stage */
 const currentReveal = computed<Scenario | null>(() => {
-  const step = steps.value[revealIndex.value]
-  if (!step) return null
-  return view.value?.scenarios.find((s) => s.id === step.scenarioId) ?? null
+  const step = currentStep.value
+  if (!step || !step.attended) return null
+  return view.value?.scenarios.find((s) => s.id === step.scenarioIds[0]) ?? null
+})
+
+/** every untouched scenario, shown together on one card */
+const quietScenarios = computed<Scenario[]>(() => {
+  const step = currentStep.value
+  if (!step || step.attended) return []
+  return step.scenarioIds
+    .map((id) => view.value?.scenarios.find((s) => s.id === id))
+    .filter((s): s is Scenario => s !== undefined)
 })
 
 function scheduleReveal() {
@@ -102,8 +113,10 @@ function scheduleReveal() {
   }, step.holdMs)
 }
 
+// multi-source form matters: a getter returning an array would "change" on every
+// broadcast (any player confirming) and restart the reveal from the first card
 watch(
-  () => [view.value?.phase, view.value?.round],
+  [() => view.value?.phase, () => view.value?.round],
   () => {
     if (revealTimer) clearTimeout(revealTimer)
     if (view.value?.phase !== 'resolution') return
@@ -224,9 +237,6 @@ function closeBoard() {
             <small>at {{ townName(currentReveal.townId) }}</small>
           </h3>
           <p class="reveal-desc hint">{{ currentReveal.description }}</p>
-          <p v-if="outcomesFor(currentReveal.id).length === 0" class="hint">
-            No house attended.
-          </p>
           <div
             v-for="o in outcomesFor(currentReveal.id)"
             :key="o.familyId"
@@ -242,6 +252,17 @@ function closeBoard() {
               {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}
             </span>
             <span class="verdict">{{ verdictText(o) }}</span>
+          </div>
+        </div>
+
+        <!-- everywhere nobody went, all at once -->
+        <div v-else-if="quietScenarios.length > 0" key="quiet" class="card reveal-card">
+          <p class="progress hint">Round {{ view.round }} — the tales are told</p>
+          <h3>🌙 All quiet elsewhere</h3>
+          <p class="reveal-desc hint">No house showed its face at…</p>
+          <div v-for="s in quietScenarios" :key="s.id" class="quiet-row">
+            <span class="quiet-title">{{ s.emoji }} {{ s.title }}</span>
+            <span class="quiet-town">at {{ townName(s.townId) }}</span>
           </div>
         </div>
 
@@ -500,6 +521,21 @@ button.small {
 
 .score-title {
   text-align: center;
+}
+
+.quiet-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  background: var(--bg-inset);
+}
+
+.quiet-town {
+  color: var(--text-dim);
+  font-size: 0.9em;
 }
 
 /* card + phase animations (matching the player phones) */

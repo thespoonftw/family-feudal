@@ -6,27 +6,29 @@ import type { RoundResult, Scenario } from './types.js'
 
 /** how long the board holds on a scenario someone attended */
 export const REVEAL_ATTENDED_MS = 5000
-/** how long the board holds on a scenario nobody attended */
-export const REVEAL_EMPTY_MS = 2200
+/** how long the board holds on the single card listing every untouched scenario */
+export const REVEAL_QUIET_MS = 4000
 /** phone-side slack so the board always finishes its reveal first */
 export const REVEAL_PHONE_BUFFER_MS = 600
 
 export interface RevealStep {
-  scenarioId: string
+  /** one attended scenario — or every untouched one, shown together at the end */
+  scenarioIds: string[]
+  attended: boolean
   holdMs: number
 }
 
-/** Reveal order: attended scenarios first (map order), untouched ones last. */
+/** Reveal order: attended scenarios one by one (map order), then all untouched ones at once. */
 export function revealSteps(scenarios: Scenario[], result: RoundResult | null): RevealStep[] {
   const attended = new Set((result?.outcomes ?? []).map((o) => o.scenarioId))
-  const ordered = [
-    ...scenarios.filter((s) => attended.has(s.id)),
-    ...scenarios.filter((s) => !attended.has(s.id)),
-  ]
-  return ordered.map((s) => ({
-    scenarioId: s.id,
-    holdMs: attended.has(s.id) ? REVEAL_ATTENDED_MS : REVEAL_EMPTY_MS,
-  }))
+  const steps: RevealStep[] = scenarios
+    .filter((s) => attended.has(s.id))
+    .map((s) => ({ scenarioIds: [s.id], attended: true, holdMs: REVEAL_ATTENDED_MS }))
+  const quiet = scenarios.filter((s) => !attended.has(s.id)).map((s) => s.id)
+  if (quiet.length > 0) {
+    steps.push({ scenarioIds: quiet, attended: false, holdMs: REVEAL_QUIET_MS })
+  }
+  return steps
 }
 
 /** Total length of the board's reveal sequence. */

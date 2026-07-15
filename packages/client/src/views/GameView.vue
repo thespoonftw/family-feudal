@@ -149,9 +149,11 @@ const currentDeployment = computed(
   () => yourDeployments.value[choiceIndex.value] ?? null,
 )
 
-// phase entry (or rejoin mid-phase): stage the approach intro, or arm the reveal unlock
+// phase entry (or rejoin mid-phase): stage the approach intro, or arm the reveal unlock.
+// Multi-source form matters: a getter returning an array would "change" on every
+// broadcast (any player's action) and restart the intro/reveal timers.
 watch(
-  () => [view.value?.phase, view.value?.round],
+  [() => view.value?.phase, () => view.value?.round],
   () => {
     if (introTimer) clearTimeout(introTimer)
     if (revealTimer) clearTimeout(revealTimer)
