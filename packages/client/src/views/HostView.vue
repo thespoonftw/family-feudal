@@ -91,14 +91,14 @@ const currentStep = computed(() => steps.value[revealIndex.value] ?? null)
 /** the attended scenario currently on stage */
 const currentReveal = computed<Scenario | null>(() => {
   const step = currentStep.value
-  if (!step || !step.attended) return null
+  if (step?.kind !== 'scenario') return null
   return view.value?.scenarios.find((s) => s.id === step.scenarioIds[0]) ?? null
 })
 
 /** every untouched scenario, shown together on one card */
 const quietScenarios = computed<Scenario[]>(() => {
   const step = currentStep.value
-  if (!step || step.attended) return []
+  if (step?.kind !== 'quiet') return []
   return step.scenarioIds
     .map((id) => view.value?.scenarios.find((s) => s.id === id))
     .filter((s): s is Scenario => s !== undefined)
@@ -229,8 +229,16 @@ function closeBoard() {
     <!-- ================= RESOLUTION: one tale at a time ================= -->
     <main v-else-if="view.phase === 'resolution'" key="resolution" class="reveal-stage">
       <Transition name="card-rise" mode="out-in" appear>
+        <!-- opening beat: give everyone a moment to look up -->
+        <div v-if="currentStep?.kind === 'intro'" key="intro" class="card reveal-card intro-card">
+          <h3>📜 The tales are told</h3>
+          <p class="reveal-desc hint">
+            How fared the houses of the realm in round {{ view.round }}…
+          </p>
+        </div>
+
         <!-- current scenario on stage -->
-        <div v-if="currentReveal" :key="currentReveal.id" class="card reveal-card">
+        <div v-else-if="currentReveal" :key="currentReveal.id" class="card reveal-card">
           <p class="progress hint">Round {{ view.round }} — the tales are told</p>
           <h3>
             {{ currentReveal.emoji }} {{ currentReveal.title }}
@@ -521,6 +529,15 @@ button.small {
 
 .score-title {
   text-align: center;
+}
+
+.intro-card {
+  text-align: center;
+  padding: 2.6rem 2rem;
+}
+
+.intro-card h3 {
+  font-size: 1.9rem;
 }
 
 .quiet-row {

@@ -8,7 +8,7 @@ import type {
   ScenarioOutcome,
   SkillKey,
 } from '@family-feudal/shared'
-import { REVEAL_PHONE_BUFFER_MS, revealTotalMs, SKILLS } from '@family-feudal/shared'
+import { revealTotalMs, SKILLS } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
@@ -172,9 +172,10 @@ watch(
       introTimer = setTimeout(() => (showIntro.value = false), 2400)
     } else if (v.phase === 'resolution') {
       resultsRevealed.value = false
+      // unlocks at the same moment the board's standings card lands
       revealTimer = setTimeout(
         () => (resultsRevealed.value = true),
-        revealTotalMs(v.scenarios, v.lastResult) + REVEAL_PHONE_BUFFER_MS,
+        revealTotalMs(v.scenarios, v.lastResult),
       )
     }
   },
