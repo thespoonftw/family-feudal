@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import type { Family, FamilyMember, Scenario, SkillKey } from '@family-feudal/shared'
+import type {
+  Family,
+  FamilyMember,
+  Scenario,
+  ScenarioOutcome,
+  SkillKey,
+} from '@family-feudal/shared'
 import { REVEAL_PHONE_BUFFER_MS, revealTotalMs, SKILLS } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
@@ -180,6 +186,18 @@ onUnmounted(() => {
   if (revealTimer) clearTimeout(revealTimer)
 })
 
+// choices are live on the server as they're made, so a player is "ready" the moment the
+// last one is picked — no commit button; changes stay possible until every house is done
+watch(
+  [() => view.value?.phase, allChosen],
+  () => {
+    if (view.value?.phase === 'approach' && allChosen.value && !game.you?.ready) {
+      game.setReady(true)
+    }
+  },
+  { immediate: true },
+)
+
 async function pickApproach(scenarioId: string, index: number) {
   if (!view.value) return
   const next = { ...view.value.yourChoices, [scenarioId]: index }
@@ -220,10 +238,43 @@ watch(
 )
 
 // ---------- resolution helpers ----------
-// (the detailed results play out on the host board; phones just wait for the reveal)
+// (the full story plays out on the host board; once its reveal ends the phone shows
+// the player their own family's outcomes)
 
 function familyById(familyId: string): Family | undefined {
   return view.value?.families.find((f) => f.id === familyId)
+}
+
+const yourOutcomes = computed<ScenarioOutcome[]>(() => {
+  const familyId = game.yourFamily?.id
+  if (!familyId) return []
+  return view.value?.lastResult?.outcomes.filter((o) => o.familyId === familyId) ?? []
+})
+
+function outcomeScenario(o: ScenarioOutcome): Scenario | undefined {
+  return view.value?.scenarios.find((s) => s.id === o.scenarioId)
+}
+
+function outcomeMemberNames(o: ScenarioOutcome): string {
+  return (game.yourFamily?.members ?? [])
+    .filter((m) => o.memberIds.includes(m.id))
+    .map((m) => m.name)
+    .join(', ')
+}
+
+function approachLabel(o: ScenarioOutcome): string {
+  return outcomeScenario(o)?.approaches[o.approachIndex]?.label ?? ''
+}
+
+/** won the scenario / passed but beaten by a rival / failed the check outright */
+function verdictClass(o: ScenarioOutcome): string {
+  return o.influenceGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
+}
+
+function verdictText(o: ScenarioOutcome): string {
+  if (o.influenceGained > 0) return `Success! +${o.influenceGained}`
+  if (o.success) return 'Outdone!'
+  return 'Failure'
 }
 
 const confirmedCount = computed(
@@ -414,7 +465,7 @@ const winnerNames = computed(() => {
           <div v-else key="summary" class="card choice-card">
             <h3>{{ yourDeployments.length > 0 ? 'The plans are laid' : 'A quiet round' }}</h3>
             <p v-if="yourDeployments.length === 0" class="hint">
-              You sent no one out this round. Confirm below while the other houses decide…
+              You sent no one out this round. The other houses are still deciding…
             </p>
             <div
               v-for="(d, i) in yourDeployments"
@@ -425,36 +476,44 @@ const winnerNames = computed(() => {
                 <strong>{{ d.scenario.emoji }} {{ d.scenario.title }}</strong>
                 <small>{{ d.member.name }} — “{{ chosenLabel(d.scenario.id) }}”</small>
               </span>
-              <button class="small secondary" :disabled="game.you?.ready" @click="revisitChoice(i)">
-                Change
-              </button>
+              <button class="small secondary" @click="revisitChoice(i)">Change</button>
             </div>
+            <p class="hint waiting-hint">
+              Waiting for the other houses… ({{ confirmedCount }} / {{ activePlayerCount }})
+              <template v-if="yourDeployments.length > 0">
+                <br />You may change your mind until every house is done.
+              </template>
+            </p>
           </div>
         </Transition>
       </section>
-      <div class="plan-bar">
-        <button
-          class="ready-btn"
-          :disabled="!allChosen && !game.you?.ready"
-          @click="game.setReady(!game.you?.ready)"
-        >
-          {{
-            game.you?.ready
-              ? 'Not ready after all…'
-              : allChosen
-                ? 'Commit — the die is cast'
-                : 'Choose an approach for each scenario…'
-          }}
-        </button>
-      </div>
     </main>
 
     <!-- ================= RESOLUTION ================= -->
     <main v-else-if="view.phase === 'resolution'" key="resolution" class="resolution">
       <div class="card watch-card">
         <h2>Round {{ view.round }} — the tales are told</h2>
-        <p class="hint">All eyes on the great hall screen…</p>
         <template v-if="resultsRevealed">
+          <div v-if="yourOutcomes.length > 0" class="your-results">
+            <p class="hint results-title">Your kin report back:</p>
+            <div
+              v-for="o in yourOutcomes"
+              :key="o.scenarioId"
+              class="mini-outcome"
+              :class="verdictClass(o)"
+            >
+              <span class="who">
+                <strong>{{ outcomeMemberNames(o) }}</strong>
+                <small>
+                  {{ outcomeScenario(o)?.emoji }} {{ outcomeScenario(o)?.title }} —
+                  “{{ approachLabel(o) }}”
+                </small>
+              </span>
+              <span class="math">{{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}</span>
+              <span class="verdict">{{ verdictText(o) }}</span>
+            </div>
+          </div>
+          <p v-else class="hint">You sent no one out this round.</p>
           <button v-if="!game.you?.ready" class="next-btn" @click="onNextRound">
             {{ view.round >= view.totalRounds ? 'See Final Results' : 'Next Round' }}
           </button>
@@ -462,7 +521,10 @@ const winnerNames = computed(() => {
             Waiting for the other houses… ({{ confirmedCount }} / {{ activePlayerCount }} confirmed)
           </p>
         </template>
-        <p v-else class="hint heralds">The heralds are speaking…</p>
+        <template v-else>
+          <p class="hint">All eyes on the great hall screen…</p>
+          <p class="hint heralds">The heralds are speaking…</p>
+        </template>
       </div>
     </main>
 
@@ -807,7 +869,7 @@ button.small {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  width: min(420px, 92vw);
+  width: min(480px, 92vw);
   padding: 2rem;
   text-align: center;
 }
@@ -818,6 +880,67 @@ button.small {
 
 .watch-card .next-btn {
   align-self: stretch;
+}
+
+/* your own agents' results, once the board reveal has finished */
+.your-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  text-align: left;
+}
+
+.results-title {
+  text-align: center;
+}
+
+.mini-outcome {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 6px;
+  background: var(--bg-inset);
+}
+
+.mini-outcome .who {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.mini-outcome .who small {
+  color: var(--text-dim);
+}
+
+.mini-outcome .math {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.mini-outcome .verdict {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.mini-outcome.ok .verdict {
+  color: var(--success);
+}
+
+.mini-outcome.beat .verdict {
+  color: var(--gold-soft);
+}
+
+.mini-outcome.fail .verdict {
+  color: var(--failure);
+}
+
+.waiting-hint {
+  margin-top: 0.3rem;
+  text-align: center;
 }
 
 .heralds {

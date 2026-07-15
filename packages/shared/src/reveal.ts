@@ -5,7 +5,7 @@ import type { RoundResult, Scenario } from './types.js'
 // schedule from the same GameView data, so they stay in sync without server timers.
 
 /** how long the board holds on a scenario someone attended */
-export const REVEAL_ATTENDED_MS = 5000
+export const REVEAL_ATTENDED_MS = 10000
 /** how long the board holds on the single card listing every untouched scenario */
 export const REVEAL_QUIET_MS = 4000
 /** phone-side slack so the board always finishes its reveal first */
