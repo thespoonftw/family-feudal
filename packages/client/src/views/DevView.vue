@@ -5,12 +5,20 @@ import type {
   DevRoomSummary,
   GameConfig,
   GameContent,
+  NarrationKind,
+  NarrationTemplates,
   Scenario,
   ScenarioDesign,
   ScenarioLocation,
   SkillKey,
 } from '@family-feudal/shared'
-import { SCENARIO_LOCATION_LABELS, SKILL_LABELS, SKILLS } from '@family-feudal/shared'
+import {
+  NARRATION_KIND_INFO,
+  NARRATION_KINDS,
+  SCENARIO_LOCATION_LABELS,
+  SKILL_LABELS,
+  SKILLS,
+} from '@family-feudal/shared'
 
 interface ConfigResponse {
   config: GameConfig
@@ -86,9 +94,35 @@ async function resetSettings() {
   }
 }
 
+// herald-line templates are edited as one-per-line text and folded back in on save
+const narrationDrafts = ref<Record<NarrationKind, string>>(
+  Object.fromEntries(NARRATION_KINDS.map((k) => [k, ''])) as Record<NarrationKind, string>,
+)
+
+function syncNarrationDrafts() {
+  const narration = contentData.value?.content.narration
+  if (!narration) return
+  for (const kind of NARRATION_KINDS) {
+    narrationDrafts.value[kind] = narration[kind].join('\n')
+  }
+}
+
+function draftedNarration(): NarrationTemplates {
+  return Object.fromEntries(
+    NARRATION_KINDS.map((kind) => [
+      kind,
+      narrationDrafts.value[kind]
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0),
+    ]),
+  ) as NarrationTemplates
+}
+
 async function loadContent() {
   try {
     contentData.value = await api<ContentResponse>('/dev/content')
+    syncNarrationDrafts()
     error.value = ''
   } catch (e) {
     error.value = String(e)
@@ -98,10 +132,12 @@ async function loadContent() {
 async function saveContent() {
   if (!contentData.value) return
   try {
+    contentData.value.content.narration = draftedNarration()
     contentData.value = await api<ContentResponse>('/dev/content', {
       method: 'PUT',
       body: JSON.stringify(contentData.value.content),
     })
+    syncNarrationDrafts()
     status.value = `Designs saved ✓ (${new Date().toLocaleTimeString()}) — applies to rooms created from now on`
     error.value = ''
   } catch (e) {
@@ -143,6 +179,10 @@ function approachSummary(s: Scenario): string {
 
 function locationKeys(): ScenarioLocation[] {
   return ['general', 'capital', 'home']
+}
+
+function narrationKinds(): NarrationKind[] {
+  return [...NARRATION_KINDS]
 }
 
 async function loadRooms() {
@@ -310,6 +350,29 @@ onUnmounted(() => {
       </div>
       <div class="settings-actions">
         <button class="small" @click="addScenario">+ Add scenario</button>
+        <button class="small" @click="saveContent">Save designs</button>
+      </div>
+    </section>
+
+    <section v-if="contentData" class="card">
+      <h2>Herald lines</h2>
+      <p class="dim">
+        Flavour lines read out on the results screen — one per attended scenario, picked at
+        random from the list matching how the scenario went. One template per line.
+        Placeholders: <code>{family}</code> (the featured house or houses),
+        <code>{member}</code> (their attending kin), <code>{approach}</code>,
+        <code>{rivals}</code> (the other attending houses), <code>{count}</code> (how many),
+        <code>{town}</code>, <code>{scenario}</code>. Long lists shorten themselves
+        (“House A, House B and 3 other houses”). Applies to rounds resolved after saving.
+      </p>
+      <div v-for="kind in narrationKinds()" :key="kind" class="narration-edit">
+        <span class="setting-label">
+          {{ NARRATION_KIND_INFO[kind].label }}
+          <small class="dim">— {{ NARRATION_KIND_INFO[kind].hint }}</small>
+        </span>
+        <textarea v-model="narrationDrafts[kind]" rows="3" spellcheck="false" />
+      </div>
+      <div class="settings-actions">
         <button class="small" @click="saveContent">Save designs</button>
       </div>
     </section>
@@ -561,6 +624,21 @@ input.swatch {
 
 .scenario-row .approaches > button {
   align-self: flex-start;
+}
+
+/* herald-line editor */
+.narration-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.8rem;
+}
+
+.narration-edit textarea {
+  width: 100%;
+  padding: 0.35em 0.5em;
+  font-size: 0.9rem;
+  resize: vertical;
 }
 
 @media (max-width: 800px) {

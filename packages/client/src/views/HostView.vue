@@ -61,6 +61,11 @@ function outcomesFor(scenarioId: string): ScenarioOutcome[] {
   return view.value?.lastResult?.outcomes.filter((o) => o.scenarioId === scenarioId) ?? []
 }
 
+/** the herald's one-line telling of how the scenario went */
+function narrationFor(scenarioId: string): string {
+  return view.value?.lastResult?.narration?.[scenarioId] ?? ''
+}
+
 function approachLabel(o: ScenarioOutcome): string {
   const scenario = view.value?.scenarios.find((s) => s.id === o.scenarioId)
   return scenario?.approaches[o.approachIndex]?.label ?? ''
@@ -261,6 +266,9 @@ function closeBoard() {
             </span>
             <span class="verdict">{{ verdictText(o) }}</span>
           </div>
+          <p v-if="narrationFor(currentReveal.id)" class="narration">
+            🪶 <em>{{ narrationFor(currentReveal.id) }}</em>
+          </p>
         </div>
 
         <!-- everywhere nobody went, all at once -->
@@ -538,6 +546,15 @@ button.small {
 
 .intro-card h3 {
   font-size: 1.9rem;
+}
+
+.narration {
+  margin-top: 0.5rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+  color: var(--gold-soft);
+  font-size: 1.05rem;
+  line-height: 1.4;
 }
 
 .quiet-row {

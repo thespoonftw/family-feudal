@@ -91,9 +91,14 @@ Three layers:
   `startGame` — applies to games started after a change; in-progress games keep their
   values.
 - **Designable content** (`server/src/game/content.ts`): `GameContent` — the 8
-  `HouseDesign`s (name, colour, home city name) and the `ScenarioDesign` list (flavour
+  `HouseDesign`s (name, colour, home city name), the `ScenarioDesign` list (flavour
   emoji, title, description with `{town}`, 2–3 approaches — each a public label plus a
-  hidden skill and difficulty — and location: general/capital/home). Edited from the dev panel (full-replace PUT — the saved designs
+  hidden skill and difficulty — and location: general/capital/home), and the herald
+  `narration` templates (one list per `NarrationKind` outcome shape — solo
+  triumph/defeat, contested win, shared spoils, all fall; `resolveRound` picks one at
+  random, fills `{family}/{member}/{approach}/{rivals}/{count}/{town}/{scenario}` via
+  `game/narration.ts` and ships the line in `RoundResult.narration` for the reveal
+  cards; rival lists compress to "A, B and N other houses"). Edited from the dev panel (full-replace PUT — the saved designs
   ARE the settings; there is no reset), validated by `sanitizeContent` (needs ≥1 capital
   + ≥1 home scenario), persisted to `game-content.json` (gitignored; override via
   `CONTENT_FILE`). On load, files written by older builds are upgraded by

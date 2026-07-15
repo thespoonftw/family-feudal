@@ -91,6 +91,8 @@ export interface ScenarioOutcome {
 export interface RoundResult {
   round: number
   outcomes: ScenarioOutcome[]
+  /** scenarioId -> herald line describing how the scenario went (attended scenarios only) */
+  narration: Record<string, string>
 }
 
 export type GamePhase = 'lobby' | 'planning' | 'approach' | 'resolution' | 'finished'
@@ -182,10 +184,70 @@ export interface ScenarioDesign {
   location: ScenarioLocation
 }
 
+// ---------- Herald narration (results screen flavour text) ----------
+
+/**
+ * The shape a scenario's outcomes took, used to pick which herald line to tell.
+ * Rivals beyond the first couple are compressed to a count, so lines stay short
+ * however many houses attended.
+ */
+export const NARRATION_KINDS = [
+  'soloTriumph',
+  'soloDefeat',
+  'contestedWin',
+  'sharedSpoils',
+  'allFall',
+] as const
+export type NarrationKind = (typeof NARRATION_KINDS)[number]
+
+export const NARRATION_KIND_INFO: Record<NarrationKind, { label: string; hint: string }> = {
+  soloTriumph: {
+    label: 'Solo triumph',
+    hint: 'One house attended and passed the check, unopposed.',
+  },
+  soloDefeat: {
+    label: 'Solo defeat',
+    hint: 'One house attended, unopposed — and still failed the check.',
+  },
+  contestedWin: {
+    label: 'Contested win',
+    hint: 'Several houses attended; exactly one took the Influence. {rivals} are the beaten houses.',
+  },
+  sharedSpoils: {
+    label: 'Shared spoils',
+    hint: 'Several houses tied for the highest passing total and share the Influence.',
+  },
+  allFall: {
+    label: 'All fall short',
+    hint: 'Several houses attended and every one of them failed the check.',
+  },
+}
+
+/**
+ * Placeholders available in every template: {family} (the featured house or houses —
+ * the winner(s), or everyone who attended when all failed), {member} (their attending
+ * kin), {approach} (the featured house's approach label), {rivals} (the other attending
+ * houses, compressed), {count} (how many other houses attended), {town}, {scenario}.
+ */
+export const NARRATION_PLACEHOLDERS = [
+  'family',
+  'member',
+  'approach',
+  'rivals',
+  'count',
+  'town',
+  'scenario',
+] as const
+
+/** Herald line templates per outcome shape; one is picked at random each time. */
+export type NarrationTemplates = Record<NarrationKind, string[]>
+
 /** Designable content: applies to rooms/rounds created after saving. */
 export interface GameContent {
   houses: HouseDesign[]
   scenarios: ScenarioDesign[]
+  /** herald lines spoken on the results screen */
+  narration: NarrationTemplates
 }
 
 // ---------- Dev panel (REST) types ----------

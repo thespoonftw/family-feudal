@@ -67,7 +67,8 @@ button.secondary {
 }
 
 input,
-select {
+select,
+textarea {
   font-family: inherit;
   font-size: 1rem;
   background: var(--bg-inset);
@@ -78,7 +79,8 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 1px solid var(--gold);
 }
 

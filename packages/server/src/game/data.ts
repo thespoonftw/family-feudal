@@ -1,4 +1,4 @@
-import type { HouseDesign, ScenarioDesign } from '@family-feudal/shared'
+import type { HouseDesign, NarrationTemplates, ScenarioDesign } from '@family-feudal/shared'
 
 // rounds/members/scenarios/max-players are runtime-tunable — see config.ts
 // houses and scenarios are designable — see content.ts
@@ -49,6 +49,37 @@ export const MEMBER_NAMES: string[] = [
   'Fenella', 'Gareth', 'Honoria', 'Ines', 'Joscelin', 'Lysandra', 'Mortimer',
   'Nerissa', 'Osric', 'Petra', 'Roderick',
 ]
+
+// Herald lines read aloud on the results screen — one per attended scenario, picked at
+// random from the list matching how the scenario went. Placeholders: {family} {member}
+// {approach} {rivals} {count} {town} {scenario}. Rival lists are compressed ("House A,
+// House B and 3 other houses") so lines stay short at any player count.
+export const DEFAULT_NARRATION: NarrationTemplates = {
+  soloTriumph: [
+    'With no rival in sight, {member} of {family} chose to “{approach}” — and carried the day.',
+    '{family} alone answered the call at {town}, and {member} did not disappoint.',
+    '{member} of {family} found no competition at {town}, and made it look easy.',
+  ],
+  soloDefeat: [
+    '{member} of {family} stood alone at {town} — and still found a way to fail.',
+    'No rival barred the way, yet {member} of {family} rode home empty-handed.',
+    '{family} had {town} all to themselves. Somehow, that was not enough.',
+  ],
+  contestedWin: [
+    '{member} of {family} chose to “{approach}” and bested {rivals} for the prize.',
+    'Against {rivals}, it was {member} of {family} who prevailed at {town}.',
+    '{rivals} came to {town} with high hopes; {family} sent them home with none.',
+  ],
+  sharedSpoils: [
+    'Neither herald could name a victor — {family} share the spoils at {town}.',
+    'Evenly matched to the last, {family} split the glory at {town}.',
+  ],
+  allFall: [
+    '{family} all tried their hand at {town}. The town remains unimpressed.',
+    'Many came to {town}; none rose to the moment. A sorry day for {family}.',
+    'Failure makes fast friends of {family} — every house fell short at {town}.',
+  ],
+}
 
 // Emoji are flavour, not skill markers. Each scenario offers 2–3 approaches; the labels
 // are shown to players in the approach phase, but the skill behind each stays hidden —

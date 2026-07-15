@@ -3,23 +3,26 @@ import type {
   ApproachDesign,
   GameContent,
   HouseDesign,
+  NarrationTemplates,
   ScenarioDesign,
   ScenarioLocation,
   SkillKey,
   Town,
 } from '@family-feudal/shared'
-import { SKILLS } from '@family-feudal/shared'
+import { NARRATION_KIND_INFO, NARRATION_KINDS, SKILLS } from '@family-feudal/shared'
 import {
   CAPITAL_NAME,
   CAPITAL_SLOT,
   CITY_SLOTS,
   DEFAULT_HOUSES,
+  DEFAULT_NARRATION,
   DEFAULT_SCENARIOS,
 } from './data.js'
 
 export const DEFAULT_CONTENT: GameContent = {
   houses: DEFAULT_HOUSES,
   scenarios: DEFAULT_SCENARIOS,
+  narration: DEFAULT_NARRATION,
 }
 
 // Persisted so designs survive restarts/deploys. Resolved against the server process
@@ -89,6 +92,26 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
   }
 }
 
+function sanitizeNarration(raw: unknown): NarrationTemplates | string {
+  const obj = (raw ?? {}) as Record<string, unknown>
+  const clean = {} as NarrationTemplates
+  for (const kind of NARRATION_KINDS) {
+    const label = `Herald lines (${NARRATION_KIND_INFO[kind].label})`
+    const lines = obj[kind]
+    if (!Array.isArray(lines) || lines.length === 0 || lines.length > 12) {
+      return `${label}: needs 1–12 templates`
+    }
+    const cleanLines: string[] = []
+    for (const line of lines) {
+      const text = cleanString(line, 200)
+      if (!text) return `${label}: each template must be 1–200 characters`
+      cleanLines.push(text)
+    }
+    clean[kind] = cleanLines
+  }
+  return clean
+}
+
 /** Validate raw (client or file) content. Returns the cleaned content or an error message. */
 function sanitizeContent(raw: unknown): GameContent | string {
   const obj = (raw ?? {}) as Record<string, unknown>
@@ -119,18 +142,27 @@ function sanitizeContent(raw: unknown): GameContent | string {
   if (!cleanScenarios.some((s) => s.location === 'home')) {
     return 'At least one scenario must be a home-estate scenario'
   }
-  return { houses: cleanHouses, scenarios: cleanScenarios }
+  const narration = sanitizeNarration(obj['narration'])
+  if (typeof narration === 'string') return narration
+  return { houses: cleanHouses, scenarios: cleanScenarios, narration }
 }
 
 /**
  * Upgrade a persisted content file written by an older build so design edits (titles,
- * descriptions, …) survive schema changes. Currently handles the pre-approach format:
- * scenarios with a single `skill` (and the old `beauty` skill) become two
- * generically-labelled approaches that keep the original text.
+ * descriptions, …) survive schema changes. Currently handles the pre-approach format
+ * (scenarios with a single `skill` — and the old `beauty` skill — become two
+ * generically-labelled approaches that keep the original text) and the pre-narration
+ * format (missing herald-line kinds are filled from the defaults).
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
   if (!obj || !Array.isArray(obj['scenarios'])) return raw
+  // files from before the herald lines (or before a newly added kind) get the defaults
+  const oldNarration = (obj['narration'] ?? {}) as Record<string, unknown>
+  const narration: Record<string, unknown> = {}
+  for (const kind of NARRATION_KINDS) {
+    narration[kind] = oldNarration[kind] ?? DEFAULT_NARRATION[kind]
+  }
   const scenarios = obj['scenarios'].map((s) => {
     const sc = (s ?? {}) as Record<string, unknown>
     if (Array.isArray(sc['approaches']) || sc['skill'] === undefined) return sc
@@ -146,7 +178,7 @@ function migrateContent(raw: unknown): unknown {
       ],
     }
   })
-  return { ...obj, scenarios }
+  return { ...obj, scenarios, narration }
 }
 
 function loadContent(): GameContent {
