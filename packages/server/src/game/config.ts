@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import type { GameConfig } from '@family-feudal/shared'
+import { SKILLS } from '@family-feudal/shared'
 import { CITY_SLOTS, MEMBER_NAMES } from './data.js'
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -7,7 +8,9 @@ export const DEFAULT_CONFIG: GameConfig = {
   membersPerFamily: 4,
   scenariosPerRound: 5,
   skillMin: 1,
-  skillMax: 5,
+  skillMax: 4,
+  skillSumMin: 11,
+  skillSumMax: 14,
   checkDC: 6,
   maxPlayers: CITY_SLOTS.length,
 }
@@ -19,6 +22,8 @@ export const CONFIG_BOUNDS: Record<keyof GameConfig, [number, number]> = {
   scenariosPerRound: [1, 10],
   skillMin: [0, 10],
   skillMax: [0, 10],
+  skillSumMin: [0, 10 * SKILLS.length],
+  skillSumMax: [0, 10 * SKILLS.length],
   checkDC: [1, 16],
   maxPlayers: [1, CITY_SLOTS.length],
 }
@@ -38,6 +43,12 @@ function clampInto(base: GameConfig, patch: Partial<Record<keyof GameConfig, unk
     }
   }
   if (next.skillMin > next.skillMax) next.skillMin = next.skillMax
+  // the skill-sum band must be reachable with five skills in [skillMin, skillMax]
+  const floor = SKILLS.length * next.skillMin
+  const ceiling = SKILLS.length * next.skillMax
+  next.skillSumMin = Math.min(ceiling, Math.max(floor, next.skillSumMin))
+  next.skillSumMax = Math.min(ceiling, Math.max(floor, next.skillSumMax))
+  if (next.skillSumMin > next.skillSumMax) next.skillSumMin = next.skillSumMax
   return next
 }
 

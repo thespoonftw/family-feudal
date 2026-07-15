@@ -125,14 +125,34 @@ export function addPlayer(room: Room, name: string): Player {
   return player
 }
 
+/**
+ * Roll a member's skills uniformly, then nudge random skills up/down until the total
+ * lands inside the configured band — keeps members comparable in overall power while
+ * their spread stays random. `updateConfig` guarantees the band is reachable.
+ */
+function rollSkills(config: ReturnType<typeof getConfig>): Record<SkillKey, number> {
+  const skills = {} as Record<SkillKey, number>
+  for (const skill of SKILLS) skills[skill] = randomInt(config.skillMin, config.skillMax)
+  const sum = () => SKILLS.reduce((total, key) => total + skills[key], 0)
+  while (sum() > config.skillSumMax) {
+    const above = SKILLS.filter((key) => skills[key] > config.skillMin)
+    const key = above[Math.floor(Math.random() * above.length)]
+    if (!key) break
+    skills[key] -= 1
+  }
+  while (sum() < config.skillSumMin) {
+    const below = SKILLS.filter((key) => skills[key] < config.skillMax)
+    const key = below[Math.floor(Math.random() * below.length)]
+    if (!key) break
+    skills[key] += 1
+  }
+  return skills
+}
+
 function generateMembers(): FamilyMember[] {
   const config = getConfig()
   const names = shuffle(MEMBER_NAMES).slice(0, config.membersPerFamily)
-  return names.map((name) => {
-    const skills = {} as Record<SkillKey, number>
-    for (const skill of SKILLS) skills[skill] = randomInt(config.skillMin, config.skillMax)
-    return { id: randomUUID(), name, skills }
-  })
+  return names.map((name) => ({ id: randomUUID(), name, skills: rollSkills(config) }))
 }
 
 export function startGame(room: Room): void {

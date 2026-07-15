@@ -130,9 +130,12 @@ export interface GameConfig {
   membersPerFamily: number
   /** public scenarios per round (one is always at the capital; every family also gets a home scenario) */
   scenariosPerRound: number
-  /** member skills roll uniformly in [skillMin, skillMax] */
+  /** member skills roll uniformly in [skillMin, skillMax]… */
   skillMin: number
   skillMax: number
+  /** …then get nudged until the sum of all five lands in [skillSumMin, skillSumMax] */
+  skillSumMin: number
+  skillSumMax: number
   /** every check is skill + d6 vs this DC; highest passing total at a scenario wins */
   checkDC: number
   /** maximum players per room */

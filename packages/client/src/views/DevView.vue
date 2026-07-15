@@ -28,6 +28,8 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
   { key: 'scenariosPerRound', label: 'Scenarios per round', hint: 'Public scenarios on the map (1 is always at the capital); each family also gets a home scenario' },
   { key: 'skillMin', label: 'Skill minimum', hint: 'Lower bound for randomly rolled member skills' },
   { key: 'skillMax', label: 'Skill maximum', hint: 'Upper bound for randomly rolled member skills' },
+  { key: 'skillSumMin', label: 'Skill total minimum', hint: 'Rolled skills are nudged up until the sum of all five reaches this' },
+  { key: 'skillSumMax', label: 'Skill total maximum', hint: 'Rolled skills are nudged down until the sum of all five is within this' },
   { key: 'checkDC', label: 'Check DC', hint: 'Every check is skill + d6 vs this; the highest passing total at a scenario takes the Influence, ties share' },
   { key: 'maxPlayers', label: 'Max players per room', hint: 'Limited by the number of family presets' },
 ]

@@ -7,7 +7,7 @@ A shared "host board" tab creates the room and shows the code, realm map, round 
 leaderboard — it is a spectator, not a player, but it starts the game from its lobby.
 Players join from their own devices with the 4-letter code; the first joiner is the VIP
 (`Player.isHost`, display only). Each player is assigned a noble family (name, colour,
-home town, 4 members with skills 1–5 in Combat/Charm/Intellect/Diplomacy/Cunning).
+home town, 4 members with skills 1–4 in Combat/Charm/Intellect/Diplomacy/Cunning).
 Five rounds of: planning (assign members to scenarios on the realm map, one member per
 scenario) → approach (each scenario offers 2–3 approaches; pick one per deployed member;
 skipped if nobody deployed) → resolution (member's skill for the chosen approach + d6 vs
@@ -84,7 +84,8 @@ Pass `-Full` to also `pnpm install` on the server.
 Three layers:
 
 - **Runtime config** (`server/src/game/config.ts`): `GameConfig` (rounds, members per
-  family, scenarios per round, skill min/max, check DC, max players), editable from the
+  family, scenarios per round, skill min/max, skill-sum band, check DC, max players —
+  rolled skills are nudged until each member's total lands in the band), editable from the
   dev panel, clamped to `CONFIG_BOUNDS`, persisted to `game-config.json` (gitignored, in
   the server process cwd — `packages/server` in prod; override via `CONFIG_FILE`). Read at
   `startGame` — applies to games started after a change; in-progress games keep their
