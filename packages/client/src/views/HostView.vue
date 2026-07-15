@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import type { Family, ScenarioOutcome } from '@family-feudal/shared'
+import type { Family, Scenario, ScenarioOutcome } from '@family-feudal/shared'
+import { revealSteps } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
@@ -76,6 +77,46 @@ function verdictText(o: ScenarioOutcome): string {
   return 'Failure'
 }
 
+// ---------- results reveal: one scenario at a time, scores last ----------
+
+const revealIndex = ref(0)
+let revealTimer: ReturnType<typeof setTimeout> | null = null
+
+const steps = computed(() =>
+  view.value ? revealSteps(view.value.scenarios, view.value.lastResult) : [],
+)
+
+/** the scenario currently on stage; null once the sequence ends (score card) */
+const currentReveal = computed<Scenario | null>(() => {
+  const step = steps.value[revealIndex.value]
+  if (!step) return null
+  return view.value?.scenarios.find((s) => s.id === step.scenarioId) ?? null
+})
+
+function scheduleReveal() {
+  const step = steps.value[revealIndex.value]
+  if (!step) return
+  revealTimer = setTimeout(() => {
+    revealIndex.value += 1
+    scheduleReveal()
+  }, step.holdMs)
+}
+
+watch(
+  () => [view.value?.phase, view.value?.round],
+  () => {
+    if (revealTimer) clearTimeout(revealTimer)
+    if (view.value?.phase !== 'resolution') return
+    revealIndex.value = 0
+    scheduleReveal()
+  },
+  { immediate: true },
+)
+
+onUnmounted(() => {
+  if (revealTimer) clearTimeout(revealTimer)
+})
+
 const readyCount = computed(() => view.value?.players.filter((p) => p.ready).length ?? 0)
 
 const winnerNames = computed(() => {
@@ -112,8 +153,10 @@ function closeBoard() {
       <button class="secondary small" @click="closeBoard">Close</button>
     </header>
 
+    <Transition name="phase-fade" mode="out-in">
+
     <!-- ================= LOBBY ================= -->
-    <main v-if="view.phase === 'lobby'" class="lobby">
+    <main v-if="view.phase === 'lobby'" key="lobby" class="lobby">
       <div class="lobby-join">
         <p class="hint">Join on your phone with room code</p>
         <div class="giant-code">{{ view.code }}</div>
@@ -136,7 +179,11 @@ function closeBoard() {
     </main>
 
     <!-- ================= PLANNING / APPROACH ================= -->
-    <main v-else-if="view.phase === 'planning' || view.phase === 'approach'" class="stage">
+    <main
+      v-else-if="view.phase === 'planning' || view.phase === 'approach'"
+      :key="view.phase"
+      class="stage"
+    >
       <section class="map-pane">
         <RealmMap
           :towns="view.towns"
@@ -166,18 +213,22 @@ function closeBoard() {
       </aside>
     </main>
 
-    <!-- ================= RESOLUTION ================= -->
-    <main v-else-if="view.phase === 'resolution'" class="stage">
-      <section class="results-pane">
-        <h2>Round {{ view.round }} — the tales are told</h2>
-        <div v-for="s in view.scenarios" :key="s.id" class="card result-card">
+    <!-- ================= RESOLUTION: one tale at a time ================= -->
+    <main v-else-if="view.phase === 'resolution'" key="resolution" class="reveal-stage">
+      <Transition name="card-rise" mode="out-in" appear>
+        <!-- current scenario on stage -->
+        <div v-if="currentReveal" :key="currentReveal.id" class="card reveal-card">
+          <p class="progress hint">Round {{ view.round }} — the tales are told</p>
           <h3>
-            {{ s.emoji }} {{ s.title }}
-            <small>at {{ townName(s.townId) }}</small>
+            {{ currentReveal.emoji }} {{ currentReveal.title }}
+            <small>at {{ townName(currentReveal.townId) }}</small>
           </h3>
-          <p v-if="outcomesFor(s.id).length === 0" class="hint">No house attended.</p>
+          <p class="reveal-desc hint">{{ currentReveal.description }}</p>
+          <p v-if="outcomesFor(currentReveal.id).length === 0" class="hint">
+            No house attended.
+          </p>
           <div
-            v-for="o in outcomesFor(s.id)"
+            v-for="o in outcomesFor(currentReveal.id)"
             :key="o.familyId"
             class="outcome"
             :class="verdictClass(o)"
@@ -193,17 +244,20 @@ function closeBoard() {
             <span class="verdict">{{ verdictText(o) }}</span>
           </div>
         </div>
-        <p class="hint">
-          {{ readyCount }}/{{ view.players.length }} houses ready to continue…
-        </p>
-      </section>
-      <aside class="side-pane">
-        <ScoreBoard :families="view.families" :players="view.players" />
-      </aside>
+
+        <!-- finale: the standings -->
+        <div v-else key="scores" class="card reveal-card">
+          <h3 class="score-title">👑 The realm takes stock</h3>
+          <ScoreBoard :families="view.families" :players="view.players" />
+          <p class="hint">
+            {{ readyCount }}/{{ view.players.length }} houses ready to continue…
+          </p>
+        </div>
+      </Transition>
     </main>
 
     <!-- ================= FINISHED ================= -->
-    <main v-else class="finished">
+    <main v-else key="finished" class="finished">
       <div class="card finish-card">
         <h2>🏆 {{ winnerNames }}</h2>
         <p class="hint">
@@ -217,6 +271,8 @@ function closeBoard() {
         <button @click="closeBoard">Return to the Great Hall</button>
       </div>
     </main>
+
+    </Transition>
   </div>
 
   <div v-else class="loading">Summoning the realm…</div>
@@ -398,25 +454,89 @@ button.small {
   font-weight: bold;
 }
 
-/* resolution */
-.results-pane {
+/* resolution reveal: one scenario at a time, centre stage */
+.reveal-stage {
   flex: 1;
   min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
   overflow-y: auto;
+}
+
+.reveal-card {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 0.7rem;
+  width: min(680px, 92vw);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 1.8rem 2rem;
+  font-size: 1.05rem;
 }
 
-.results-pane h2 {
+.reveal-card .progress {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reveal-card h3 {
   color: var(--gold-soft);
+  font-size: 1.5rem;
 }
 
-.result-card h3 small {
+.reveal-card h3 small {
   color: var(--text-dim);
   font-weight: normal;
-  font-size: 0.8em;
+  font-size: 0.65em;
   margin-left: 0.4em;
+}
+
+.reveal-desc {
+  font-size: 1rem;
+}
+
+.score-title {
+  text-align: center;
+}
+
+/* card + phase animations (matching the player phones) */
+.card-rise-enter-active {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.card-rise-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.card-rise-enter-from {
+  opacity: 0;
+  transform: translateY(28px) scale(0.95);
+}
+
+.card-rise-leave-to {
+  opacity: 0;
+  transform: translateY(-18px) scale(0.97);
+}
+
+.phase-fade-enter-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.phase-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.phase-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+.phase-fade-leave-to {
+  opacity: 0;
+  transform: scale(1.02);
 }
 
 .outcome {

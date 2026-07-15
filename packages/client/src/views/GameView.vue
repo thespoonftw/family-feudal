@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import type {
-  Family,
-  FamilyMember,
-  Scenario,
-  ScenarioOutcome,
-  SkillKey,
-} from '@family-feudal/shared'
-import { SKILLS } from '@family-feudal/shared'
+import type { Family, FamilyMember, Scenario, SkillKey } from '@family-feudal/shared'
+import { REVEAL_PHONE_BUFFER_MS, revealTotalMs, SKILLS } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
@@ -143,21 +137,46 @@ const allChosen = computed(() =>
 
 /** decisions are made one card at a time; past the last card is the summary */
 const choiceIndex = ref(0)
+/** thematic splash shown while the map fades away, before the first decision card */
+const showIntro = ref(false)
+/** phones unlock "next round" once the board's reveal sequence has finished */
+const resultsRevealed = ref(false)
+
+let introTimer: ReturnType<typeof setTimeout> | null = null
+let revealTimer: ReturnType<typeof setTimeout> | null = null
 
 const currentDeployment = computed(
   () => yourDeployments.value[choiceIndex.value] ?? null,
 )
 
-// entering the approach phase (or rejoining mid-phase): resume at the first unchosen scenario
+// phase entry (or rejoin mid-phase): stage the approach intro, or arm the reveal unlock
 watch(
   () => [view.value?.phase, view.value?.round],
   () => {
-    if (view.value?.phase !== 'approach') return
-    const idx = yourDeployments.value.findIndex((d) => chosenIndex(d.scenario.id) === null)
-    choiceIndex.value = idx === -1 ? yourDeployments.value.length : idx
+    if (introTimer) clearTimeout(introTimer)
+    if (revealTimer) clearTimeout(revealTimer)
+    const v = view.value
+    if (!v) return
+    if (v.phase === 'approach') {
+      const idx = yourDeployments.value.findIndex((d) => chosenIndex(d.scenario.id) === null)
+      choiceIndex.value = idx === -1 ? yourDeployments.value.length : idx
+      showIntro.value = true
+      introTimer = setTimeout(() => (showIntro.value = false), 2400)
+    } else if (v.phase === 'resolution') {
+      resultsRevealed.value = false
+      revealTimer = setTimeout(
+        () => (resultsRevealed.value = true),
+        revealTotalMs(v.scenarios, v.lastResult) + REVEAL_PHONE_BUFFER_MS,
+      )
+    }
   },
   { immediate: true },
 )
+
+onUnmounted(() => {
+  if (introTimer) clearTimeout(introTimer)
+  if (revealTimer) clearTimeout(revealTimer)
+})
 
 async function pickApproach(scenarioId: string, index: number) {
   if (!view.value) return
@@ -199,38 +218,10 @@ watch(
 )
 
 // ---------- resolution helpers ----------
-
-function outcomesFor(scenarioId: string): ScenarioOutcome[] {
-  return view.value?.lastResult?.outcomes.filter((o) => o.scenarioId === scenarioId) ?? []
-}
-
-function approachLabel(o: ScenarioOutcome): string {
-  const scenario = view.value?.scenarios.find((s) => s.id === o.scenarioId)
-  return scenario?.approaches[o.approachIndex]?.label ?? ''
-}
-
-/** won the scenario / passed but beaten by a rival / failed the check outright */
-function verdictClass(o: ScenarioOutcome): string {
-  return o.influenceGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
-}
-
-function verdictText(o: ScenarioOutcome): string {
-  if (o.influenceGained > 0) return `Success! +${o.influenceGained}`
-  if (o.success) return 'Outdone!'
-  return 'Failure'
-}
+// (the detailed results play out on the host board; phones just wait for the reveal)
 
 function familyById(familyId: string): Family | undefined {
   return view.value?.families.find((f) => f.id === familyId)
-}
-
-function memberNames(familyId: string, memberIds: string[]): string {
-  const family = familyById(familyId)
-  if (!family) return ''
-  return family.members
-    .filter((m) => memberIds.includes(m.id))
-    .map((m) => m.name)
-    .join(', ')
 }
 
 const confirmedCount = computed(
@@ -278,8 +269,10 @@ const winnerNames = computed(() => {
 
     <p v-if="actionError" class="error bar">{{ actionError }}</p>
 
+    <Transition name="phase-fade" mode="out-in">
+
     <!-- ================= LOBBY ================= -->
-    <main v-if="view.phase === 'lobby'" class="lobby">
+    <main v-if="view.phase === 'lobby'" key="lobby" class="lobby">
       <div class="card lobby-card">
         <h2>Gather your houses</h2>
         <p class="hint">Share this code with the other players:</p>
@@ -301,7 +294,7 @@ const winnerNames = computed(() => {
     </main>
 
     <!-- ================= PLANNING ================= -->
-    <main v-else-if="view.phase === 'planning'" class="planning">
+    <main v-else-if="view.phase === 'planning'" key="planning" class="planning">
       <section class="map-pane">
         <RealmMap
           :towns="view.towns"
@@ -369,12 +362,18 @@ const winnerNames = computed(() => {
     </main>
 
     <!-- ================= APPROACH ================= -->
-    <main v-else-if="view.phase === 'approach'" class="approach">
+    <main v-else-if="view.phase === 'approach'" key="approach" class="approach">
       <section class="choices-pane">
-        <Transition name="card-rise" mode="out-in">
+        <Transition name="card-rise" mode="out-in" appear>
+          <!-- thematic beat while the map fades away -->
+          <div v-if="showIntro" key="intro" class="card choice-card intro-card">
+            <h2>The plans are sealed</h2>
+            <p class="hint">Now choose how your kin see them through…</p>
+          </div>
+
           <!-- one decision at a time -->
           <div
-            v-if="currentDeployment"
+            v-else-if="currentDeployment"
             :key="currentDeployment.scenario.id"
             class="card choice-card"
           >
@@ -449,46 +448,24 @@ const winnerNames = computed(() => {
     </main>
 
     <!-- ================= RESOLUTION ================= -->
-    <main v-else-if="view.phase === 'resolution'" class="resolution">
-      <section class="results-pane">
+    <main v-else-if="view.phase === 'resolution'" key="resolution" class="resolution">
+      <div class="card watch-card">
         <h2>Round {{ view.round }} — the tales are told</h2>
-        <div v-for="s in view.scenarios" :key="s.id" class="card result-card">
-          <h3>
-            {{ s.emoji }} {{ s.title }}
-            <small>at {{ townName(s.townId) }}</small>
-          </h3>
-          <p v-if="outcomesFor(s.id).length === 0" class="hint">No house attended.</p>
-          <div
-            v-for="o in outcomesFor(s.id)"
-            :key="o.familyId"
-            class="outcome"
-            :class="verdictClass(o)"
-          >
-            <span class="chip" :style="{ background: familyById(o.familyId)?.color }" />
-            <span class="who">
-              <strong>{{ familyById(o.familyId)?.name }}</strong>
-              <small>{{ memberNames(o.familyId, o.memberIds) }} — “{{ approachLabel(o) }}”</small>
-            </span>
-            <span class="math">
-              {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}
-            </span>
-            <span class="verdict">{{ verdictText(o) }}</span>
-          </div>
-        </div>
-        <button v-if="!game.you?.ready" class="next-btn" @click="onNextRound">
-          {{ view.round >= view.totalRounds ? 'See Final Results' : 'Next Round' }}
-        </button>
-        <p v-else class="hint">
-          Waiting for the other houses… ({{ confirmedCount }} / {{ activePlayerCount }} confirmed)
-        </p>
-      </section>
-      <aside class="side-pane">
-        <ScoreBoard :families="view.families" :players="view.players" />
-      </aside>
+        <p class="hint">All eyes on the great hall screen…</p>
+        <template v-if="resultsRevealed">
+          <button v-if="!game.you?.ready" class="next-btn" @click="onNextRound">
+            {{ view.round >= view.totalRounds ? 'See Final Results' : 'Next Round' }}
+          </button>
+          <p v-else class="hint">
+            Waiting for the other houses… ({{ confirmedCount }} / {{ activePlayerCount }} confirmed)
+          </p>
+        </template>
+        <p v-else class="hint heralds">The heralds are speaking…</p>
+      </div>
     </main>
 
     <!-- ================= FINISHED ================= -->
-    <main v-else class="finished">
+    <main v-else key="finished" class="finished">
       <div class="card finish-card">
         <h2>🏆 {{ winnerNames }}</h2>
         <p class="hint">
@@ -502,6 +479,8 @@ const winnerNames = computed(() => {
         <button @click="onLeave">Return to the Great Hall</button>
       </div>
     </main>
+
+    </Transition>
   </div>
 
   <div v-else class="loading">Summoning the realm…</div>
@@ -710,13 +689,6 @@ button.small {
   width: 100%;
 }
 
-.result-card h3 small {
-  color: var(--text-dim);
-  font-weight: normal;
-  font-size: 0.8em;
-  margin-left: 0.4em;
-}
-
 /* approach phase: one centered decision card at a time */
 .approach {
   flex: 1;
@@ -792,6 +764,15 @@ button.small {
   color: var(--text-dim);
 }
 
+.intro-card {
+  text-align: center;
+  padding: 2rem 1.4rem;
+}
+
+.intro-card h2 {
+  color: var(--gold-soft);
+}
+
 /* fade/rise between decision cards */
 .card-rise-enter-active {
   transition: opacity 0.35s ease, transform 0.35s ease;
@@ -811,87 +792,64 @@ button.small {
   transform: translateY(-18px) scale(0.97);
 }
 
-.side-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-/* resolution */
+/* resolution: the story plays out on the host board */
 .resolution {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  align-items: center;
+  justify-content: center;
   padding: 1rem;
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
 }
 
-.results-pane {
+.watch-card {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+  width: min(420px, 92vw);
+  padding: 2rem;
+  text-align: center;
 }
 
-.results-pane h2 {
+.watch-card h2 {
   color: var(--gold-soft);
 }
 
-.outcome {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.45rem 0.5rem;
-  border-radius: 6px;
-  margin-top: 0.45rem;
-  background: var(--bg-inset);
+.watch-card .next-btn {
+  align-self: stretch;
 }
 
-.outcome .chip {
-  width: 12px;
-  height: 12px;
-  border-radius: 4px;
-  flex-shrink: 0;
+.heralds {
+  animation: heralds-pulse 1.8s ease-in-out infinite;
 }
 
-.outcome .who {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
+@keyframes heralds-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
-.outcome .who small {
-  color: var(--text-dim);
+/* cross-fade between phases (map fading away into the decision cards, …) */
+.phase-fade-enter-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
-.outcome .math {
-  color: var(--text-dim);
-  font-size: 0.9rem;
+.phase-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.outcome .verdict {
-  font-weight: bold;
-  min-width: 7.5em;
-  text-align: right;
+.phase-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.98);
 }
 
-.outcome.ok .verdict {
-  color: var(--success);
-}
-
-.outcome.beat .verdict {
-  color: var(--gold-soft);
-}
-
-.outcome.fail .verdict {
-  color: var(--failure);
-}
-
-.next-btn {
-  align-self: flex-start;
+.phase-fade-leave-to {
+  opacity: 0;
+  transform: scale(1.02);
 }
 
 /* finished */
