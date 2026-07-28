@@ -13,6 +13,7 @@ import type {
   SkillKey,
 } from '@family-feudal/shared'
 import {
+  MEMBER_SKILL_BOUNDS,
   NARRATION_KIND_INFO,
   NARRATION_KINDS,
   SCENARIO_LOCATION_LABELS,
@@ -32,12 +33,7 @@ interface ContentResponse {
 
 const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = [
   { key: 'totalRounds', label: 'Rounds per game', hint: 'Influence is tallied after this many rounds' },
-  { key: 'membersPerFamily', label: 'Starting family members', hint: 'Members each family begins with' },
   { key: 'scenariosPerRound', label: 'Scenarios per round', hint: 'Public scenarios on the map (1 is always at the capital); each family also gets a home scenario' },
-  { key: 'skillMin', label: 'Skill minimum', hint: 'Lower bound for randomly rolled member skills' },
-  { key: 'skillMax', label: 'Skill maximum', hint: 'Upper bound for randomly rolled member skills' },
-  { key: 'skillSumMin', label: 'Skill total minimum', hint: 'Rolled skills are nudged up until the sum of all five reaches this' },
-  { key: 'skillSumMax', label: 'Skill total maximum', hint: 'Rolled skills are nudged down until the sum of all five is within this' },
   { key: 'checkDC', label: 'Check DC', hint: 'Every check is skill + d6 vs this; the highest passing total at a scenario takes the Influence, ties share' },
   { key: 'maxPlayers', label: 'Max players per room', hint: 'Limited by the number of family presets' },
 ]
@@ -268,21 +264,40 @@ onUnmounted(() => {
     <section v-if="contentData" class="card">
       <h2>Houses</h2>
       <p class="dim">
-        The eight houses a joining player can be dealt — name, banner colour and home city.
-        Applies to rooms <strong>created after saving</strong>; live games keep their houses.
+        The eight houses a joining player can be dealt — name, banner colour, home city, and
+        a fixed roster of three characters. Character skills are hand-set here, not rolled;
+        every game a house plays uses exactly these three. Applies to rooms
+        <strong>created after saving</strong>; live games keep their houses.
       </p>
-      <table class="houses">
-        <thead>
-          <tr><th>Colour</th><th>House name</th><th>Home city</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="(h, i) in contentData.content.houses" :key="i">
-            <td><input v-model="h.color" type="color" class="swatch" /></td>
-            <td><input v-model="h.name" type="text" maxlength="40" /></td>
-            <td><input v-model="h.cityName" type="text" maxlength="24" /></td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-for="(h, i) in contentData.content.houses" :key="i" class="house-card">
+        <div class="house-header">
+          <input v-model="h.color" type="color" class="swatch" title="Banner colour" />
+          <input v-model="h.name" type="text" maxlength="40" placeholder="House name" />
+          <input v-model="h.cityName" type="text" maxlength="24" placeholder="Home city" />
+        </div>
+        <table class="members">
+          <thead>
+            <tr>
+              <th>Character</th>
+              <th v-for="skill in skillKeys()" :key="skill">{{ SKILL_LABELS[skill] }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(m, j) in h.members" :key="j">
+              <td><input v-model="m.name" type="text" maxlength="30" /></td>
+              <td v-for="skill in skillKeys()" :key="skill">
+                <input
+                  v-model.number="m.skills[skill]"
+                  type="number"
+                  :min="MEMBER_SKILL_BOUNDS[0]"
+                  :max="MEMBER_SKILL_BOUNDS[1]"
+                  class="num"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div class="settings-actions">
         <button class="small" @click="saveContent">Save designs</button>
       </div>
@@ -573,8 +588,24 @@ button.small {
 }
 
 /* houses editor */
-.houses input[type='text'] {
+.house-card {
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.house-header {
+  display: grid;
+  grid-template-columns: 3.2em 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+table.members input[type='text'] {
   width: 100%;
+}
+
+table.members input.num {
+  width: 3.5em;
 }
 
 input.swatch {
@@ -650,6 +681,14 @@ input.swatch {
 @media (max-width: 700px) {
   .settings {
     grid-template-columns: 1fr;
+  }
+
+  .house-header {
+    grid-template-columns: 3.2em 1fr;
+  }
+
+  .house-header input[type='text']:last-child {
+    grid-column: 1 / -1;
   }
 }
 

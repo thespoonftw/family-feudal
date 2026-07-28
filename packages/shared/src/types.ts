@@ -128,16 +128,8 @@ export interface GameView {
 export interface GameConfig {
   /** rounds per game */
   totalRounds: number
-  /** family members each player starts with */
-  membersPerFamily: number
   /** public scenarios per round (one is always at the capital; every family also gets a home scenario) */
   scenariosPerRound: number
-  /** member skills roll uniformly in [skillMin, skillMax]… */
-  skillMin: number
-  skillMax: number
-  /** …then get nudged until the sum of all five lands in [skillSumMin, skillSumMax] */
-  skillSumMin: number
-  skillSumMax: number
   /** every check is skill + d6 vs this DC; highest passing total at a scenario wins */
   checkDC: number
   /** maximum players per room */
@@ -155,6 +147,18 @@ export const SCENARIO_LOCATION_LABELS: Record<ScenarioLocation, string> = {
   home: 'Home estate',
 }
 
+/** number of fixed characters every house has */
+export const MEMBERS_PER_HOUSE = 3
+
+/** one fixed character belonging to a house, with hand-set (not rolled) skills */
+export interface MemberDesign {
+  name: string
+  skills: Record<SkillKey, number>
+}
+
+/** inclusive bounds for a designed character's skill values */
+export const MEMBER_SKILL_BOUNDS: [number, number] = [1, 10]
+
 /** one of the eight houses a joining player can be dealt */
 export interface HouseDesign {
   name: string
@@ -162,6 +166,8 @@ export interface HouseDesign {
   color: string
   /** name of the house's home city on the map (coordinates are fixed per slot) */
   cityName: string
+  /** the house's fixed roster — always exactly MEMBERS_PER_HOUSE characters */
+  members: MemberDesign[]
 }
 
 /** one designed way of tackling a scenario */

@@ -12,11 +12,9 @@ import type {
   ScenarioApproach,
   ScenarioDesign,
   ScenarioOutcome,
-  SkillKey,
   Town,
 } from '@family-feudal/shared'
-import { SKILLS } from '@family-feudal/shared'
-import { CAPITAL_ID, MEMBER_NAMES } from './data.js'
+import { CAPITAL_ID } from './data.js'
 import { buildPresets, buildTowns, getContent, type FamilyPreset } from './content.js'
 import { getConfig } from './config.js'
 import { narrateScenario } from './narration.js'
@@ -126,41 +124,20 @@ export function addPlayer(room: Room, name: string): Player {
   return player
 }
 
-/**
- * Roll a member's skills uniformly, then nudge random skills up/down until the total
- * lands inside the configured band — keeps members comparable in overall power while
- * their spread stays random. `updateConfig` guarantees the band is reachable.
- */
-function rollSkills(config: ReturnType<typeof getConfig>): Record<SkillKey, number> {
-  const skills = {} as Record<SkillKey, number>
-  for (const skill of SKILLS) skills[skill] = randomInt(config.skillMin, config.skillMax)
-  const sum = () => SKILLS.reduce((total, key) => total + skills[key], 0)
-  while (sum() > config.skillSumMax) {
-    const above = SKILLS.filter((key) => skills[key] > config.skillMin)
-    const key = above[Math.floor(Math.random() * above.length)]
-    if (!key) break
-    skills[key] -= 1
-  }
-  while (sum() < config.skillSumMin) {
-    const below = SKILLS.filter((key) => skills[key] < config.skillMax)
-    const key = below[Math.floor(Math.random() * below.length)]
-    if (!key) break
-    skills[key] += 1
-  }
-  return skills
-}
-
-function generateMembers(): FamilyMember[] {
-  const config = getConfig()
-  const names = shuffle(MEMBER_NAMES).slice(0, config.membersPerFamily)
-  return names.map((name) => ({ id: randomUUID(), name, skills: rollSkills(config) }))
+/** Instantiate a family's members from its house preset's fixed roster (new id per game). */
+function generateMembers(preset: FamilyPreset | undefined): FamilyMember[] {
+  if (!preset) return []
+  return preset.members.map((m) => ({ id: randomUUID(), name: m.name, skills: { ...m.skills } }))
 }
 
 export function startGame(room: Room): void {
   const config = getConfig()
   room.totalRounds = config.totalRounds
-  // houses and home cities were claimed as players joined; roll the members now
-  for (const family of room.families) family.members = generateMembers()
+  // houses and home cities were claimed as players joined; instantiate the fixed roster now
+  for (const family of room.families) {
+    const preset = room.presets.find((p) => p.homeTownId === family.homeTownId)
+    family.members = generateMembers(preset)
+  }
   room.phase = 'planning'
   room.round = 1
   beginPlanning(room)

@@ -3,13 +3,20 @@ import type {
   ApproachDesign,
   GameContent,
   HouseDesign,
+  MemberDesign,
   NarrationTemplates,
   ScenarioDesign,
   ScenarioLocation,
   SkillKey,
   Town,
 } from '@family-feudal/shared'
-import { NARRATION_KIND_INFO, NARRATION_KINDS, SKILLS } from '@family-feudal/shared'
+import {
+  MEMBER_SKILL_BOUNDS,
+  MEMBERS_PER_HOUSE,
+  NARRATION_KIND_INFO,
+  NARRATION_KINDS,
+  SKILLS,
+} from '@family-feudal/shared'
 import {
   CAPITAL_NAME,
   CAPITAL_SLOT,
@@ -38,17 +45,54 @@ function cleanString(value: unknown, maxLength: number): string | null {
   return trimmed
 }
 
+function sanitizeMemberSkills(raw: unknown, where: string): Record<SkillKey, number> | string {
+  const obj = (raw ?? {}) as Record<string, unknown>
+  const [min, max] = MEMBER_SKILL_BOUNDS
+  const skills = {} as Record<SkillKey, number>
+  for (const skill of SKILLS) {
+    const value = obj[skill]
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return `${where}: ${skill} skill must be a number`
+    }
+    const rounded = Math.round(value)
+    if (rounded < min || rounded > max) return `${where}: ${skill} skill must be ${min}–${max}`
+    skills[skill] = rounded
+  }
+  return skills
+}
+
+function sanitizeMember(raw: unknown, houseLabel: string, index: number): MemberDesign | string {
+  const obj = (raw ?? {}) as Record<string, unknown>
+  const where = `${houseLabel}, character ${index + 1}`
+  const name = cleanString(obj['name'], 30)
+  if (!name) return `${where}: name must be 1–30 characters`
+  const skills = sanitizeMemberSkills(obj['skills'], where)
+  if (typeof skills === 'string') return skills
+  return { name, skills }
+}
+
 function sanitizeHouse(raw: unknown, index: number): HouseDesign | string {
   const obj = (raw ?? {}) as Record<string, unknown>
+  const houseLabel = `House ${index + 1}`
   const name = cleanString(obj['name'], 40)
-  if (!name) return `House ${index + 1}: name must be 1–40 characters`
+  if (!name) return `${houseLabel}: name must be 1–40 characters`
   const color = cleanString(obj['color'], 7)
   if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) {
-    return `House ${index + 1}: colour must be a hex value like #b03a3a`
+    return `${houseLabel}: colour must be a hex value like #b03a3a`
   }
   const cityName = cleanString(obj['cityName'], 24)
-  if (!cityName) return `House ${index + 1}: city name must be 1–24 characters`
-  return { name, color: color.toLowerCase(), cityName }
+  if (!cityName) return `${houseLabel}: city name must be 1–24 characters`
+  const membersRaw = obj['members']
+  if (!Array.isArray(membersRaw) || membersRaw.length !== MEMBERS_PER_HOUSE) {
+    return `${houseLabel}: needs exactly ${MEMBERS_PER_HOUSE} characters`
+  }
+  const members: MemberDesign[] = []
+  for (const [i, member] of membersRaw.entries()) {
+    const result = sanitizeMember(member, houseLabel, i)
+    if (typeof result === 'string') return result
+    members.push(result)
+  }
+  return { name, color: color.toLowerCase(), cityName, members }
 }
 
 function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): ApproachDesign | string {
@@ -151,8 +195,10 @@ function sanitizeContent(raw: unknown): GameContent | string {
  * Upgrade a persisted content file written by an older build so design edits (titles,
  * descriptions, …) survive schema changes. Currently handles the pre-approach format
  * (scenarios with a single `skill` — and the old `beauty` skill — become two
- * generically-labelled approaches that keep the original text) and the pre-narration
- * format (missing herald-line kinds are filled from the defaults).
+ * generically-labelled approaches that keep the original text), the pre-narration
+ * format (missing herald-line kinds are filled from the defaults), and the
+ * pre-fixed-roster format (houses without a `members` array get that house's defaults,
+ * matched by slot index — the randomly-rolled members they used to have are gone either way).
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
@@ -178,7 +224,14 @@ function migrateContent(raw: unknown): unknown {
       ],
     }
   })
-  return { ...obj, scenarios, narration }
+  const houses = Array.isArray(obj['houses'])
+    ? obj['houses'].map((h, i) => {
+        const house = (h ?? {}) as Record<string, unknown>
+        if (Array.isArray(house['members'])) return house
+        return { ...house, members: DEFAULT_HOUSES[i]?.members ?? DEFAULT_HOUSES[0]?.members }
+      })
+    : obj['houses']
+  return { ...obj, houses, scenarios, narration }
 }
 
 function loadContent(): GameContent {
@@ -248,6 +301,8 @@ export interface FamilyPreset {
   name: string
   color: string
   homeTownId: string
+  /** the house's fixed character roster, snapshotted at room:create */
+  members: MemberDesign[]
 }
 
 /** The map for a new room: fixed slot geometry + the designed city names. */
@@ -270,5 +325,6 @@ export function buildPresets(from: GameContent): FamilyPreset[] {
     name: house.name,
     color: house.color,
     homeTownId: CITY_SLOTS[i]?.id ?? `city-${i + 1}`,
+    members: house.members,
   }))
 }
