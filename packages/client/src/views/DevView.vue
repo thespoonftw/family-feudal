@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import type {
-  AppearanceEyeColor,
+  AppearanceAccessories,
+  AppearanceFace,
   AppearanceHairColor,
+  AppearanceHeadStyle,
   AppearanceSkinTone,
   DevRoomDetail,
   DevRoomSummary,
@@ -18,16 +20,11 @@ import type {
   SkillKey,
 } from '@family-feudal/shared'
 import {
-  APPEARANCE_EARRINGS,
-  APPEARANCE_EYEBROWS,
-  APPEARANCE_EYE_COLORS,
-  APPEARANCE_EYE_STYLES,
+  APPEARANCE_ACCESSORIES,
+  APPEARANCE_FACES,
   APPEARANCE_FACIAL_HAIR,
-  APPEARANCE_GLASSES,
   APPEARANCE_HAIR_COLORS,
-  APPEARANCE_HAIR_STYLES,
-  APPEARANCE_MOUTH,
-  APPEARANCE_SHIRT_STYLES,
+  APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
   MEMBER_SKILL_BOUNDS,
   NARRATION_KIND_INFO,
@@ -225,44 +222,24 @@ function skillKeys(): SkillKey[] {
   return [...SKILLS]
 }
 
-function hairStyles(): string[] {
-  return [...APPEARANCE_HAIR_STYLES]
+function headStyles(): string[] {
+  return [...APPEARANCE_HEAD_STYLES]
 }
 
-function eyeStyles(): string[] {
-  return [...APPEARANCE_EYE_STYLES]
-}
-
-function eyebrowOptions(): string[] {
-  return [...APPEARANCE_EYEBROWS]
-}
-
-function mouthOptions(): string[] {
-  return [...APPEARANCE_MOUTH]
+function faceOptions(): string[] {
+  return [...APPEARANCE_FACES]
 }
 
 function facialHairOptions(): string[] {
   return [...APPEARANCE_FACIAL_HAIR]
 }
 
-function glassesOptions(): string[] {
-  return [...APPEARANCE_GLASSES]
-}
-
-function shirtStyles(): string[] {
-  return [...APPEARANCE_SHIRT_STYLES]
-}
-
-function earringsOptions(): string[] {
-  return [...APPEARANCE_EARRINGS]
+function accessoriesOptions(): string[] {
+  return [...APPEARANCE_ACCESSORIES]
 }
 
 function skinTones(): readonly AppearanceSkinTone[] {
   return APPEARANCE_SKIN_TONES
-}
-
-function eyeColors(): readonly AppearanceEyeColor[] {
-  return APPEARANCE_EYE_COLORS
 }
 
 function hairColors(): readonly AppearanceHairColor[] {
@@ -271,10 +248,6 @@ function hairColors(): readonly AppearanceHairColor[] {
 
 function setSkinTone(m: MemberDesign, value: AppearanceSkinTone) {
   m.appearance.skinColor = value
-}
-
-function setEyeColor(m: MemberDesign, value: AppearanceEyeColor) {
-  m.appearance.eyesColor = value
 }
 
 function setHairColor(m: MemberDesign, value: AppearanceHairColor) {
@@ -610,46 +583,7 @@ onUnmounted(() => {
               </span>
             </label>
             <label>
-              Eye colour
-              <span class="swatch-row">
-                <button
-                  v-for="c in eyeColors()"
-                  :key="c"
-                  type="button"
-                  class="swatch-dot"
-                  :class="{ active: editingMember.member.appearance.eyesColor === c }"
-                  :style="{ background: asHex(c) }"
-                  :title="asHex(c)"
-                  @click="setEyeColor(editingMember.member, c)"
-                />
-              </span>
-            </label>
-            <label>
-              Eye style
-              <select v-model="editingMember.member.appearance.eyes">
-                <option v-for="e in eyeStyles()" :key="e" :value="e">{{ e }}</option>
-              </select>
-            </label>
-            <label>
-              Eyebrows
-              <select v-model="editingMember.member.appearance.eyebrows">
-                <option v-for="e in eyebrowOptions()" :key="e" :value="e">{{ e }}</option>
-              </select>
-            </label>
-            <label>
-              Mouth
-              <select v-model="editingMember.member.appearance.mouth">
-                <option v-for="mo in mouthOptions()" :key="mo" :value="mo">{{ mo }}</option>
-              </select>
-            </label>
-            <label>
-              Hair
-              <select v-model="editingMember.member.appearance.hair">
-                <option v-for="h2 in hairStyles()" :key="h2" :value="h2">{{ h2 }}</option>
-              </select>
-            </label>
-            <label>
-              Hair colour
+              Hair/hat colour
               <span class="swatch-row">
                 <button
                   v-for="c in hairColors()"
@@ -662,12 +596,21 @@ onUnmounted(() => {
                   @click="setHairColor(editingMember.member, c)"
                 />
               </span>
-              <span v-if="editingMember.member.appearance.hair === 'turban'" class="dim hair-note">
-                Turban cloth follows the shirt colour instead
+              <span v-if="editingMember.member.appearance.facialHair !== 'none'" class="dim hair-note">
+                Facial hair matches this colour
               </span>
-              <span v-else-if="editingMember.member.appearance.facialHair === 'beard'" class="dim hair-note">
-                Full beard matches this colour
-              </span>
+            </label>
+            <label>
+              Head
+              <select v-model="editingMember.member.appearance.head">
+                <option v-for="h2 in headStyles()" :key="h2" :value="h2">{{ h2 }}</option>
+              </select>
+            </label>
+            <label>
+              Face
+              <select v-model="editingMember.member.appearance.face">
+                <option v-for="f2 in faceOptions()" :key="f2" :value="f2">{{ f2 }}</option>
+              </select>
             </label>
             <label>
               Facial hair
@@ -676,21 +619,9 @@ onUnmounted(() => {
               </select>
             </label>
             <label>
-              Glasses
-              <select v-model="editingMember.member.appearance.glasses">
-                <option v-for="g in glassesOptions()" :key="g" :value="g">{{ g }}</option>
-              </select>
-            </label>
-            <label>
-              Shirt style
-              <select v-model="editingMember.member.appearance.shirt">
-                <option v-for="s in shirtStyles()" :key="s" :value="s">{{ s }}</option>
-              </select>
-            </label>
-            <label>
-              Earrings
-              <select v-model="editingMember.member.appearance.earrings">
-                <option v-for="e in earringsOptions()" :key="e" :value="e">{{ e }}</option>
+              Accessories
+              <select v-model="editingMember.member.appearance.accessories">
+                <option v-for="a in accessoriesOptions()" :key="a" :value="a">{{ a }}</option>
               </select>
             </label>
           </div>

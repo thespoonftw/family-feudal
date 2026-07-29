@@ -1,17 +1,12 @@
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
 import type {
   ApproachDesign,
-  AppearanceEarrings,
-  AppearanceEyebrows,
-  AppearanceEyeStyle,
+  AppearanceAccessories,
+  AppearanceFace,
   AppearanceFacialHair,
-  AppearanceGlasses,
   AppearanceHairColor,
-  AppearanceHairStyle,
-  AppearanceMouth,
-  AppearanceShirtStyle,
+  AppearanceHeadStyle,
   AppearanceSkinTone,
-  AppearanceEyeColor,
   GameContent,
   HouseDesign,
   MemberAppearance,
@@ -23,16 +18,11 @@ import type {
   Town,
 } from '@family-feudal/shared'
 import {
-  APPEARANCE_EARRINGS,
-  APPEARANCE_EYEBROWS,
-  APPEARANCE_EYE_COLORS,
-  APPEARANCE_EYE_STYLES,
+  APPEARANCE_ACCESSORIES,
+  APPEARANCE_FACES,
   APPEARANCE_FACIAL_HAIR,
-  APPEARANCE_GLASSES,
   APPEARANCE_HAIR_COLORS,
-  APPEARANCE_HAIR_STYLES,
-  APPEARANCE_MOUTH,
-  APPEARANCE_SHIRT_STYLES,
+  APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
   MEMBER_SKILL_BOUNDS,
   MEMBERS_PER_HOUSE,
@@ -96,40 +86,23 @@ function sanitizeAppearance(raw: unknown, where: string): MemberAppearance | str
   if (!APPEARANCE_SKIN_TONES.includes(skinColor as AppearanceSkinTone)) {
     return `${where}: unknown skin tone`
   }
-  const eyesColor = obj['eyesColor']
-  if (!APPEARANCE_EYE_COLORS.includes(eyesColor as AppearanceEyeColor)) {
-    return `${where}: unknown eye colour`
-  }
-  const eyes = obj['eyes']
-  if (!APPEARANCE_EYE_STYLES.includes(eyes as AppearanceEyeStyle)) return `${where}: unknown eye style`
-  const eyebrows = obj['eyebrows']
-  if (!APPEARANCE_EYEBROWS.includes(eyebrows as AppearanceEyebrows)) return `${where}: unknown eyebrows`
-  const mouth = obj['mouth']
-  if (!APPEARANCE_MOUTH.includes(mouth as AppearanceMouth)) return `${where}: unknown mouth`
-  const hair = obj['hair']
-  if (!APPEARANCE_HAIR_STYLES.includes(hair as AppearanceHairStyle)) return `${where}: unknown hair style`
   const hairColor = obj['hairColor']
   if (!APPEARANCE_HAIR_COLORS.includes(hairColor as AppearanceHairColor)) return `${where}: unknown hair colour`
+  const head = obj['head']
+  if (!APPEARANCE_HEAD_STYLES.includes(head as AppearanceHeadStyle)) return `${where}: unknown head style`
+  const face = obj['face']
+  if (!APPEARANCE_FACES.includes(face as AppearanceFace)) return `${where}: unknown face`
   const facialHair = obj['facialHair']
   if (!APPEARANCE_FACIAL_HAIR.includes(facialHair as AppearanceFacialHair)) return `${where}: unknown facial hair`
-  const glasses = obj['glasses']
-  if (!APPEARANCE_GLASSES.includes(glasses as AppearanceGlasses)) return `${where}: unknown glasses`
-  const shirt = obj['shirt']
-  if (!APPEARANCE_SHIRT_STYLES.includes(shirt as AppearanceShirtStyle)) return `${where}: unknown shirt style`
-  const earrings = obj['earrings']
-  if (!APPEARANCE_EARRINGS.includes(earrings as AppearanceEarrings)) return `${where}: unknown earrings`
+  const accessories = obj['accessories']
+  if (!APPEARANCE_ACCESSORIES.includes(accessories as AppearanceAccessories)) return `${where}: unknown accessories`
   return {
     skinColor: skinColor as AppearanceSkinTone,
-    eyesColor: eyesColor as AppearanceEyeColor,
-    eyes: eyes as AppearanceEyeStyle,
-    eyebrows: eyebrows as AppearanceEyebrows,
-    mouth: mouth as AppearanceMouth,
-    hair: hair as AppearanceHairStyle,
     hairColor: hairColor as AppearanceHairColor,
+    head: head as AppearanceHeadStyle,
+    face: face as AppearanceFace,
     facialHair: facialHair as AppearanceFacialHair,
-    glasses: glasses as AppearanceGlasses,
-    shirt: shirt as AppearanceShirtStyle,
-    earrings: earrings as AppearanceEarrings,
+    accessories: accessories as AppearanceAccessories,
   }
 }
 
@@ -314,16 +287,11 @@ function migrateContent(raw: unknown): unknown {
           const rawAppearance = (member['appearance'] ?? {}) as Record<string, unknown>
           const appearance: MemberAppearance = {
             skinColor: pickOption(APPEARANCE_SKIN_TONES, rawAppearance['skinColor'], fallback.skinColor),
-            eyesColor: pickOption(APPEARANCE_EYE_COLORS, rawAppearance['eyesColor'], fallback.eyesColor),
-            eyes: pickOption(APPEARANCE_EYE_STYLES, rawAppearance['eyes'], fallback.eyes),
-            eyebrows: pickOption(APPEARANCE_EYEBROWS, rawAppearance['eyebrows'], fallback.eyebrows),
-            mouth: pickOption(APPEARANCE_MOUTH, rawAppearance['mouth'], fallback.mouth),
-            hair: pickOption(APPEARANCE_HAIR_STYLES, rawAppearance['hair'], fallback.hair),
             hairColor: pickOption(APPEARANCE_HAIR_COLORS, rawAppearance['hairColor'], fallback.hairColor),
+            head: pickOption(APPEARANCE_HEAD_STYLES, rawAppearance['head'], fallback.head),
+            face: pickOption(APPEARANCE_FACES, rawAppearance['face'], fallback.face),
             facialHair: pickOption(APPEARANCE_FACIAL_HAIR, rawAppearance['facialHair'], fallback.facialHair),
-            glasses: pickOption(APPEARANCE_GLASSES, rawAppearance['glasses'], fallback.glasses),
-            shirt: pickOption(APPEARANCE_SHIRT_STYLES, rawAppearance['shirt'], fallback.shirt),
-            earrings: pickOption(APPEARANCE_EARRINGS, rawAppearance['earrings'], fallback.earrings),
+            accessories: pickOption(APPEARANCE_ACCESSORIES, rawAppearance['accessories'], fallback.accessories),
           }
           return { ...member, appearance }
         })

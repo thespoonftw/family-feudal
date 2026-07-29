@@ -151,17 +151,13 @@ export const SCENARIO_LOCATION_LABELS: Record<ScenarioLocation, string> = {
 /** number of fixed characters every house has */
 export const MEMBERS_PER_HOUSE = 3
 
-// ---------- Portrait appearance (DiceBear "micah" style traits) ----------
+// ---------- Portrait appearance (DiceBear "open-peeps" style traits) ----------
 
 /** curated preset skin tones (hex without '#') — not the full DiceBear colour space */
 export const APPEARANCE_SKIN_TONES = ['f2d3b1', 'e8b98c', 'c68642', '965a2f', '5c3a21'] as const
 export type AppearanceSkinTone = (typeof APPEARANCE_SKIN_TONES)[number]
 
-/** curated preset eye colours (hex without '#') */
-export const APPEARANCE_EYE_COLORS = ['4b3621', '2e536f', '1a5632', '000000', '6b6b6b'] as const
-export type AppearanceEyeColor = (typeof APPEARANCE_EYE_COLORS)[number]
-
-/** curated preset hair colours (hex without '#') */
+/** curated preset hair colours (hex without '#') — also tints hats/headwear and facial hair */
 export const APPEARANCE_HAIR_COLORS = [
   '2c1b18',
   '4a2c14',
@@ -174,65 +170,141 @@ export const APPEARANCE_HAIR_COLORS = [
 ] as const
 export type AppearanceHairColor = (typeof APPEARANCE_HAIR_COLORS)[number]
 
-export const APPEARANCE_HAIR_STYLES = [
-  'fonze',
-  'mrT',
-  'dougFunny',
-  'mrClean',
-  'dannyPhantom',
-  'full',
+/** open-peeps "head" trait — hairstyles and headwear (hats/hijab/turban) in one enum */
+export const APPEARANCE_HEAD_STYLES = [
+  'afro',
+  'bangs',
+  'bangs2',
+  'bantuKnots',
+  'bear',
+  'bun',
+  'bun2',
+  'buns',
+  'cornrows',
+  'cornrows2',
+  'dreads1',
+  'dreads2',
+  'flatTop',
+  'flatTopLong',
+  'grayBun',
+  'grayMedium',
+  'grayShort',
+  'hatBeanie',
+  'hatHip',
+  'hijab',
+  'long',
+  'longAfro',
+  'longBangs',
+  'longCurly',
+  'medium1',
+  'medium2',
+  'medium3',
+  'mediumBangs',
+  'mediumBangs2',
+  'mediumBangs3',
+  'mediumStraight',
+  'mohawk',
+  'mohawk2',
+  'noHair1',
+  'noHair2',
+  'noHair3',
+  'pomp',
+  'shaved1',
+  'shaved2',
+  'shaved3',
+  'short1',
+  'short2',
+  'short3',
+  'short4',
+  'short5',
   'turban',
-  'pixie',
+  'twists',
+  'twists2',
 ] as const
-export type AppearanceHairStyle = (typeof APPEARANCE_HAIR_STYLES)[number]
+export type AppearanceHeadStyle = (typeof APPEARANCE_HEAD_STYLES)[number]
 
-export const APPEARANCE_EYE_STYLES = ['eyes', 'round', 'eyesShadow', 'smiling', 'smilingShadow'] as const
-export type AppearanceEyeStyle = (typeof APPEARANCE_EYE_STYLES)[number]
-
-export const APPEARANCE_EYEBROWS = ['up', 'down', 'eyelashesUp', 'eyelashesDown'] as const
-export type AppearanceEyebrows = (typeof APPEARANCE_EYEBROWS)[number]
-
-export const APPEARANCE_MOUTH = [
-  'surprised',
-  'laughing',
-  'nervous',
+/** open-peeps "face" trait — a combined expression (eyes + brows + mouth in one illustration) */
+export const APPEARANCE_FACES = [
+  'angryWithFang',
+  'awe',
+  'blank',
+  'calm',
+  'cheeky',
+  'concerned',
+  'concernedFear',
+  'contempt',
+  'cute',
+  'cyclops',
+  'driven',
+  'eatingHappy',
+  'explaining',
+  'eyesClosed',
+  'fear',
+  'hectic',
+  'lovingGrin1',
+  'lovingGrin2',
+  'monster',
+  'old',
+  'rage',
+  'serious',
   'smile',
-  'sad',
-  'pucker',
-  'frown',
-  'smirk',
+  'smileBig',
+  'smileLOL',
+  'smileTeethGap',
+  'solemn',
+  'suspicious',
+  'tired',
+  'veryAngry',
 ] as const
-export type AppearanceMouth = (typeof APPEARANCE_MOUTH)[number]
+export type AppearanceFace = (typeof APPEARANCE_FACES)[number]
 
-export const APPEARANCE_FACIAL_HAIR = ['none', 'beard', 'scruff'] as const
+export const APPEARANCE_FACIAL_HAIR = [
+  'none',
+  'chin',
+  'full',
+  'full2',
+  'full3',
+  'full4',
+  'goatee1',
+  'goatee2',
+  'moustache1',
+  'moustache2',
+  'moustache3',
+  'moustache4',
+  'moustache5',
+  'moustache6',
+  'moustache7',
+  'moustache8',
+  'moustache9',
+] as const
 export type AppearanceFacialHair = (typeof APPEARANCE_FACIAL_HAIR)[number]
 
-export const APPEARANCE_GLASSES = ['none', 'round', 'square'] as const
-export type AppearanceGlasses = (typeof APPEARANCE_GLASSES)[number]
-
-export const APPEARANCE_SHIRT_STYLES = ['open', 'crew', 'collared'] as const
-export type AppearanceShirtStyle = (typeof APPEARANCE_SHIRT_STYLES)[number]
-
-export const APPEARANCE_EARRINGS = ['none', 'hoop', 'stud'] as const
-export type AppearanceEarrings = (typeof APPEARANCE_EARRINGS)[number]
+export const APPEARANCE_ACCESSORIES = [
+  'none',
+  'eyepatch',
+  'glasses',
+  'glasses2',
+  'glasses3',
+  'glasses4',
+  'glasses5',
+  'sunglasses',
+  'sunglasses2',
+] as const
+export type AppearanceAccessories = (typeof APPEARANCE_ACCESSORIES)[number]
 
 /**
- * a fixed character's portrait, rendered client-side as a DiceBear "micah" avatar. Shirt
- * colour is not stored here — it always matches the character's house/family banner
- * colour, applied at render time.
+ * a fixed character's portrait, rendered client-side as a DiceBear "open-peeps" avatar.
+ * Clothing colour is not stored here — it always matches the character's house/family
+ * banner colour, applied at render time. hairColor tints hair, hats/headwear, and facial
+ * hair alike (open-peeps uses a single accent colour for all three).
  */
 export interface MemberAppearance {
   skinColor: AppearanceSkinTone
-  eyesColor: AppearanceEyeColor
-  eyes: AppearanceEyeStyle
-  eyebrows: AppearanceEyebrows
-  mouth: AppearanceMouth
-  hair: AppearanceHairStyle
   hairColor: AppearanceHairColor
+  head: AppearanceHeadStyle
+  face: AppearanceFace
   facialHair: AppearanceFacialHair
-  glasses: AppearanceGlasses
-  shirt: AppearanceShirtStyle
-  earrings: AppearanceEarrings
+  accessories: AppearanceAccessories
 }
 
 /** one fixed character belonging to a house, with hand-set (not rolled) skills */

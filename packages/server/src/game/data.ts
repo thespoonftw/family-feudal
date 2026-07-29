@@ -1,10 +1,7 @@
 import type {
-  AppearanceEarrings,
-  AppearanceEyebrows,
+  AppearanceAccessories,
+  AppearanceFace,
   AppearanceFacialHair,
-  AppearanceGlasses,
-  AppearanceMouth,
-  AppearanceShirtStyle,
   HouseDesign,
   MemberAppearance,
   MemberDesign,
@@ -12,10 +9,9 @@ import type {
   ScenarioDesign,
 } from '@family-feudal/shared'
 import {
-  APPEARANCE_EYE_COLORS,
-  APPEARANCE_EYE_STYLES,
+  APPEARANCE_FACES,
   APPEARANCE_HAIR_COLORS,
-  APPEARANCE_HAIR_STYLES,
+  APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
 } from '@family-feudal/shared'
 
@@ -103,36 +99,36 @@ const HARROWGATE_MEMBERS: MemberSeed[] = [
 
 // Default portrait swatches, cycled by a global member index so the 24 stock characters
 // come out visually varied. Purely a starting point — every field is dev-panel editable.
-// Shirt colour is not rolled here — it always follows the house's banner colour.
-const SHIRT_STYLES: AppearanceShirtStyle[] = ['open', 'crew', 'collared']
-const EYEBROWS: AppearanceEyebrows[] = ['up', 'down', 'eyelashesUp', 'eyelashesDown']
-const MOUTHS: AppearanceMouth[] = [
-  'surprised',
-  'laughing',
-  'nervous',
-  'smile',
-  'sad',
-  'pucker',
-  'frown',
-  'smirk',
-]
+// Clothing colour is not rolled here — it always follows the house's banner colour.
 
 export function appearanceFor(index: number): MemberAppearance {
-  const facialHairOptions: AppearanceFacialHair[] = ['none', 'none', 'beard', 'none', 'scruff']
-  const glassesOptions: AppearanceGlasses[] = ['none', 'none', 'none', 'round', 'none', 'square', 'none']
-  const earringsOptions: AppearanceEarrings[] = ['none', 'none', 'stud', 'none', 'hoop', 'none', 'none']
+  const facialHairOptions: AppearanceFacialHair[] = [
+    'none',
+    'none',
+    'none',
+    'full',
+    'none',
+    'moustache3',
+    'none',
+    'goatee1',
+  ]
+  const accessoriesOptions: AppearanceAccessories[] = [
+    'none',
+    'none',
+    'none',
+    'glasses',
+    'none',
+    'none',
+    'sunglasses',
+    'none',
+  ]
   return {
     skinColor: APPEARANCE_SKIN_TONES[index % APPEARANCE_SKIN_TONES.length]!,
-    eyesColor: APPEARANCE_EYE_COLORS[(index * 5) % APPEARANCE_EYE_COLORS.length]!,
-    eyes: APPEARANCE_EYE_STYLES[index % APPEARANCE_EYE_STYLES.length]!,
-    eyebrows: EYEBROWS[(index * 2) % EYEBROWS.length]!,
-    mouth: MOUTHS[(index * 3) % MOUTHS.length]!,
-    hair: APPEARANCE_HAIR_STYLES[index % APPEARANCE_HAIR_STYLES.length]!,
     hairColor: APPEARANCE_HAIR_COLORS[(index * 3) % APPEARANCE_HAIR_COLORS.length]!,
+    head: APPEARANCE_HEAD_STYLES[index % APPEARANCE_HEAD_STYLES.length]!,
+    face: APPEARANCE_FACES[(index * 3) % APPEARANCE_FACES.length]!,
     facialHair: facialHairOptions[index % facialHairOptions.length]!,
-    glasses: glassesOptions[index % glassesOptions.length]!,
-    shirt: SHIRT_STYLES[index % SHIRT_STYLES.length]!,
-    earrings: earringsOptions[index % earringsOptions.length]!,
+    accessories: accessoriesOptions[index % accessoriesOptions.length]!,
   }
 }
 
