@@ -16,6 +16,11 @@ const props = withDefaults(
   { size: 96 },
 )
 
+// a turban is cloth, not hair — it follows the shirt colour instead of the member's own hairColor
+const renderedHairColor = computed(() =>
+  props.appearance.hair === 'turban' ? props.shirtColor.replace('#', '') : props.appearance.hairColor,
+)
+
 const dataUri = computed(() =>
   createAvatar(micah, {
     seed: props.seed,
@@ -26,11 +31,12 @@ const dataUri = computed(() =>
     eyebrows: [props.appearance.eyebrows],
     mouth: [props.appearance.mouth],
     hair: [props.appearance.hair],
-    hairColor: [props.appearance.hairColor],
+    hairColor: [renderedHairColor.value],
     shirt: [props.appearance.shirt],
     shirtColor: [props.shirtColor.replace('#', '')],
     facialHairProbability: props.appearance.facialHair === 'none' ? 0 : 100,
     facialHair: props.appearance.facialHair === 'none' ? ['beard'] : [props.appearance.facialHair],
+    ...(props.appearance.facialHair === 'beard' ? { facialHairColor: [props.appearance.hairColor] } : {}),
     glassesProbability: props.appearance.glasses === 'none' ? 0 : 100,
     glasses: props.appearance.glasses === 'none' ? ['round'] : [props.appearance.glasses],
     earringsProbability: props.appearance.earrings === 'none' ? 0 : 100,

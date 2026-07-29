@@ -6,6 +6,7 @@ import type {
   AppearanceEyeStyle,
   AppearanceFacialHair,
   AppearanceGlasses,
+  AppearanceHairColor,
   AppearanceHairStyle,
   AppearanceMouth,
   AppearanceShirtStyle,
@@ -28,6 +29,7 @@ import {
   APPEARANCE_EYE_STYLES,
   APPEARANCE_FACIAL_HAIR,
   APPEARANCE_GLASSES,
+  APPEARANCE_HAIR_COLORS,
   APPEARANCE_HAIR_STYLES,
   APPEARANCE_MOUTH,
   APPEARANCE_SHIRT_STYLES,
@@ -83,10 +85,6 @@ function sanitizeMemberSkills(raw: unknown, where: string): Record<SkillKey, num
   return skills
 }
 
-function isHexColor(value: unknown): value is string {
-  return typeof value === 'string' && /^[0-9a-fA-F]{6}$/.test(value)
-}
-
 /** migration helper: keep a legacy value if it's still one of the valid options, else fall back */
 function pickOption<T extends string>(options: readonly T[], value: unknown, fallback: T): T {
   return typeof value === 'string' && (options as readonly string[]).includes(value) ? (value as T) : fallback
@@ -111,7 +109,7 @@ function sanitizeAppearance(raw: unknown, where: string): MemberAppearance | str
   const hair = obj['hair']
   if (!APPEARANCE_HAIR_STYLES.includes(hair as AppearanceHairStyle)) return `${where}: unknown hair style`
   const hairColor = obj['hairColor']
-  if (!isHexColor(hairColor)) return `${where}: hair colour must be a 6-digit hex value`
+  if (!APPEARANCE_HAIR_COLORS.includes(hairColor as AppearanceHairColor)) return `${where}: unknown hair colour`
   const facialHair = obj['facialHair']
   if (!APPEARANCE_FACIAL_HAIR.includes(facialHair as AppearanceFacialHair)) return `${where}: unknown facial hair`
   const glasses = obj['glasses']
@@ -127,7 +125,7 @@ function sanitizeAppearance(raw: unknown, where: string): MemberAppearance | str
     eyebrows: eyebrows as AppearanceEyebrows,
     mouth: mouth as AppearanceMouth,
     hair: hair as AppearanceHairStyle,
-    hairColor: hairColor.toLowerCase(),
+    hairColor: hairColor as AppearanceHairColor,
     facialHair: facialHair as AppearanceFacialHair,
     glasses: glasses as AppearanceGlasses,
     shirt: shirt as AppearanceShirtStyle,
@@ -321,7 +319,7 @@ function migrateContent(raw: unknown): unknown {
             eyebrows: pickOption(APPEARANCE_EYEBROWS, rawAppearance['eyebrows'], fallback.eyebrows),
             mouth: pickOption(APPEARANCE_MOUTH, rawAppearance['mouth'], fallback.mouth),
             hair: pickOption(APPEARANCE_HAIR_STYLES, rawAppearance['hair'], fallback.hair),
-            hairColor: isHexColor(rawAppearance['hairColor']) ? rawAppearance['hairColor'] : fallback.hairColor,
+            hairColor: pickOption(APPEARANCE_HAIR_COLORS, rawAppearance['hairColor'], fallback.hairColor),
             facialHair: pickOption(APPEARANCE_FACIAL_HAIR, rawAppearance['facialHair'], fallback.facialHair),
             glasses: pickOption(APPEARANCE_GLASSES, rawAppearance['glasses'], fallback.glasses),
             shirt: pickOption(APPEARANCE_SHIRT_STYLES, rawAppearance['shirt'], fallback.shirt),

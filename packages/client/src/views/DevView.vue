@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import type {
   AppearanceEyeColor,
+  AppearanceHairColor,
   AppearanceSkinTone,
   DevRoomDetail,
   DevRoomSummary,
@@ -23,6 +24,7 @@ import {
   APPEARANCE_EYE_STYLES,
   APPEARANCE_FACIAL_HAIR,
   APPEARANCE_GLASSES,
+  APPEARANCE_HAIR_COLORS,
   APPEARANCE_HAIR_STYLES,
   APPEARANCE_MOUTH,
   APPEARANCE_SHIRT_STYLES,
@@ -263,6 +265,10 @@ function eyeColors(): readonly AppearanceEyeColor[] {
   return APPEARANCE_EYE_COLORS
 }
 
+function hairColors(): readonly AppearanceHairColor[] {
+  return APPEARANCE_HAIR_COLORS
+}
+
 function setSkinTone(m: MemberDesign, value: AppearanceSkinTone) {
   m.appearance.skinColor = value
 }
@@ -271,12 +277,13 @@ function setEyeColor(m: MemberDesign, value: AppearanceEyeColor) {
   m.appearance.eyesColor = value
 }
 
-/** '#rrggbb' for a <input type="color">; the hairColor field stores the hex without '#' */
+function setHairColor(m: MemberDesign, value: AppearanceHairColor) {
+  m.appearance.hairColor = value
+}
+
+/** '#rrggbb' for swatch styling; appearance colour fields store the hex without '#' */
 function asHex(value: string): string {
   return `#${value}`
-}
-function fromHex(m: MemberDesign, value: string) {
-  m.appearance.hairColor = value.replace('#', '')
 }
 
 onMounted(() => {
@@ -643,12 +650,24 @@ onUnmounted(() => {
             </label>
             <label>
               Hair colour
-              <input
-                :value="asHex(editingMember.member.appearance.hairColor)"
-                type="color"
-                class="swatch"
-                @input="fromHex(editingMember.member, ($event.target as HTMLInputElement).value)"
-              />
+              <span class="swatch-row">
+                <button
+                  v-for="c in hairColors()"
+                  :key="c"
+                  type="button"
+                  class="swatch-dot"
+                  :class="{ active: editingMember.member.appearance.hairColor === c }"
+                  :style="{ background: asHex(c) }"
+                  :title="asHex(c)"
+                  @click="setHairColor(editingMember.member, c)"
+                />
+              </span>
+              <span v-if="editingMember.member.appearance.hair === 'turban'" class="dim hair-note">
+                Turban cloth follows the shirt colour instead
+              </span>
+              <span v-else-if="editingMember.member.appearance.facialHair === 'beard'" class="dim hair-note">
+                Full beard matches this colour
+              </span>
             </label>
             <label>
               Facial hair
@@ -886,6 +905,12 @@ input.swatch {
 .swatch-row {
   display: flex;
   gap: 0.35rem;
+}
+
+.hair-note {
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 0.3rem;
 }
 
 .swatch-dot {

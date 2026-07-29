@@ -14,6 +14,7 @@ import type {
 import {
   APPEARANCE_EYE_COLORS,
   APPEARANCE_EYE_STYLES,
+  APPEARANCE_HAIR_COLORS,
   APPEARANCE_HAIR_STYLES,
   APPEARANCE_SKIN_TONES,
 } from '@family-feudal/shared'
@@ -103,7 +104,6 @@ const HARROWGATE_MEMBERS: MemberSeed[] = [
 // Default portrait swatches, cycled by a global member index so the 24 stock characters
 // come out visually varied. Purely a starting point — every field is dev-panel editable.
 // Shirt colour is not rolled here — it always follows the house's banner colour.
-const HAIR_COLORS = ['2c1b18', '4a2c14', '6b4423', 'ad8a56', 'e8c179', '1c1c1c', '9c9c9c', '701c1c']
 const SHIRT_STYLES: AppearanceShirtStyle[] = ['open', 'crew', 'collared']
 const EYEBROWS: AppearanceEyebrows[] = ['up', 'down', 'eyelashesUp', 'eyelashesDown']
 const MOUTHS: AppearanceMouth[] = [
@@ -128,7 +128,7 @@ export function appearanceFor(index: number): MemberAppearance {
     eyebrows: EYEBROWS[(index * 2) % EYEBROWS.length]!,
     mouth: MOUTHS[(index * 3) % MOUTHS.length]!,
     hair: APPEARANCE_HAIR_STYLES[index % APPEARANCE_HAIR_STYLES.length]!,
-    hairColor: HAIR_COLORS[(index * 3) % HAIR_COLORS.length]!,
+    hairColor: APPEARANCE_HAIR_COLORS[(index * 3) % APPEARANCE_HAIR_COLORS.length]!,
     facialHair: facialHairOptions[index % facialHairOptions.length]!,
     glasses: glassesOptions[index % glassesOptions.length]!,
     shirt: SHIRT_STYLES[index % SHIRT_STYLES.length]!,

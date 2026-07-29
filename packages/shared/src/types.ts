@@ -158,8 +158,21 @@ export const APPEARANCE_SKIN_TONES = ['f2d3b1', 'e8b98c', 'c68642', '965a2f', '5
 export type AppearanceSkinTone = (typeof APPEARANCE_SKIN_TONES)[number]
 
 /** curated preset eye colours (hex without '#') */
-export const APPEARANCE_EYE_COLORS = ['4b3621', '2e536f', '1a5632', '5b3a29', '000000', '6b6b6b'] as const
+export const APPEARANCE_EYE_COLORS = ['4b3621', '2e536f', '1a5632', '000000', '6b6b6b'] as const
 export type AppearanceEyeColor = (typeof APPEARANCE_EYE_COLORS)[number]
+
+/** curated preset hair colours (hex without '#') */
+export const APPEARANCE_HAIR_COLORS = [
+  '2c1b18',
+  '4a2c14',
+  '6b4423',
+  'ad8a56',
+  'e8c179',
+  '1c1c1c',
+  '9c9c9c',
+  '701c1c',
+] as const
+export type AppearanceHairColor = (typeof APPEARANCE_HAIR_COLORS)[number]
 
 export const APPEARANCE_HAIR_STYLES = [
   'fonze',
@@ -215,8 +228,7 @@ export interface MemberAppearance {
   eyebrows: AppearanceEyebrows
   mouth: AppearanceMouth
   hair: AppearanceHairStyle
-  /** hair colour, hex without '#' — freely pickable, unlike the curated skin/eye presets */
-  hairColor: string
+  hairColor: AppearanceHairColor
   facialHair: AppearanceFacialHair
   glasses: AppearanceGlasses
   shirt: AppearanceShirtStyle
