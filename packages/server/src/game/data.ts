@@ -50,51 +50,51 @@ export const CITY_SLOTS: MapSlot[] = [
 type MemberSeed = Omit<MemberDesign, 'appearance'>
 
 const ASHFORD_MEMBERS: MemberSeed[] = [
-  { name: 'Aldric', skills: { combat: 2, charm: 3, intellect: 3, diplomacy: 2, cunning: 4 } },
-  { name: 'Beatrice', skills: { combat: 1, charm: 1, intellect: 2, diplomacy: 4, cunning: 3 } },
-  { name: 'Cedric', skills: { combat: 3, charm: 2, intellect: 2, diplomacy: 1, cunning: 4 } },
+  { name: 'Aldric', skills: { might: 2, charm: 3, wit: 3, cunning: 4 } },
+  { name: 'Beatrice', skills: { might: 1, charm: 1, wit: 2, cunning: 3 } },
+  { name: 'Cedric', skills: { might: 3, charm: 2, wit: 2, cunning: 4 } },
 ]
 
 const BELMONT_MEMBERS: MemberSeed[] = [
-  { name: 'Daphne', skills: { combat: 3, charm: 4, intellect: 2, diplomacy: 1, cunning: 4 } },
-  { name: 'Edmund', skills: { combat: 4, charm: 4, intellect: 1, diplomacy: 2, cunning: 3 } },
-  { name: 'Freya', skills: { combat: 1, charm: 2, intellect: 3, diplomacy: 4, cunning: 2 } },
+  { name: 'Daphne', skills: { might: 3, charm: 4, wit: 2, cunning: 4 } },
+  { name: 'Edmund', skills: { might: 4, charm: 4, wit: 1, cunning: 3 } },
+  { name: 'Freya', skills: { might: 1, charm: 2, wit: 3, cunning: 2 } },
 ]
 
 const CALDWELL_MEMBERS: MemberSeed[] = [
-  { name: 'Godwin', skills: { combat: 3, charm: 1, intellect: 3, diplomacy: 3, cunning: 3 } },
-  { name: 'Helena', skills: { combat: 3, charm: 3, intellect: 4, diplomacy: 1, cunning: 3 } },
-  { name: 'Isolde', skills: { combat: 2, charm: 4, intellect: 2, diplomacy: 1, cunning: 2 } },
+  { name: 'Godwin', skills: { might: 3, charm: 1, wit: 3, cunning: 3 } },
+  { name: 'Helena', skills: { might: 3, charm: 3, wit: 4, cunning: 3 } },
+  { name: 'Isolde', skills: { might: 2, charm: 4, wit: 2, cunning: 2 } },
 ]
 
 const DRAYMOOR_MEMBERS: MemberSeed[] = [
-  { name: 'Jasper', skills: { combat: 1, charm: 4, intellect: 1, diplomacy: 2, cunning: 3 } },
-  { name: 'Katherine', skills: { combat: 2, charm: 2, intellect: 4, diplomacy: 3, cunning: 3 } },
-  { name: 'Leopold', skills: { combat: 1, charm: 4, intellect: 4, diplomacy: 1, cunning: 4 } },
+  { name: 'Jasper', skills: { might: 1, charm: 4, wit: 1, cunning: 3 } },
+  { name: 'Katherine', skills: { might: 2, charm: 2, wit: 4, cunning: 3 } },
+  { name: 'Leopold', skills: { might: 1, charm: 4, wit: 4, cunning: 4 } },
 ]
 
 const EVERLY_MEMBERS: MemberSeed[] = [
-  { name: 'Margaery', skills: { combat: 1, charm: 4, intellect: 3, diplomacy: 1, cunning: 2 } },
-  { name: 'Nathaniel', skills: { combat: 2, charm: 3, intellect: 2, diplomacy: 1, cunning: 4 } },
-  { name: 'Odette', skills: { combat: 2, charm: 4, intellect: 1, diplomacy: 3, cunning: 3 } },
+  { name: 'Margaery', skills: { might: 1, charm: 4, wit: 3, cunning: 2 } },
+  { name: 'Nathaniel', skills: { might: 2, charm: 3, wit: 2, cunning: 4 } },
+  { name: 'Odette', skills: { might: 2, charm: 4, wit: 1, cunning: 3 } },
 ]
 
 const FENWICK_MEMBERS: MemberSeed[] = [
-  { name: 'Percival', skills: { combat: 4, charm: 3, intellect: 2, diplomacy: 2, cunning: 1 } },
-  { name: 'Quinn', skills: { combat: 1, charm: 2, intellect: 3, diplomacy: 2, cunning: 4 } },
-  { name: 'Rosalind', skills: { combat: 4, charm: 3, intellect: 1, diplomacy: 3, cunning: 3 } },
+  { name: 'Percival', skills: { might: 4, charm: 3, wit: 2, cunning: 1 } },
+  { name: 'Quinn', skills: { might: 1, charm: 2, wit: 3, cunning: 4 } },
+  { name: 'Rosalind', skills: { might: 4, charm: 3, wit: 1, cunning: 3 } },
 ]
 
 const GRIMSBY_MEMBERS: MemberSeed[] = [
-  { name: 'Silas', skills: { combat: 1, charm: 1, intellect: 4, diplomacy: 3, cunning: 2 } },
-  { name: 'Tamsin', skills: { combat: 4, charm: 3, intellect: 4, diplomacy: 2, cunning: 1 } },
-  { name: 'Ulric', skills: { combat: 2, charm: 1, intellect: 4, diplomacy: 2, cunning: 3 } },
+  { name: 'Silas', skills: { might: 1, charm: 1, wit: 4, cunning: 2 } },
+  { name: 'Tamsin', skills: { might: 4, charm: 3, wit: 4, cunning: 1 } },
+  { name: 'Ulric', skills: { might: 2, charm: 1, wit: 4, cunning: 3 } },
 ]
 
 const HARROWGATE_MEMBERS: MemberSeed[] = [
-  { name: 'Vivienne', skills: { combat: 3, charm: 1, intellect: 1, diplomacy: 3, cunning: 3 } },
-  { name: 'Wilfred', skills: { combat: 1, charm: 4, intellect: 4, diplomacy: 2, cunning: 3 } },
-  { name: 'Yvette', skills: { combat: 2, charm: 4, intellect: 1, diplomacy: 2, cunning: 2 } },
+  { name: 'Vivienne', skills: { might: 3, charm: 1, wit: 1, cunning: 3 } },
+  { name: 'Wilfred', skills: { might: 1, charm: 4, wit: 4, cunning: 3 } },
+  { name: 'Yvette', skills: { might: 2, charm: 4, wit: 1, cunning: 2 } },
 ]
 
 // Default portrait swatches, cycled by a global member index so the 24 stock characters
@@ -189,20 +189,20 @@ export const DEFAULT_NARRATION: NarrationTemplates = {
 export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   // General
   { emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}. The merchants beg for aid.', location: 'general', approaches: [
-    { label: 'Ride them down', skill: 'combat' },
+    { label: 'Ride them down', skill: 'might' },
     { label: 'Infiltrate their camp', skill: 'cunning' },
   ] },
   { emoji: '🏇', title: 'Jousting Tournament', description: 'A grand tourney is held at {town}, and every eye in the realm turns to watch.', location: 'general', approaches: [
-    { label: 'Enter the lists', skill: 'combat' },
+    { label: 'Enter the lists', skill: 'might' },
     { label: 'Dazzle the royal box', skill: 'charm' },
   ] },
   { emoji: '🏴', title: 'Border Skirmish', description: 'Raiders from beyond the realm probe the defences of {town}.', location: 'general', approaches: [
-    { label: 'Hold the wall', skill: 'combat' },
+    { label: 'Hold the wall', skill: 'might' },
     { label: 'Sabotage their supplies', skill: 'cunning' },
   ] },
   { emoji: '🐗', title: 'Beast Hunt', description: 'A monstrous beast stalks the woods near {town}. None dare go out after dark.', location: 'general', approaches: [
-    { label: 'Face it head-on', skill: 'combat' },
-    { label: 'Study its habits and lay a trap', skill: 'intellect' },
+    { label: 'Face it head-on', skill: 'might' },
+    { label: 'Study its habits and lay a trap', skill: 'wit' },
   ] },
   { emoji: '🎭', title: 'Masquerade Ball', description: 'The nobility of {town} hosts a dazzling masquerade.', location: 'general', approaches: [
     { label: 'Be the talk of the ball', skill: 'charm' },
@@ -210,66 +210,66 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   ] },
   { emoji: '💍', title: 'Noble Wedding', description: 'Two great houses wed at {town}. All eyes are on the guests.', location: 'general', approaches: [
     { label: 'Outshine the bridal party', skill: 'charm' },
-    { label: 'Toast both houses', skill: 'diplomacy' },
+    { label: 'Toast both houses', skill: 'wit' },
   ] },
   { emoji: '📚', title: "Scholars' Symposium", description: 'Learned minds gather in {town} to debate the great questions.', location: 'general', approaches: [
-    { label: 'Win the great debate', skill: 'intellect' },
-    { label: 'Keep the rival schools civil', skill: 'diplomacy' },
+    { label: 'Win the great debate', skill: 'wit' },
+    { label: 'Keep the rival schools civil', skill: 'charm' },
   ] },
   { emoji: '🐀', title: 'Plague Outbreak', description: 'Sickness spreads through {town}. The gates may soon be barred.', location: 'general', approaches: [
-    { label: 'Find the source', skill: 'intellect' },
-    { label: 'Calm the terrified town', skill: 'diplomacy' },
+    { label: 'Find the source', skill: 'wit' },
+    { label: 'Calm the terrified town', skill: 'charm' },
   ] },
   { emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. The reward for its return is generous.', location: 'general', approaches: [
-    { label: 'Follow the clues', skill: 'intellect' },
+    { label: 'Follow the clues', skill: 'wit' },
     { label: 'Shake down the fences', skill: 'cunning' },
   ] },
   { emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats over a fortune in cargo.', location: 'general', approaches: [
-    { label: 'Broker a settlement', skill: 'diplomacy' },
+    { label: 'Broker a settlement', skill: 'charm' },
     { label: 'Quietly rig the ledgers', skill: 'cunning' },
   ] },
   { emoji: '🕊️', title: 'Peace Talks', description: 'Feuding lords meet at {town} under a banner of truce.', location: 'general', approaches: [
-    { label: 'Draft the truce', skill: 'diplomacy' },
+    { label: 'Draft the truce', skill: 'wit' },
     { label: 'Soften hearts at the feast', skill: 'charm' },
     { label: 'Blackmail both sides into peace', skill: 'cunning' },
   ] },
   { emoji: '🌾', title: 'Harvest Festival', description: 'The people of {town} celebrate the harvest. Win their goodwill.', location: 'general', approaches: [
     { label: 'Crown the festival in style', skill: 'charm' },
-    { label: 'Judge the contests fairly', skill: 'diplomacy' },
+    { label: 'Judge the contests fairly', skill: 'wit' },
   ] },
   { emoji: '🕯️', title: 'Whispers of Treason', description: 'A plot brews in the back rooms of {town}.', location: 'general', approaches: [
     { label: 'Turn their spy', skill: 'cunning' },
-    { label: 'Kick down the door', skill: 'combat' },
+    { label: 'Kick down the door', skill: 'might' },
   ] },
   // Capital only
   { emoji: '👑', title: 'Coronation', description: 'A new monarch is crowned at {town}. The whole realm watches.', location: 'capital', approaches: [
-    { label: 'Swear fealty with grace', skill: 'diplomacy' },
+    { label: 'Swear fealty with grace', skill: 'wit' },
     { label: 'Steal the spotlight', skill: 'charm' },
     { label: 'Work the shadowed halls', skill: 'cunning' },
   ] },
   { emoji: '🏰', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', location: 'capital', approaches: [
-    { label: 'Petition the crown', skill: 'diplomacy' },
+    { label: 'Petition the crown', skill: 'wit' },
     { label: 'Bribe the chamberlain', skill: 'cunning' },
   ] },
   { emoji: '🥂', title: "Queen's Gala", description: 'The Queen hosts a resplendent gala at {town}.', location: 'capital', approaches: [
     { label: 'Charm the court', skill: 'charm' },
-    { label: 'Compose a verse for the Queen', skill: 'intellect' },
+    { label: 'Compose a verse for the Queen', skill: 'wit' },
   ] },
   // Home estates
   { emoji: '🏹', title: 'Poachers on the Estate', description: 'Poachers have been spotted on your lands near {town}.', location: 'home', approaches: [
-    { label: 'Run them off', skill: 'combat' },
+    { label: 'Run them off', skill: 'might' },
     { label: 'Set snares of your own', skill: 'cunning' },
   ] },
   { emoji: '🍗', title: 'Feast for the Household', description: 'Your household at {town} expects a memorable feast.', location: 'home', approaches: [
     { label: 'Host with flair', skill: 'charm' },
-    { label: 'Seat the rivals apart', skill: 'diplomacy' },
+    { label: 'Seat the rivals apart', skill: 'wit' },
   ] },
   { emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray — and the tax collector is due.', location: 'home', approaches: [
-    { label: 'Balance the books', skill: 'intellect' },
+    { label: 'Balance the books', skill: 'wit' },
     { label: 'Cook the books', skill: 'cunning' },
   ] },
   { emoji: '🪨', title: 'Tenant Dispute', description: 'Two tenant farmers at {town} quarrel over a boundary stone.', location: 'home', approaches: [
-    { label: 'Hear both farmers out', skill: 'diplomacy' },
-    { label: 'Survey the old maps', skill: 'intellect' },
+    { label: 'Hear both farmers out', skill: 'charm' },
+    { label: 'Survey the old maps', skill: 'wit' },
   ] },
 ]

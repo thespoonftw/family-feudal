@@ -80,6 +80,27 @@ function pickOption<T extends string>(options: readonly T[], value: unknown, fal
   return typeof value === 'string' && (options as readonly string[]).includes(value) ? (value as T) : fallback
 }
 
+/**
+ * migration helper: map a scenario approach's `skill` onto the current 4-skill roster
+ * (might/charm/wit/cunning). Already-valid values pass through; the retired 5-skill set
+ * (combat/intellect/diplomacy, plus the older `beauty`) maps onto its nearest fit.
+ */
+function remapSkill(value: unknown): SkillKey {
+  if (typeof value === 'string' && (SKILLS as readonly string[]).includes(value)) return value as SkillKey
+  switch (value) {
+    case 'combat':
+      return 'might'
+    case 'intellect':
+      return 'wit'
+    case 'diplomacy':
+      return 'charm'
+    case 'beauty':
+      return 'charm'
+    default:
+      return 'cunning'
+  }
+}
+
 function sanitizeAppearance(raw: unknown, where: string): MemberAppearance | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const skinColor = obj['skinColor']
@@ -262,17 +283,28 @@ function migrateContent(raw: unknown): unknown {
   }
   const scenarios = obj['scenarios'].map((s) => {
     const sc = (s ?? {}) as Record<string, unknown>
-    if (Array.isArray(sc['approaches']) || sc['skill'] === undefined) return sc
-    const skill = sc['skill'] === 'beauty' ? 'charm' : sc['skill']
+    if (!Array.isArray(sc['approaches'])) {
+      if (sc['skill'] === undefined) return sc
+      const skill = remapSkill(sc['skill'])
+      return {
+        emoji: sc['emoji'],
+        title: sc['title'],
+        description: sc['description'],
+        location: sc['location'],
+        approaches: [
+          { label: 'See it done', skill },
+          { label: 'Find another way', skill: skill === 'cunning' ? 'charm' : 'cunning' },
+        ],
+      }
+    }
+    // scenarios already in the approach-array shape may still carry retired skill
+    // keys (the game moved from 5 skills to 4) — remap each approach in place
     return {
-      emoji: sc['emoji'],
-      title: sc['title'],
-      description: sc['description'],
-      location: sc['location'],
-      approaches: [
-        { label: 'See it done', skill },
-        { label: 'Find another way', skill: skill === 'cunning' ? 'charm' : 'cunning' },
-      ],
+      ...sc,
+      approaches: sc['approaches'].map((a) => {
+        const approach = (a ?? {}) as Record<string, unknown>
+        return { ...approach, skill: remapSkill(approach['skill']) }
+      }),
     }
   })
   const houses = Array.isArray(obj['houses'])
@@ -293,7 +325,18 @@ function migrateContent(raw: unknown): unknown {
             facialHair: pickOption(APPEARANCE_FACIAL_HAIR, rawAppearance['facialHair'], fallback.facialHair),
             accessories: pickOption(APPEARANCE_ACCESSORIES, rawAppearance['accessories'], fallback.accessories),
           }
-          return { ...member, appearance }
+          // the game moved from 5 skills to 4 (might/charm/wit/cunning) — a persisted
+          // member whose skills object doesn't match the new roster can't be sensibly
+          // remapped (unlike a scenario approach's single skill), so it resets to that
+          // slot's fresh default rather than failing validation and losing the appearance too
+          const rawSkills = (member['skills'] ?? {}) as Record<string, unknown>
+          const hasValidSkills = SKILLS.every(
+            (skill) => typeof rawSkills[skill] === 'number' && Number.isFinite(rawSkills[skill]),
+          )
+          const defaultSkills =
+            DEFAULT_HOUSES[hi]?.members[mi]?.skills ?? DEFAULT_HOUSES[0]?.members[0]?.skills
+          const skills = hasValidSkills ? (rawSkills as Record<SkillKey, number>) : defaultSkills
+          return { ...member, skills, appearance }
         })
         return { ...house, members }
       })

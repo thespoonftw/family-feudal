@@ -1,13 +1,12 @@
 // ---------- Core game types ----------
 
-export const SKILLS = ['combat', 'charm', 'intellect', 'diplomacy', 'cunning'] as const
+export const SKILLS = ['might', 'charm', 'wit', 'cunning'] as const
 export type SkillKey = (typeof SKILLS)[number]
 
 export const SKILL_LABELS: Record<SkillKey, string> = {
-  combat: 'Combat',
+  might: 'Might',
   charm: 'Charm',
-  intellect: 'Intellect',
-  diplomacy: 'Diplomacy',
+  wit: 'Wit',
   cunning: 'Cunning',
 }
 

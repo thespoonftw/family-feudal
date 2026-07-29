@@ -22,10 +22,9 @@ const selectedScenarioId = ref<string | null>(null)
 const menuOpen = ref(false)
 
 const SKILL_ICONS: Record<SkillKey, string> = {
-  combat: '⚔️',
+  might: '⚔️',
   charm: '🌹',
-  intellect: '📜',
-  diplomacy: '🕊️',
+  wit: '📜',
   cunning: '🦊',
 }
 

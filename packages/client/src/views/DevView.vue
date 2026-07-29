@@ -162,7 +162,7 @@ function addScenario() {
     title: 'New Scenario',
     description: 'Something is afoot at {town}.',
     approaches: [
-      { label: 'Meet it head-on', skill: 'combat' },
+      { label: 'Meet it head-on', skill: 'might' },
       { label: 'Find another way', skill: 'cunning' },
     ],
     location: 'general',
@@ -175,7 +175,7 @@ function removeScenario(index: number) {
 
 function addApproach(s: ScenarioDesign) {
   if (s.approaches.length < 3) {
-    s.approaches.push({ label: 'New approach', skill: 'combat' })
+    s.approaches.push({ label: 'New approach', skill: 'might' })
   }
 }
 
