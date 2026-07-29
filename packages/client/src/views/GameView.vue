@@ -383,7 +383,12 @@ const winnerNames = computed(() => {
             <p class="hint">{{ selectedScenario.description }}</p>
             <div class="sheet-members">
               <div v-for="m in game.yourFamily?.members ?? []" :key="m.id" class="sheet-member">
-                <MemberAvatar :appearance="m.appearance" :seed="m.name" :size="80" />
+                <MemberAvatar
+                  :appearance="m.appearance"
+                  :seed="m.name"
+                  :shirt-color="game.yourFamily?.color ?? '#888888'"
+                  :size="80"
+                />
                 <span class="sheet-member-info">
                   <strong>{{ m.name }}</strong>
                   <small>
@@ -451,6 +456,7 @@ const winnerNames = computed(() => {
               <MemberAvatar
                 :appearance="currentDeployment.member.appearance"
                 :seed="currentDeployment.member.name"
+                :shirt-color="game.yourFamily?.color ?? '#888888'"
                 :size="72"
               />
               <span>
@@ -521,6 +527,7 @@ const winnerNames = computed(() => {
                 v-if="outcomeMember(o)"
                 :appearance="outcomeMember(o)!.appearance"
                 :seed="outcomeMember(o)!.name"
+                :shirt-color="game.yourFamily?.color ?? '#888888'"
                 :size="72"
               />
               <span class="who">

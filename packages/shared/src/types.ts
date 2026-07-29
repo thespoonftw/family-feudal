@@ -153,6 +153,14 @@ export const MEMBERS_PER_HOUSE = 3
 
 // ---------- Portrait appearance (DiceBear "micah" style traits) ----------
 
+/** curated preset skin tones (hex without '#') — not the full DiceBear colour space */
+export const APPEARANCE_SKIN_TONES = ['f2d3b1', 'e8b98c', 'c68642', '965a2f', '5c3a21'] as const
+export type AppearanceSkinTone = (typeof APPEARANCE_SKIN_TONES)[number]
+
+/** curated preset eye colours (hex without '#') */
+export const APPEARANCE_EYE_COLORS = ['4b3621', '2e536f', '1a5632', '5b3a29', '000000', '6b6b6b'] as const
+export type AppearanceEyeColor = (typeof APPEARANCE_EYE_COLORS)[number]
+
 export const APPEARANCE_HAIR_STYLES = [
   'fonze',
   'mrT',
@@ -165,25 +173,54 @@ export const APPEARANCE_HAIR_STYLES = [
 ] as const
 export type AppearanceHairStyle = (typeof APPEARANCE_HAIR_STYLES)[number]
 
+export const APPEARANCE_EYE_STYLES = ['eyes', 'round', 'eyesShadow', 'smiling', 'smilingShadow'] as const
+export type AppearanceEyeStyle = (typeof APPEARANCE_EYE_STYLES)[number]
+
+export const APPEARANCE_EYEBROWS = ['up', 'down', 'eyelashesUp', 'eyelashesDown'] as const
+export type AppearanceEyebrows = (typeof APPEARANCE_EYEBROWS)[number]
+
+export const APPEARANCE_MOUTH = [
+  'surprised',
+  'laughing',
+  'nervous',
+  'smile',
+  'sad',
+  'pucker',
+  'frown',
+  'smirk',
+] as const
+export type AppearanceMouth = (typeof APPEARANCE_MOUTH)[number]
+
 export const APPEARANCE_FACIAL_HAIR = ['none', 'beard', 'scruff'] as const
 export type AppearanceFacialHair = (typeof APPEARANCE_FACIAL_HAIR)[number]
 
 export const APPEARANCE_GLASSES = ['none', 'round', 'square'] as const
 export type AppearanceGlasses = (typeof APPEARANCE_GLASSES)[number]
 
-/** a fixed character's portrait, rendered client-side as a DiceBear "micah" avatar */
+export const APPEARANCE_SHIRT_STYLES = ['open', 'crew', 'collared'] as const
+export type AppearanceShirtStyle = (typeof APPEARANCE_SHIRT_STYLES)[number]
+
+export const APPEARANCE_EARRINGS = ['none', 'hoop', 'stud'] as const
+export type AppearanceEarrings = (typeof APPEARANCE_EARRINGS)[number]
+
+/**
+ * a fixed character's portrait, rendered client-side as a DiceBear "micah" avatar. Shirt
+ * colour is not stored here — it always matches the character's house/family banner
+ * colour, applied at render time.
+ */
 export interface MemberAppearance {
-  /** skin tone, hex without '#' */
-  skinColor: string
+  skinColor: AppearanceSkinTone
+  eyesColor: AppearanceEyeColor
+  eyes: AppearanceEyeStyle
+  eyebrows: AppearanceEyebrows
+  mouth: AppearanceMouth
   hair: AppearanceHairStyle
-  /** hair colour, hex without '#' */
+  /** hair colour, hex without '#' — freely pickable, unlike the curated skin/eye presets */
   hairColor: string
-  /** eye colour, hex without '#' */
-  eyesColor: string
   facialHair: AppearanceFacialHair
   glasses: AppearanceGlasses
-  /** shirt colour, hex without '#' */
-  shirtColor: string
+  shirt: AppearanceShirtStyle
+  earrings: AppearanceEarrings
 }
 
 /** one fixed character belonging to a house, with hand-set (not rolled) skills */

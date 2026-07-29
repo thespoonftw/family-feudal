@@ -9,6 +9,8 @@ const props = withDefaults(
     appearance: MemberAppearance
     /** stable per-character seed (e.g. member name) for the traits we don't expose */
     seed: string
+    /** the house/family banner colour — shirts always match it, hex with or without '#' */
+    shirtColor: string
     size?: number
   }>(),
   { size: 96 },
@@ -19,14 +21,20 @@ const dataUri = computed(() =>
     seed: props.seed,
     size: props.size,
     baseColor: [props.appearance.skinColor],
+    eyesColor: [props.appearance.eyesColor],
+    eyes: [props.appearance.eyes],
+    eyebrows: [props.appearance.eyebrows],
+    mouth: [props.appearance.mouth],
     hair: [props.appearance.hair],
     hairColor: [props.appearance.hairColor],
-    eyesColor: [props.appearance.eyesColor],
-    shirtColor: [props.appearance.shirtColor],
+    shirt: [props.appearance.shirt],
+    shirtColor: [props.shirtColor.replace('#', '')],
     facialHairProbability: props.appearance.facialHair === 'none' ? 0 : 100,
     facialHair: props.appearance.facialHair === 'none' ? ['beard'] : [props.appearance.facialHair],
     glassesProbability: props.appearance.glasses === 'none' ? 0 : 100,
     glasses: props.appearance.glasses === 'none' ? ['round'] : [props.appearance.glasses],
+    earringsProbability: props.appearance.earrings === 'none' ? 0 : 100,
+    earrings: props.appearance.earrings === 'none' ? ['stud'] : [props.appearance.earrings],
   }).toDataUri(),
 )
 </script>

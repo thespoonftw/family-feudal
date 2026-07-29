@@ -1,9 +1,16 @@
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
 import type {
   ApproachDesign,
+  AppearanceEarrings,
+  AppearanceEyebrows,
+  AppearanceEyeStyle,
   AppearanceFacialHair,
   AppearanceGlasses,
   AppearanceHairStyle,
+  AppearanceMouth,
+  AppearanceShirtStyle,
+  AppearanceSkinTone,
+  AppearanceEyeColor,
   GameContent,
   HouseDesign,
   MemberAppearance,
@@ -15,9 +22,16 @@ import type {
   Town,
 } from '@family-feudal/shared'
 import {
+  APPEARANCE_EARRINGS,
+  APPEARANCE_EYEBROWS,
+  APPEARANCE_EYE_COLORS,
+  APPEARANCE_EYE_STYLES,
   APPEARANCE_FACIAL_HAIR,
   APPEARANCE_GLASSES,
   APPEARANCE_HAIR_STYLES,
+  APPEARANCE_MOUTH,
+  APPEARANCE_SHIRT_STYLES,
+  APPEARANCE_SKIN_TONES,
   MEMBER_SKILL_BOUNDS,
   MEMBERS_PER_HOUSE,
   NARRATION_KIND_INFO,
@@ -73,30 +87,51 @@ function isHexColor(value: unknown): value is string {
   return typeof value === 'string' && /^[0-9a-fA-F]{6}$/.test(value)
 }
 
+/** migration helper: keep a legacy value if it's still one of the valid options, else fall back */
+function pickOption<T extends string>(options: readonly T[], value: unknown, fallback: T): T {
+  return typeof value === 'string' && (options as readonly string[]).includes(value) ? (value as T) : fallback
+}
+
 function sanitizeAppearance(raw: unknown, where: string): MemberAppearance | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const skinColor = obj['skinColor']
-  if (!isHexColor(skinColor)) return `${where}: skin colour must be a 6-digit hex value`
+  if (!APPEARANCE_SKIN_TONES.includes(skinColor as AppearanceSkinTone)) {
+    return `${where}: unknown skin tone`
+  }
+  const eyesColor = obj['eyesColor']
+  if (!APPEARANCE_EYE_COLORS.includes(eyesColor as AppearanceEyeColor)) {
+    return `${where}: unknown eye colour`
+  }
+  const eyes = obj['eyes']
+  if (!APPEARANCE_EYE_STYLES.includes(eyes as AppearanceEyeStyle)) return `${where}: unknown eye style`
+  const eyebrows = obj['eyebrows']
+  if (!APPEARANCE_EYEBROWS.includes(eyebrows as AppearanceEyebrows)) return `${where}: unknown eyebrows`
+  const mouth = obj['mouth']
+  if (!APPEARANCE_MOUTH.includes(mouth as AppearanceMouth)) return `${where}: unknown mouth`
   const hair = obj['hair']
   if (!APPEARANCE_HAIR_STYLES.includes(hair as AppearanceHairStyle)) return `${where}: unknown hair style`
   const hairColor = obj['hairColor']
   if (!isHexColor(hairColor)) return `${where}: hair colour must be a 6-digit hex value`
-  const eyesColor = obj['eyesColor']
-  if (!isHexColor(eyesColor)) return `${where}: eye colour must be a 6-digit hex value`
   const facialHair = obj['facialHair']
   if (!APPEARANCE_FACIAL_HAIR.includes(facialHair as AppearanceFacialHair)) return `${where}: unknown facial hair`
   const glasses = obj['glasses']
   if (!APPEARANCE_GLASSES.includes(glasses as AppearanceGlasses)) return `${where}: unknown glasses`
-  const shirtColor = obj['shirtColor']
-  if (!isHexColor(shirtColor)) return `${where}: shirt colour must be a 6-digit hex value`
+  const shirt = obj['shirt']
+  if (!APPEARANCE_SHIRT_STYLES.includes(shirt as AppearanceShirtStyle)) return `${where}: unknown shirt style`
+  const earrings = obj['earrings']
+  if (!APPEARANCE_EARRINGS.includes(earrings as AppearanceEarrings)) return `${where}: unknown earrings`
   return {
-    skinColor: skinColor.toLowerCase(),
+    skinColor: skinColor as AppearanceSkinTone,
+    eyesColor: eyesColor as AppearanceEyeColor,
+    eyes: eyes as AppearanceEyeStyle,
+    eyebrows: eyebrows as AppearanceEyebrows,
+    mouth: mouth as AppearanceMouth,
     hair: hair as AppearanceHairStyle,
     hairColor: hairColor.toLowerCase(),
-    eyesColor: eyesColor.toLowerCase(),
     facialHair: facialHair as AppearanceFacialHair,
     glasses: glasses as AppearanceGlasses,
-    shirtColor: shirtColor.toLowerCase(),
+    shirt: shirt as AppearanceShirtStyle,
+    earrings: earrings as AppearanceEarrings,
   }
 }
 
@@ -240,8 +275,10 @@ function sanitizeContent(raw: unknown): GameContent | string {
  * format (missing herald-line kinds are filled from the defaults), and the
  * pre-fixed-roster format (houses without a `members` array get that house's defaults,
  * matched by slot index — the randomly-rolled members they used to have are gone either way),
- * and the pre-portrait format (members without an `appearance` get one generated the same
- * way the stock roster's defaults are, keyed off their house+member slot).
+ * and the pre-portrait format (members without an `appearance`, or with one predating a
+ * later appearance field such as eye/mouth/shirt style — or a skin/eye colour that predates
+ * the curated preset lists — get that field backfilled from the same generated defaults the
+ * stock roster uses, keyed off their house+member slot; fields already valid are left alone).
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
@@ -275,8 +312,22 @@ function migrateContent(raw: unknown): unknown {
         }
         const members = house['members'].map((m, mi) => {
           const member = (m ?? {}) as Record<string, unknown>
-          if (member['appearance']) return member
-          return { ...member, appearance: appearanceFor(hi * MEMBERS_PER_HOUSE + mi) }
+          const fallback = appearanceFor(hi * MEMBERS_PER_HOUSE + mi)
+          const rawAppearance = (member['appearance'] ?? {}) as Record<string, unknown>
+          const appearance: MemberAppearance = {
+            skinColor: pickOption(APPEARANCE_SKIN_TONES, rawAppearance['skinColor'], fallback.skinColor),
+            eyesColor: pickOption(APPEARANCE_EYE_COLORS, rawAppearance['eyesColor'], fallback.eyesColor),
+            eyes: pickOption(APPEARANCE_EYE_STYLES, rawAppearance['eyes'], fallback.eyes),
+            eyebrows: pickOption(APPEARANCE_EYEBROWS, rawAppearance['eyebrows'], fallback.eyebrows),
+            mouth: pickOption(APPEARANCE_MOUTH, rawAppearance['mouth'], fallback.mouth),
+            hair: pickOption(APPEARANCE_HAIR_STYLES, rawAppearance['hair'], fallback.hair),
+            hairColor: isHexColor(rawAppearance['hairColor']) ? rawAppearance['hairColor'] : fallback.hairColor,
+            facialHair: pickOption(APPEARANCE_FACIAL_HAIR, rawAppearance['facialHair'], fallback.facialHair),
+            glasses: pickOption(APPEARANCE_GLASSES, rawAppearance['glasses'], fallback.glasses),
+            shirt: pickOption(APPEARANCE_SHIRT_STYLES, rawAppearance['shirt'], fallback.shirt),
+            earrings: pickOption(APPEARANCE_EARRINGS, rawAppearance['earrings'], fallback.earrings),
+          }
+          return { ...member, appearance }
         })
         return { ...house, members }
       })

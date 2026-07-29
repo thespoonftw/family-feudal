@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import type {
+  AppearanceEyeColor,
+  AppearanceSkinTone,
   DevRoomDetail,
   DevRoomSummary,
   GameConfig,
   GameContent,
+  HouseDesign,
   MemberDesign,
   NarrationKind,
   NarrationTemplates,
@@ -14,9 +17,16 @@ import type {
   SkillKey,
 } from '@family-feudal/shared'
 import {
+  APPEARANCE_EARRINGS,
+  APPEARANCE_EYEBROWS,
+  APPEARANCE_EYE_COLORS,
+  APPEARANCE_EYE_STYLES,
   APPEARANCE_FACIAL_HAIR,
   APPEARANCE_GLASSES,
   APPEARANCE_HAIR_STYLES,
+  APPEARANCE_MOUTH,
+  APPEARANCE_SHIRT_STYLES,
+  APPEARANCE_SKIN_TONES,
   MEMBER_SKILL_BOUNDS,
   NARRATION_KIND_INFO,
   NARRATION_KINDS,
@@ -49,7 +59,7 @@ const rooms = ref<DevRoomSummary[]>([])
 const detail = ref<DevRoomDetail | null>(null)
 const error = ref('')
 const status = ref('')
-const editingMember = ref<MemberDesign | null>(null)
+const editingMember = ref<{ member: MemberDesign; house: HouseDesign } | null>(null)
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -217,6 +227,18 @@ function hairStyles(): string[] {
   return [...APPEARANCE_HAIR_STYLES]
 }
 
+function eyeStyles(): string[] {
+  return [...APPEARANCE_EYE_STYLES]
+}
+
+function eyebrowOptions(): string[] {
+  return [...APPEARANCE_EYEBROWS]
+}
+
+function mouthOptions(): string[] {
+  return [...APPEARANCE_MOUTH]
+}
+
 function facialHairOptions(): string[] {
   return [...APPEARANCE_FACIAL_HAIR]
 }
@@ -225,12 +247,36 @@ function glassesOptions(): string[] {
   return [...APPEARANCE_GLASSES]
 }
 
-/** '#rrggbb' for a <input type="color">; appearance fields store the hex without '#' */
+function shirtStyles(): string[] {
+  return [...APPEARANCE_SHIRT_STYLES]
+}
+
+function earringsOptions(): string[] {
+  return [...APPEARANCE_EARRINGS]
+}
+
+function skinTones(): readonly AppearanceSkinTone[] {
+  return APPEARANCE_SKIN_TONES
+}
+
+function eyeColors(): readonly AppearanceEyeColor[] {
+  return APPEARANCE_EYE_COLORS
+}
+
+function setSkinTone(m: MemberDesign, value: AppearanceSkinTone) {
+  m.appearance.skinColor = value
+}
+
+function setEyeColor(m: MemberDesign, value: AppearanceEyeColor) {
+  m.appearance.eyesColor = value
+}
+
+/** '#rrggbb' for a <input type="color">; the hairColor field stores the hex without '#' */
 function asHex(value: string): string {
   return `#${value}`
 }
-function fromHex(m: MemberDesign, key: 'skinColor' | 'hairColor' | 'eyesColor' | 'shirtColor', value: string) {
-  m.appearance[key] = value.replace('#', '')
+function fromHex(m: MemberDesign, value: string) {
+  m.appearance.hairColor = value.replace('#', '')
 }
 
 onMounted(() => {
@@ -315,9 +361,9 @@ onUnmounted(() => {
                 <button
                   class="avatar-btn"
                   title="Edit appearance"
-                  @click="editingMember = m"
+                  @click="editingMember = { member: m, house: h }"
                 >
-                  <MemberAvatar :appearance="m.appearance" :seed="m.name" :size="80" />
+                  <MemberAvatar :appearance="m.appearance" :seed="m.name" :shirt-color="h.color" :size="80" />
                 </button>
               </td>
               <td><input v-model="m.name" type="text" maxlength="30" /></td>
@@ -494,7 +540,7 @@ onUnmounted(() => {
           <tbody>
             <template v-for="f in detail.families" :key="f.id">
               <tr v-for="m in f.members" :key="m.id">
-                <td><MemberAvatar :appearance="m.appearance" :seed="m.name" :size="64" /></td>
+                <td><MemberAvatar :appearance="m.appearance" :seed="m.name" :shirt-color="f.color" :size="64" /></td>
                 <td>
                   <span class="chip" :style="{ background: f.color }" /> {{ f.name }}
                 </td>
@@ -526,64 +572,106 @@ onUnmounted(() => {
     <div v-if="editingMember" class="modal-backdrop" @click.self="editingMember = null">
       <div class="modal-card">
         <div class="modal-header">
-          <h2>{{ editingMember.name }}</h2>
+          <h2>{{ editingMember.member.name }}</h2>
           <button class="small secondary" @click="editingMember = null">✕ Close</button>
         </div>
         <div class="modal-body">
-          <MemberAvatar :appearance="editingMember.appearance" :seed="editingMember.name" :size="140" />
+          <MemberAvatar
+            :appearance="editingMember.member.appearance"
+            :seed="editingMember.member.name"
+            :shirt-color="editingMember.house.color"
+            :size="140"
+          />
+          <p class="dim shirt-note">
+            Shirt colour follows the house's banner colour
+            <span class="chip" :style="{ background: editingMember.house.color }" />
+          </p>
           <div class="appearance-fields">
             <label>
+              Skin tone
+              <span class="swatch-row">
+                <button
+                  v-for="c in skinTones()"
+                  :key="c"
+                  type="button"
+                  class="swatch-dot"
+                  :class="{ active: editingMember.member.appearance.skinColor === c }"
+                  :style="{ background: asHex(c) }"
+                  :title="asHex(c)"
+                  @click="setSkinTone(editingMember.member, c)"
+                />
+              </span>
+            </label>
+            <label>
+              Eye colour
+              <span class="swatch-row">
+                <button
+                  v-for="c in eyeColors()"
+                  :key="c"
+                  type="button"
+                  class="swatch-dot"
+                  :class="{ active: editingMember.member.appearance.eyesColor === c }"
+                  :style="{ background: asHex(c) }"
+                  :title="asHex(c)"
+                  @click="setEyeColor(editingMember.member, c)"
+                />
+              </span>
+            </label>
+            <label>
+              Eye style
+              <select v-model="editingMember.member.appearance.eyes">
+                <option v-for="e in eyeStyles()" :key="e" :value="e">{{ e }}</option>
+              </select>
+            </label>
+            <label>
+              Eyebrows
+              <select v-model="editingMember.member.appearance.eyebrows">
+                <option v-for="e in eyebrowOptions()" :key="e" :value="e">{{ e }}</option>
+              </select>
+            </label>
+            <label>
+              Mouth
+              <select v-model="editingMember.member.appearance.mouth">
+                <option v-for="mo in mouthOptions()" :key="mo" :value="mo">{{ mo }}</option>
+              </select>
+            </label>
+            <label>
               Hair
-              <select v-model="editingMember.appearance.hair">
+              <select v-model="editingMember.member.appearance.hair">
                 <option v-for="h2 in hairStyles()" :key="h2" :value="h2">{{ h2 }}</option>
               </select>
             </label>
             <label>
               Hair colour
               <input
-                :value="asHex(editingMember.appearance.hairColor)"
+                :value="asHex(editingMember.member.appearance.hairColor)"
                 type="color"
                 class="swatch"
-                @input="fromHex(editingMember, 'hairColor', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label>
-              Eye colour
-              <input
-                :value="asHex(editingMember.appearance.eyesColor)"
-                type="color"
-                class="swatch"
-                @input="fromHex(editingMember, 'eyesColor', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label>
-              Skin tone
-              <input
-                :value="asHex(editingMember.appearance.skinColor)"
-                type="color"
-                class="swatch"
-                @input="fromHex(editingMember, 'skinColor', ($event.target as HTMLInputElement).value)"
-              />
-            </label>
-            <label>
-              Shirt colour
-              <input
-                :value="asHex(editingMember.appearance.shirtColor)"
-                type="color"
-                class="swatch"
-                @input="fromHex(editingMember, 'shirtColor', ($event.target as HTMLInputElement).value)"
+                @input="fromHex(editingMember.member, ($event.target as HTMLInputElement).value)"
               />
             </label>
             <label>
               Facial hair
-              <select v-model="editingMember.appearance.facialHair">
+              <select v-model="editingMember.member.appearance.facialHair">
                 <option v-for="f in facialHairOptions()" :key="f" :value="f">{{ f }}</option>
               </select>
             </label>
             <label>
               Glasses
-              <select v-model="editingMember.appearance.glasses">
+              <select v-model="editingMember.member.appearance.glasses">
                 <option v-for="g in glassesOptions()" :key="g" :value="g">{{ g }}</option>
+              </select>
+            </label>
+            <label>
+              Shirt style
+              <select v-model="editingMember.member.appearance.shirt">
+                <option v-for="s in shirtStyles()" :key="s" :value="s">{{ s }}</option>
+              </select>
+            </label>
+            <label>
+              Earrings
+              <select v-model="editingMember.member.appearance.earrings">
+                <option v-for="e in earringsOptions()" :key="e" :value="e">{{ e }}</option>
               </select>
             </label>
           </div>
@@ -781,10 +869,36 @@ input.swatch {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1.2rem;
-  max-width: 480px;
+  max-width: 560px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+.shirt-note {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.8rem;
+  margin: -0.4rem 0 0;
+}
+
+.swatch-row {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.swatch-dot {
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.swatch-dot.active {
+  border-color: var(--gold-soft);
 }
 
 .modal-header {
