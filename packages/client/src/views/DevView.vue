@@ -222,6 +222,10 @@ function skillKeys(): SkillKey[] {
   return [...SKILLS]
 }
 
+function memberTotal(m: MemberDesign): number {
+  return SKILLS.reduce((sum, skill) => sum + m.skills[skill], 0)
+}
+
 function headStyles(): string[] {
   return [...APPEARANCE_HEAD_STYLES]
 }
@@ -328,11 +332,18 @@ onUnmounted(() => {
           <input v-model="h.cityName" type="text" maxlength="24" placeholder="Home city" />
         </div>
         <table class="members">
+          <colgroup>
+            <col class="col-avatar" />
+            <col class="col-name" />
+            <col v-for="skill in skillKeys()" :key="skill" class="col-skill" />
+            <col class="col-total" />
+          </colgroup>
           <thead>
             <tr>
               <th></th>
               <th>Character</th>
               <th v-for="skill in skillKeys()" :key="skill">{{ SKILL_LABELS[skill] }}</th>
+              <th>Total</th>
             </tr>
           </thead>
           <tbody>
@@ -356,6 +367,7 @@ onUnmounted(() => {
                   class="num"
                 />
               </td>
+              <td class="total">{{ memberTotal(m) }}</td>
             </tr>
           </tbody>
         </table>
@@ -745,12 +757,31 @@ button.small {
   margin-bottom: 0.5rem;
 }
 
+table.members {
+  table-layout: fixed;
+  width: 100%;
+}
+
+table.members .col-avatar {
+  width: 4.5em;
+}
+
+table.members .col-skill,
+table.members .col-total {
+  width: 3.8em;
+}
+
 table.members input[type='text'] {
   width: 100%;
 }
 
 table.members input.num {
-  width: 3.5em;
+  width: 100%;
+}
+
+table.members td.total {
+  font-weight: 600;
+  text-align: center;
 }
 
 .avatar-btn {
