@@ -759,16 +759,19 @@ button.small {
 
 table.members {
   table-layout: fixed;
-  width: 100%;
 }
 
 table.members .col-avatar {
-  width: 4.5em;
+  width: 6.5em;
+}
+
+table.members .col-name {
+  width: 10em;
 }
 
 table.members .col-skill,
 table.members .col-total {
-  width: 3.8em;
+  width: 7.2em;
 }
 
 table.members input[type='text'] {
