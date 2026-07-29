@@ -11,7 +11,7 @@ const props = withDefaults(
     seed: string
     size?: number
   }>(),
-  { size: 48 },
+  { size: 96 },
 )
 
 const dataUri = computed(() =>

@@ -49,6 +49,7 @@ const rooms = ref<DevRoomSummary[]>([])
 const detail = ref<DevRoomDetail | null>(null)
 const error = ref('')
 const status = ref('')
+const editingMember = ref<MemberDesign | null>(null)
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -309,83 +310,27 @@ onUnmounted(() => {
             </tr>
           </thead>
           <tbody>
-            <template v-for="(m, j) in h.members" :key="j">
-              <tr>
-                <td>
-                  <MemberAvatar :appearance="m.appearance" :seed="m.name" :size="40" />
-                </td>
-                <td><input v-model="m.name" type="text" maxlength="30" /></td>
-                <td v-for="skill in skillKeys()" :key="skill">
-                  <input
-                    v-model.number="m.skills[skill]"
-                    type="number"
-                    :min="MEMBER_SKILL_BOUNDS[0]"
-                    :max="MEMBER_SKILL_BOUNDS[1]"
-                    class="num"
-                  />
-                </td>
-              </tr>
-              <tr class="appearance-row">
-                <td :colspan="2 + skillKeys().length">
-                  <div class="appearance-fields">
-                    <label>
-                      Hair
-                      <select v-model="m.appearance.hair">
-                        <option v-for="h2 in hairStyles()" :key="h2" :value="h2">{{ h2 }}</option>
-                      </select>
-                    </label>
-                    <label>
-                      Hair colour
-                      <input
-                        :value="asHex(m.appearance.hairColor)"
-                        type="color"
-                        class="swatch"
-                        @input="fromHex(m, 'hairColor', ($event.target as HTMLInputElement).value)"
-                      />
-                    </label>
-                    <label>
-                      Eye colour
-                      <input
-                        :value="asHex(m.appearance.eyesColor)"
-                        type="color"
-                        class="swatch"
-                        @input="fromHex(m, 'eyesColor', ($event.target as HTMLInputElement).value)"
-                      />
-                    </label>
-                    <label>
-                      Skin tone
-                      <input
-                        :value="asHex(m.appearance.skinColor)"
-                        type="color"
-                        class="swatch"
-                        @input="fromHex(m, 'skinColor', ($event.target as HTMLInputElement).value)"
-                      />
-                    </label>
-                    <label>
-                      Shirt colour
-                      <input
-                        :value="asHex(m.appearance.shirtColor)"
-                        type="color"
-                        class="swatch"
-                        @input="fromHex(m, 'shirtColor', ($event.target as HTMLInputElement).value)"
-                      />
-                    </label>
-                    <label>
-                      Facial hair
-                      <select v-model="m.appearance.facialHair">
-                        <option v-for="f in facialHairOptions()" :key="f" :value="f">{{ f }}</option>
-                      </select>
-                    </label>
-                    <label>
-                      Glasses
-                      <select v-model="m.appearance.glasses">
-                        <option v-for="g in glassesOptions()" :key="g" :value="g">{{ g }}</option>
-                      </select>
-                    </label>
-                  </div>
-                </td>
-              </tr>
-            </template>
+            <tr v-for="(m, j) in h.members" :key="j">
+              <td>
+                <button
+                  class="avatar-btn"
+                  title="Edit appearance"
+                  @click="editingMember = m"
+                >
+                  <MemberAvatar :appearance="m.appearance" :seed="m.name" :size="80" />
+                </button>
+              </td>
+              <td><input v-model="m.name" type="text" maxlength="30" /></td>
+              <td v-for="skill in skillKeys()" :key="skill">
+                <input
+                  v-model.number="m.skills[skill]"
+                  type="number"
+                  :min="MEMBER_SKILL_BOUNDS[0]"
+                  :max="MEMBER_SKILL_BOUNDS[1]"
+                  class="num"
+                />
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -549,7 +494,7 @@ onUnmounted(() => {
           <tbody>
             <template v-for="f in detail.families" :key="f.id">
               <tr v-for="m in f.members" :key="m.id">
-                <td><MemberAvatar :appearance="m.appearance" :seed="m.name" :size="32" /></td>
+                <td><MemberAvatar :appearance="m.appearance" :seed="m.name" :size="64" /></td>
                 <td>
                   <span class="chip" :style="{ background: f.color }" /> {{ f.name }}
                 </td>
@@ -577,6 +522,75 @@ onUnmounted(() => {
         </table>
       </section>
     </template>
+
+    <div v-if="editingMember" class="modal-backdrop" @click.self="editingMember = null">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>{{ editingMember.name }}</h2>
+          <button class="small secondary" @click="editingMember = null">✕ Close</button>
+        </div>
+        <div class="modal-body">
+          <MemberAvatar :appearance="editingMember.appearance" :seed="editingMember.name" :size="140" />
+          <div class="appearance-fields">
+            <label>
+              Hair
+              <select v-model="editingMember.appearance.hair">
+                <option v-for="h2 in hairStyles()" :key="h2" :value="h2">{{ h2 }}</option>
+              </select>
+            </label>
+            <label>
+              Hair colour
+              <input
+                :value="asHex(editingMember.appearance.hairColor)"
+                type="color"
+                class="swatch"
+                @input="fromHex(editingMember, 'hairColor', ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+            <label>
+              Eye colour
+              <input
+                :value="asHex(editingMember.appearance.eyesColor)"
+                type="color"
+                class="swatch"
+                @input="fromHex(editingMember, 'eyesColor', ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+            <label>
+              Skin tone
+              <input
+                :value="asHex(editingMember.appearance.skinColor)"
+                type="color"
+                class="swatch"
+                @input="fromHex(editingMember, 'skinColor', ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+            <label>
+              Shirt colour
+              <input
+                :value="asHex(editingMember.appearance.shirtColor)"
+                type="color"
+                class="swatch"
+                @input="fromHex(editingMember, 'shirtColor', ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+            <label>
+              Facial hair
+              <select v-model="editingMember.appearance.facialHair">
+                <option v-for="f in facialHairOptions()" :key="f" :value="f">{{ f }}</option>
+              </select>
+            </label>
+            <label>
+              Glasses
+              <select v-model="editingMember.appearance.glasses">
+                <option v-for="g in glassesOptions()" :key="g" :value="g">{{ g }}</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <p class="dim modal-hint">Changes apply when you click "Save designs" below.</p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -701,9 +715,19 @@ table.members input.num {
   width: 3.5em;
 }
 
-.appearance-row td {
-  border-bottom: 1px dashed var(--border);
-  padding-top: 0;
+.avatar-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 50%;
+  transition: box-shadow 0.15s;
+}
+
+.avatar-btn:hover,
+.avatar-btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--gold-soft);
 }
 
 .appearance-fields {
@@ -711,7 +735,6 @@ table.members input.num {
   flex-wrap: wrap;
   gap: 0.6rem 1.1rem;
   align-items: center;
-  padding: 0.2rem 0 0.5rem 2.9rem;
 }
 
 .appearance-fields label {
@@ -739,6 +762,53 @@ input.swatch {
   height: 2em;
   padding: 0.1em;
   cursor: pointer;
+}
+
+/* appearance edit popup */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.modal-card {
+  background: var(--bg-panel, #1c1c24);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.2rem;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-hint {
+  margin-top: 0.8rem;
+  font-size: 0.8rem;
+  text-align: center;
 }
 
 /* scenario editor */
