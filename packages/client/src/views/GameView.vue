@@ -12,6 +12,7 @@ import { revealTotalMs, SKILLS } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
+import MemberAvatar from '../components/MemberAvatar.vue'
 
 const router = useRouter()
 const game = useGameStore()
@@ -263,6 +264,11 @@ function outcomeMemberNames(o: ScenarioOutcome): string {
     .join(', ')
 }
 
+/** the first attending member — used for the outcome's portrait */
+function outcomeMember(o: ScenarioOutcome): FamilyMember | undefined {
+  return (game.yourFamily?.members ?? []).find((m) => o.memberIds.includes(m.id))
+}
+
 function approachLabel(o: ScenarioOutcome): string {
   return outcomeScenario(o)?.approaches[o.approachIndex]?.label ?? ''
 }
@@ -377,6 +383,7 @@ const winnerNames = computed(() => {
             <p class="hint">{{ selectedScenario.description }}</p>
             <div class="sheet-members">
               <div v-for="m in game.yourFamily?.members ?? []" :key="m.id" class="sheet-member">
+                <MemberAvatar :appearance="m.appearance" :seed="m.name" :size="40" />
                 <span class="sheet-member-info">
                   <strong>{{ m.name }}</strong>
                   <small>
@@ -441,13 +448,20 @@ const winnerNames = computed(() => {
             </h3>
             <p class="hint">{{ currentDeployment.scenario.description }}</p>
             <p class="attendee">
-              <strong>{{ currentDeployment.member.name }}</strong> attends —
-              <small>
-                <template v-for="(skill, i) in SKILLS" :key="skill">
-                  <template v-if="i > 0"> · </template>
-                  {{ SKILL_ICONS[skill] }}{{ currentDeployment.member.skills[skill] }}
-                </template>
-              </small>
+              <MemberAvatar
+                :appearance="currentDeployment.member.appearance"
+                :seed="currentDeployment.member.name"
+                :size="36"
+              />
+              <span>
+                <strong>{{ currentDeployment.member.name }}</strong> attends —
+                <small>
+                  <template v-for="(skill, i) in SKILLS" :key="skill">
+                    <template v-if="i > 0"> · </template>
+                    {{ SKILL_ICONS[skill] }}{{ currentDeployment.member.skills[skill] }}
+                  </template>
+                </small>
+              </span>
             </p>
             <div class="approach-options">
               <button
@@ -503,6 +517,12 @@ const winnerNames = computed(() => {
               class="mini-outcome"
               :class="verdictClass(o)"
             >
+              <MemberAvatar
+                v-if="outcomeMember(o)"
+                :appearance="outcomeMember(o)!.appearance"
+                :seed="outcomeMember(o)!.name"
+                :size="36"
+              />
               <span class="who">
                 <strong>{{ outcomeMemberNames(o) }}</strong>
                 <small>
@@ -794,6 +814,12 @@ button.small {
   margin-left: 0.4em;
 }
 
+.attendee {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .choice-card .attendee small {
   color: var(--text-dim);
 }
@@ -1061,6 +1087,8 @@ button.small {
 }
 
 .sheet-member-info {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   line-height: 1.3;

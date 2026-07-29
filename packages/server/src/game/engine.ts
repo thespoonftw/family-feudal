@@ -127,7 +127,12 @@ export function addPlayer(room: Room, name: string): Player {
 /** Instantiate a family's members from its house preset's fixed roster (new id per game). */
 function generateMembers(preset: FamilyPreset | undefined): FamilyMember[] {
   if (!preset) return []
-  return preset.members.map((m) => ({ id: randomUUID(), name: m.name, skills: { ...m.skills } }))
+  return preset.members.map((m) => ({
+    id: randomUUID(),
+    name: m.name,
+    skills: { ...m.skills },
+    appearance: { ...m.appearance },
+  }))
 }
 
 export function startGame(room: Room): void {

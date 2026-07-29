@@ -1,4 +1,13 @@
-import type { HouseDesign, MemberDesign, NarrationTemplates, ScenarioDesign } from '@family-feudal/shared'
+import type {
+  AppearanceFacialHair,
+  AppearanceGlasses,
+  HouseDesign,
+  MemberAppearance,
+  MemberDesign,
+  NarrationTemplates,
+  ScenarioDesign,
+} from '@family-feudal/shared'
+import { APPEARANCE_HAIR_STYLES } from '@family-feudal/shared'
 
 // rounds/scenarios/max-players are runtime-tunable — see config.ts
 // houses (incl. their fixed 3-character rosters) and scenarios are designable — see content.ts
@@ -31,64 +40,93 @@ export const CITY_SLOTS: MapSlot[] = [
 
 // Each house's fixed roster of MEMBERS_PER_HOUSE characters — name + hand-set skills.
 // No longer rolled at game start; edited from the dev panel like everything else here.
-const ASHFORD_MEMBERS: MemberDesign[] = [
+/** a house roster before its portrait defaults are attached — see {@link withAppearance} */
+type MemberSeed = Omit<MemberDesign, 'appearance'>
+
+const ASHFORD_MEMBERS: MemberSeed[] = [
   { name: 'Aldric', skills: { combat: 2, charm: 3, intellect: 3, diplomacy: 2, cunning: 4 } },
   { name: 'Beatrice', skills: { combat: 1, charm: 1, intellect: 2, diplomacy: 4, cunning: 3 } },
   { name: 'Cedric', skills: { combat: 3, charm: 2, intellect: 2, diplomacy: 1, cunning: 4 } },
 ]
 
-const BELMONT_MEMBERS: MemberDesign[] = [
+const BELMONT_MEMBERS: MemberSeed[] = [
   { name: 'Daphne', skills: { combat: 3, charm: 4, intellect: 2, diplomacy: 1, cunning: 4 } },
   { name: 'Edmund', skills: { combat: 4, charm: 4, intellect: 1, diplomacy: 2, cunning: 3 } },
   { name: 'Freya', skills: { combat: 1, charm: 2, intellect: 3, diplomacy: 4, cunning: 2 } },
 ]
 
-const CALDWELL_MEMBERS: MemberDesign[] = [
+const CALDWELL_MEMBERS: MemberSeed[] = [
   { name: 'Godwin', skills: { combat: 3, charm: 1, intellect: 3, diplomacy: 3, cunning: 3 } },
   { name: 'Helena', skills: { combat: 3, charm: 3, intellect: 4, diplomacy: 1, cunning: 3 } },
   { name: 'Isolde', skills: { combat: 2, charm: 4, intellect: 2, diplomacy: 1, cunning: 2 } },
 ]
 
-const DRAYMOOR_MEMBERS: MemberDesign[] = [
+const DRAYMOOR_MEMBERS: MemberSeed[] = [
   { name: 'Jasper', skills: { combat: 1, charm: 4, intellect: 1, diplomacy: 2, cunning: 3 } },
   { name: 'Katherine', skills: { combat: 2, charm: 2, intellect: 4, diplomacy: 3, cunning: 3 } },
   { name: 'Leopold', skills: { combat: 1, charm: 4, intellect: 4, diplomacy: 1, cunning: 4 } },
 ]
 
-const EVERLY_MEMBERS: MemberDesign[] = [
+const EVERLY_MEMBERS: MemberSeed[] = [
   { name: 'Margaery', skills: { combat: 1, charm: 4, intellect: 3, diplomacy: 1, cunning: 2 } },
   { name: 'Nathaniel', skills: { combat: 2, charm: 3, intellect: 2, diplomacy: 1, cunning: 4 } },
   { name: 'Odette', skills: { combat: 2, charm: 4, intellect: 1, diplomacy: 3, cunning: 3 } },
 ]
 
-const FENWICK_MEMBERS: MemberDesign[] = [
+const FENWICK_MEMBERS: MemberSeed[] = [
   { name: 'Percival', skills: { combat: 4, charm: 3, intellect: 2, diplomacy: 2, cunning: 1 } },
   { name: 'Quinn', skills: { combat: 1, charm: 2, intellect: 3, diplomacy: 2, cunning: 4 } },
   { name: 'Rosalind', skills: { combat: 4, charm: 3, intellect: 1, diplomacy: 3, cunning: 3 } },
 ]
 
-const GRIMSBY_MEMBERS: MemberDesign[] = [
+const GRIMSBY_MEMBERS: MemberSeed[] = [
   { name: 'Silas', skills: { combat: 1, charm: 1, intellect: 4, diplomacy: 3, cunning: 2 } },
   { name: 'Tamsin', skills: { combat: 4, charm: 3, intellect: 4, diplomacy: 2, cunning: 1 } },
   { name: 'Ulric', skills: { combat: 2, charm: 1, intellect: 4, diplomacy: 2, cunning: 3 } },
 ]
 
-const HARROWGATE_MEMBERS: MemberDesign[] = [
+const HARROWGATE_MEMBERS: MemberSeed[] = [
   { name: 'Vivienne', skills: { combat: 3, charm: 1, intellect: 1, diplomacy: 3, cunning: 3 } },
   { name: 'Wilfred', skills: { combat: 1, charm: 4, intellect: 4, diplomacy: 2, cunning: 3 } },
   { name: 'Yvette', skills: { combat: 2, charm: 4, intellect: 1, diplomacy: 2, cunning: 2 } },
 ]
 
+// Default portrait swatches, cycled by a global member index so the 24 stock characters
+// come out visually varied. Purely a starting point — every field is dev-panel editable.
+const SKIN_TONES = ['f2d3b1', 'e8b98c', 'c68642', '965a2f', '5c3a21']
+const HAIR_COLORS = ['2c1b18', '4a2c14', '6b4423', 'ad8a56', 'e8c179', '1c1c1c', '9c9c9c', '701c1c']
+const EYE_COLORS = ['4b3621', '2e536f', '1a5632', '5b3a29', '000000', '6b6b6b']
+const SHIRT_COLORS = ['5b3a29', '2e536f', '6b1a1a', '3a5f3a', '4a3a6b', '806020', '3a3a3a', '7a5230']
+
+export function appearanceFor(index: number): MemberAppearance {
+  const facialHairOptions: AppearanceFacialHair[] = ['none', 'none', 'beard', 'none', 'scruff']
+  const glassesOptions: AppearanceGlasses[] = ['none', 'none', 'none', 'round', 'none', 'square', 'none']
+  return {
+    skinColor: SKIN_TONES[index % SKIN_TONES.length]!,
+    hair: APPEARANCE_HAIR_STYLES[index % APPEARANCE_HAIR_STYLES.length]!,
+    hairColor: HAIR_COLORS[(index * 3) % HAIR_COLORS.length]!,
+    eyesColor: EYE_COLORS[(index * 5) % EYE_COLORS.length]!,
+    facialHair: facialHairOptions[index % facialHairOptions.length]!,
+    glasses: glassesOptions[index % glassesOptions.length]!,
+    shirtColor: SHIRT_COLORS[(index * 7) % SHIRT_COLORS.length]!,
+  }
+}
+
+/** attaches default portraits to a house's roster; startIndex keeps them varied across houses */
+function withAppearance(members: MemberSeed[], startIndex: number): MemberDesign[] {
+  return members.map((m, i) => ({ ...m, appearance: appearanceFor(startIndex + i) }))
+}
+
 // one house per city slot, in slot order
 export const DEFAULT_HOUSES: HouseDesign[] = [
-  { name: 'House Ashford', color: '#b03a3a', cityName: 'Ashford', members: ASHFORD_MEMBERS },
-  { name: 'House Belmont', color: '#3a6fb0', cityName: 'Belmont', members: BELMONT_MEMBERS },
-  { name: 'House Caldwell', color: '#2e8b57', cityName: 'Caldwell', members: CALDWELL_MEMBERS },
-  { name: 'House Draymoor', color: '#7d4fb0', cityName: 'Draymoor', members: DRAYMOOR_MEMBERS },
-  { name: 'House Everly', color: '#c98a2d', cityName: 'Everly', members: EVERLY_MEMBERS },
-  { name: 'House Fenwick', color: '#2d9d9d', cityName: 'Fenwick', members: FENWICK_MEMBERS },
-  { name: 'House Grimsby', color: '#c2439c', cityName: 'Grimsby', members: GRIMSBY_MEMBERS },
-  { name: 'House Harrowgate', color: '#607086', cityName: 'Harrowgate', members: HARROWGATE_MEMBERS },
+  { name: 'House Ashford', color: '#b03a3a', cityName: 'Ashford', members: withAppearance(ASHFORD_MEMBERS, 0) },
+  { name: 'House Belmont', color: '#3a6fb0', cityName: 'Belmont', members: withAppearance(BELMONT_MEMBERS, 3) },
+  { name: 'House Caldwell', color: '#2e8b57', cityName: 'Caldwell', members: withAppearance(CALDWELL_MEMBERS, 6) },
+  { name: 'House Draymoor', color: '#7d4fb0', cityName: 'Draymoor', members: withAppearance(DRAYMOOR_MEMBERS, 9) },
+  { name: 'House Everly', color: '#c98a2d', cityName: 'Everly', members: withAppearance(EVERLY_MEMBERS, 12) },
+  { name: 'House Fenwick', color: '#2d9d9d', cityName: 'Fenwick', members: withAppearance(FENWICK_MEMBERS, 15) },
+  { name: 'House Grimsby', color: '#c2439c', cityName: 'Grimsby', members: withAppearance(GRIMSBY_MEMBERS, 18) },
+  { name: 'House Harrowgate', color: '#607086', cityName: 'Harrowgate', members: withAppearance(HARROWGATE_MEMBERS, 21) },
 ]
 
 // Herald lines read aloud on the results screen — one per attended scenario, picked at

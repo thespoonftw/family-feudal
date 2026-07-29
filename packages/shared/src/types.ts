@@ -15,6 +15,7 @@ export interface FamilyMember {
   id: string
   name: string
   skills: Record<SkillKey, number>
+  appearance: MemberAppearance
 }
 
 export interface Family {
@@ -150,10 +151,46 @@ export const SCENARIO_LOCATION_LABELS: Record<ScenarioLocation, string> = {
 /** number of fixed characters every house has */
 export const MEMBERS_PER_HOUSE = 3
 
+// ---------- Portrait appearance (DiceBear "micah" style traits) ----------
+
+export const APPEARANCE_HAIR_STYLES = [
+  'fonze',
+  'mrT',
+  'dougFunny',
+  'mrClean',
+  'dannyPhantom',
+  'full',
+  'turban',
+  'pixie',
+] as const
+export type AppearanceHairStyle = (typeof APPEARANCE_HAIR_STYLES)[number]
+
+export const APPEARANCE_FACIAL_HAIR = ['none', 'beard', 'scruff'] as const
+export type AppearanceFacialHair = (typeof APPEARANCE_FACIAL_HAIR)[number]
+
+export const APPEARANCE_GLASSES = ['none', 'round', 'square'] as const
+export type AppearanceGlasses = (typeof APPEARANCE_GLASSES)[number]
+
+/** a fixed character's portrait, rendered client-side as a DiceBear "micah" avatar */
+export interface MemberAppearance {
+  /** skin tone, hex without '#' */
+  skinColor: string
+  hair: AppearanceHairStyle
+  /** hair colour, hex without '#' */
+  hairColor: string
+  /** eye colour, hex without '#' */
+  eyesColor: string
+  facialHair: AppearanceFacialHair
+  glasses: AppearanceGlasses
+  /** shirt colour, hex without '#' */
+  shirtColor: string
+}
+
 /** one fixed character belonging to a house, with hand-set (not rolled) skills */
 export interface MemberDesign {
   name: string
   skills: Record<SkillKey, number>
+  appearance: MemberAppearance
 }
 
 /** inclusive bounds for a designed character's skill values */

@@ -5,6 +5,7 @@ import type {
   DevRoomSummary,
   GameConfig,
   GameContent,
+  MemberDesign,
   NarrationKind,
   NarrationTemplates,
   Scenario,
@@ -13,6 +14,9 @@ import type {
   SkillKey,
 } from '@family-feudal/shared'
 import {
+  APPEARANCE_FACIAL_HAIR,
+  APPEARANCE_GLASSES,
+  APPEARANCE_HAIR_STYLES,
   MEMBER_SKILL_BOUNDS,
   NARRATION_KIND_INFO,
   NARRATION_KINDS,
@@ -20,6 +24,7 @@ import {
   SKILL_LABELS,
   SKILLS,
 } from '@family-feudal/shared'
+import MemberAvatar from '../components/MemberAvatar.vue'
 
 interface ConfigResponse {
   config: GameConfig
@@ -207,6 +212,26 @@ function skillKeys(): SkillKey[] {
   return [...SKILLS]
 }
 
+function hairStyles(): string[] {
+  return [...APPEARANCE_HAIR_STYLES]
+}
+
+function facialHairOptions(): string[] {
+  return [...APPEARANCE_FACIAL_HAIR]
+}
+
+function glassesOptions(): string[] {
+  return [...APPEARANCE_GLASSES]
+}
+
+/** '#rrggbb' for a <input type="color">; appearance fields store the hex without '#' */
+function asHex(value: string): string {
+  return `#${value}`
+}
+function fromHex(m: MemberDesign, key: 'skinColor' | 'hairColor' | 'eyesColor' | 'shirtColor', value: string) {
+  m.appearance[key] = value.replace('#', '')
+}
+
 onMounted(() => {
   void loadConfig()
   void loadContent()
@@ -278,23 +303,89 @@ onUnmounted(() => {
         <table class="members">
           <thead>
             <tr>
+              <th></th>
               <th>Character</th>
               <th v-for="skill in skillKeys()" :key="skill">{{ SKILL_LABELS[skill] }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(m, j) in h.members" :key="j">
-              <td><input v-model="m.name" type="text" maxlength="30" /></td>
-              <td v-for="skill in skillKeys()" :key="skill">
-                <input
-                  v-model.number="m.skills[skill]"
-                  type="number"
-                  :min="MEMBER_SKILL_BOUNDS[0]"
-                  :max="MEMBER_SKILL_BOUNDS[1]"
-                  class="num"
-                />
-              </td>
-            </tr>
+            <template v-for="(m, j) in h.members" :key="j">
+              <tr>
+                <td>
+                  <MemberAvatar :appearance="m.appearance" :seed="m.name" :size="40" />
+                </td>
+                <td><input v-model="m.name" type="text" maxlength="30" /></td>
+                <td v-for="skill in skillKeys()" :key="skill">
+                  <input
+                    v-model.number="m.skills[skill]"
+                    type="number"
+                    :min="MEMBER_SKILL_BOUNDS[0]"
+                    :max="MEMBER_SKILL_BOUNDS[1]"
+                    class="num"
+                  />
+                </td>
+              </tr>
+              <tr class="appearance-row">
+                <td :colspan="2 + skillKeys().length">
+                  <div class="appearance-fields">
+                    <label>
+                      Hair
+                      <select v-model="m.appearance.hair">
+                        <option v-for="h2 in hairStyles()" :key="h2" :value="h2">{{ h2 }}</option>
+                      </select>
+                    </label>
+                    <label>
+                      Hair colour
+                      <input
+                        :value="asHex(m.appearance.hairColor)"
+                        type="color"
+                        class="swatch"
+                        @input="fromHex(m, 'hairColor', ($event.target as HTMLInputElement).value)"
+                      />
+                    </label>
+                    <label>
+                      Eye colour
+                      <input
+                        :value="asHex(m.appearance.eyesColor)"
+                        type="color"
+                        class="swatch"
+                        @input="fromHex(m, 'eyesColor', ($event.target as HTMLInputElement).value)"
+                      />
+                    </label>
+                    <label>
+                      Skin tone
+                      <input
+                        :value="asHex(m.appearance.skinColor)"
+                        type="color"
+                        class="swatch"
+                        @input="fromHex(m, 'skinColor', ($event.target as HTMLInputElement).value)"
+                      />
+                    </label>
+                    <label>
+                      Shirt colour
+                      <input
+                        :value="asHex(m.appearance.shirtColor)"
+                        type="color"
+                        class="swatch"
+                        @input="fromHex(m, 'shirtColor', ($event.target as HTMLInputElement).value)"
+                      />
+                    </label>
+                    <label>
+                      Facial hair
+                      <select v-model="m.appearance.facialHair">
+                        <option v-for="f in facialHairOptions()" :key="f" :value="f">{{ f }}</option>
+                      </select>
+                    </label>
+                    <label>
+                      Glasses
+                      <select v-model="m.appearance.glasses">
+                        <option v-for="g in glassesOptions()" :key="g" :value="g">{{ g }}</option>
+                      </select>
+                    </label>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -449,6 +540,7 @@ onUnmounted(() => {
         <table>
           <thead>
             <tr>
+              <th></th>
               <th>Family</th>
               <th>Name</th>
               <th v-for="skill in skillKeys()" :key="skill">{{ SKILL_LABELS[skill] }}</th>
@@ -457,6 +549,7 @@ onUnmounted(() => {
           <tbody>
             <template v-for="f in detail.families" :key="f.id">
               <tr v-for="m in f.members" :key="m.id">
+                <td><MemberAvatar :appearance="m.appearance" :seed="m.name" :size="32" /></td>
                 <td>
                   <span class="chip" :style="{ background: f.color }" /> {{ f.name }}
                 </td>
@@ -606,6 +699,39 @@ table.members input[type='text'] {
 
 table.members input.num {
   width: 3.5em;
+}
+
+.appearance-row td {
+  border-bottom: 1px dashed var(--border);
+  padding-top: 0;
+}
+
+.appearance-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.1rem;
+  align-items: center;
+  padding: 0.2rem 0 0.5rem 2.9rem;
+}
+
+.appearance-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.appearance-fields select {
+  padding: 0.2em 0.3em;
+  font-size: 0.85rem;
+}
+
+.appearance-fields input.swatch {
+  width: 2.6em;
+  height: 1.8em;
+  padding: 0.1em;
+  cursor: pointer;
 }
 
 input.swatch {

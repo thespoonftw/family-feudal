@@ -1,8 +1,12 @@
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
 import type {
   ApproachDesign,
+  AppearanceFacialHair,
+  AppearanceGlasses,
+  AppearanceHairStyle,
   GameContent,
   HouseDesign,
+  MemberAppearance,
   MemberDesign,
   NarrationTemplates,
   ScenarioDesign,
@@ -11,6 +15,9 @@ import type {
   Town,
 } from '@family-feudal/shared'
 import {
+  APPEARANCE_FACIAL_HAIR,
+  APPEARANCE_GLASSES,
+  APPEARANCE_HAIR_STYLES,
   MEMBER_SKILL_BOUNDS,
   MEMBERS_PER_HOUSE,
   NARRATION_KIND_INFO,
@@ -18,6 +25,7 @@ import {
   SKILLS,
 } from '@family-feudal/shared'
 import {
+  appearanceFor,
   CAPITAL_NAME,
   CAPITAL_SLOT,
   CITY_SLOTS,
@@ -61,6 +69,37 @@ function sanitizeMemberSkills(raw: unknown, where: string): Record<SkillKey, num
   return skills
 }
 
+function isHexColor(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-fA-F]{6}$/.test(value)
+}
+
+function sanitizeAppearance(raw: unknown, where: string): MemberAppearance | string {
+  const obj = (raw ?? {}) as Record<string, unknown>
+  const skinColor = obj['skinColor']
+  if (!isHexColor(skinColor)) return `${where}: skin colour must be a 6-digit hex value`
+  const hair = obj['hair']
+  if (!APPEARANCE_HAIR_STYLES.includes(hair as AppearanceHairStyle)) return `${where}: unknown hair style`
+  const hairColor = obj['hairColor']
+  if (!isHexColor(hairColor)) return `${where}: hair colour must be a 6-digit hex value`
+  const eyesColor = obj['eyesColor']
+  if (!isHexColor(eyesColor)) return `${where}: eye colour must be a 6-digit hex value`
+  const facialHair = obj['facialHair']
+  if (!APPEARANCE_FACIAL_HAIR.includes(facialHair as AppearanceFacialHair)) return `${where}: unknown facial hair`
+  const glasses = obj['glasses']
+  if (!APPEARANCE_GLASSES.includes(glasses as AppearanceGlasses)) return `${where}: unknown glasses`
+  const shirtColor = obj['shirtColor']
+  if (!isHexColor(shirtColor)) return `${where}: shirt colour must be a 6-digit hex value`
+  return {
+    skinColor: skinColor.toLowerCase(),
+    hair: hair as AppearanceHairStyle,
+    hairColor: hairColor.toLowerCase(),
+    eyesColor: eyesColor.toLowerCase(),
+    facialHair: facialHair as AppearanceFacialHair,
+    glasses: glasses as AppearanceGlasses,
+    shirtColor: shirtColor.toLowerCase(),
+  }
+}
+
 function sanitizeMember(raw: unknown, houseLabel: string, index: number): MemberDesign | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const where = `${houseLabel}, character ${index + 1}`
@@ -68,7 +107,9 @@ function sanitizeMember(raw: unknown, houseLabel: string, index: number): Member
   if (!name) return `${where}: name must be 1–30 characters`
   const skills = sanitizeMemberSkills(obj['skills'], where)
   if (typeof skills === 'string') return skills
-  return { name, skills }
+  const appearance = sanitizeAppearance(obj['appearance'], where)
+  if (typeof appearance === 'string') return appearance
+  return { name, skills, appearance }
 }
 
 function sanitizeHouse(raw: unknown, index: number): HouseDesign | string {
@@ -198,7 +239,9 @@ function sanitizeContent(raw: unknown): GameContent | string {
  * generically-labelled approaches that keep the original text), the pre-narration
  * format (missing herald-line kinds are filled from the defaults), and the
  * pre-fixed-roster format (houses without a `members` array get that house's defaults,
- * matched by slot index — the randomly-rolled members they used to have are gone either way).
+ * matched by slot index — the randomly-rolled members they used to have are gone either way),
+ * and the pre-portrait format (members without an `appearance` get one generated the same
+ * way the stock roster's defaults are, keyed off their house+member slot).
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
@@ -225,10 +268,17 @@ function migrateContent(raw: unknown): unknown {
     }
   })
   const houses = Array.isArray(obj['houses'])
-    ? obj['houses'].map((h, i) => {
+    ? obj['houses'].map((h, hi) => {
         const house = (h ?? {}) as Record<string, unknown>
-        if (Array.isArray(house['members'])) return house
-        return { ...house, members: DEFAULT_HOUSES[i]?.members ?? DEFAULT_HOUSES[0]?.members }
+        if (!Array.isArray(house['members'])) {
+          return { ...house, members: DEFAULT_HOUSES[hi]?.members ?? DEFAULT_HOUSES[0]?.members }
+        }
+        const members = house['members'].map((m, mi) => {
+          const member = (m ?? {}) as Record<string, unknown>
+          if (member['appearance']) return member
+          return { ...member, appearance: appearanceFor(hi * MEMBERS_PER_HOUSE + mi) }
+        })
+        return { ...house, members }
       })
     : obj['houses']
   return { ...obj, houses, scenarios, narration }
