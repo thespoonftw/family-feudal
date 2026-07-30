@@ -425,6 +425,7 @@ export function buildTowns(from: GameContent): Town[] {
       x: slot.x,
       y: slot.y,
       isCapital: false,
+      ...(from.houses[i]?.color ? { color: from.houses[i]!.color } : {}),
     })),
   ]
 }

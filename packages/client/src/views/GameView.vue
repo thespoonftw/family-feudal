@@ -54,6 +54,11 @@ function townName(townId: string): string {
   return view.value?.towns.find((t) => t.id === townId)?.name ?? '?'
 }
 
+/** the colour of the house whose home city this is — undefined for the capital */
+function townColor(townId: string): string | undefined {
+  return view.value?.towns.find((t) => t.id === townId)?.color
+}
+
 /** splits a description around its town name so the name can be bolded/coloured inline */
 function descriptionParts(description: string, townId: string): { text: string; town: boolean }[] {
   const name = townName(townId)
@@ -412,7 +417,7 @@ const winnerNames = computed(() => {
             <h4>{{ s.emoji }} {{ s.title }}</h4>
             <p class="hint">
               <template v-for="(part, i) in descriptionParts(s.description, s.townId)" :key="i">
-                <b v-if="part.town" :style="{ color: game.yourFamily?.color }">{{ part.text }}</b>
+                <b v-if="part.town" :style="{ color: townColor(s.townId) }">{{ part.text }}</b>
                 <template v-else>{{ part.text }}</template>
               </template>
             </p>
@@ -517,7 +522,10 @@ const winnerNames = computed(() => {
                 )"
                 :key="i"
               >
-                <b v-if="part.town" :style="{ color: game.yourFamily?.color }">{{ part.text }}</b>
+                <b
+                  v-if="part.town"
+                  :style="{ color: townColor(currentDeployment.scenario.townId) }"
+                >{{ part.text }}</b>
                 <template v-else>{{ part.text }}</template>
               </template>
             </p>
@@ -592,13 +600,17 @@ const winnerNames = computed(() => {
               class="mini-outcome"
               :class="verdictClass(o)"
             >
-              <MemberAvatar
-                v-if="outcomeMember(o)"
-                :appearance="outcomeAppearance(o)!"
-                :seed="outcomeMember(o)!.name"
-                :shirt-color="game.yourFamily?.color ?? '#888888'"
-                :size="72"
-              />
+              <div class="portrait-col">
+                <MemberAvatar
+                  v-if="outcomeMember(o)"
+                  :appearance="outcomeAppearance(o)!"
+                  :seed="outcomeMember(o)!.name"
+                  :shirt-color="game.yourFamily?.color ?? '#888888'"
+                  :size="72"
+                />
+                <span class="verdict">{{ verdictText(o) }}</span>
+                <span class="math">{{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}</span>
+              </div>
               <span class="who">
                 <strong>{{ outcomeMemberNames(o) }}</strong>
                 <small>
@@ -606,8 +618,6 @@ const winnerNames = computed(() => {
                   “{{ approachLabel(o) }}”
                 </small>
               </span>
-              <span class="math">{{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}</span>
-              <span class="verdict">{{ verdictText(o) }}</span>
             </div>
           </div>
           <p v-else class="hint">You sent no one out this round.</p>
@@ -1139,11 +1149,19 @@ button.small {
 
 .mini-outcome {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.6rem;
   padding: 0.45rem 0.5rem;
   border-radius: 6px;
   background: var(--bg-inset);
+}
+
+.mini-outcome .portrait-col {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
 }
 
 .mini-outcome .who {
@@ -1152,6 +1170,7 @@ button.small {
   flex-direction: column;
   line-height: 1.25;
   min-width: 0;
+  padding-top: 0.2rem;
 }
 
 .mini-outcome .who small {
@@ -1160,12 +1179,13 @@ button.small {
 
 .mini-outcome .math {
   color: var(--text-dim);
-  font-size: 0.85rem;
+  font-size: 0.7rem;
   white-space: nowrap;
 }
 
 .mini-outcome .verdict {
   font-weight: bold;
+  font-size: 0.78rem;
   white-space: nowrap;
 }
 
@@ -1245,6 +1265,7 @@ button.small {
 
 .loading {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;

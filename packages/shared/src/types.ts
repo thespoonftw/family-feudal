@@ -36,6 +36,8 @@ export interface Town {
   x: number
   y: number
   isCapital: boolean
+  /** hex colour of the house whose home city this is — absent for the capital */
+  color?: string
 }
 
 /** one way of tackling a scenario — the label is public, the skill behind it is not */
