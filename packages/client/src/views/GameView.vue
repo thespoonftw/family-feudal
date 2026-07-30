@@ -10,7 +10,6 @@ import type {
 } from '@family-feudal/shared'
 import { revealTotalMs, SKILLS } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
-import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
 import MemberAvatar from '../components/MemberAvatar.vue'
 
@@ -18,7 +17,6 @@ const router = useRouter()
 const game = useGameStore()
 
 const actionError = ref('')
-const selectedScenarioId = ref<string | null>(null)
 const menuOpen = ref(false)
 
 const SKILL_ICONS: Record<SkillKey, string> = {
@@ -43,15 +41,6 @@ watch(
   },
 )
 
-// portrait map by default; landscape screens (desktop, phone held sideways) rotate it 90°
-const landscapeQuery = window.matchMedia('(orientation: landscape)')
-const isLandscape = ref(landscapeQuery.matches)
-function onOrientationChange(e: MediaQueryListEvent) {
-  isLandscape.value = e.matches
-}
-onMounted(() => landscapeQuery.addEventListener('change', onOrientationChange))
-onUnmounted(() => landscapeQuery.removeEventListener('change', onOrientationChange))
-
 const view = computed(() => game.view)
 
 /** scenarios you may send members to: all public ones + your own home scenario */
@@ -59,18 +48,6 @@ const yourScenarios = computed<Scenario[]>(() => {
   if (!view.value) return []
   const familyId = game.yourFamily?.id
   return view.value.scenarios.filter((s) => !s.homeFamilyId || s.homeFamilyId === familyId)
-})
-
-const selectedScenario = computed<Scenario | null>(
-  () => yourScenarios.value.find((s) => s.id === selectedScenarioId.value) ?? null,
-)
-
-const assignedCounts = computed<Record<string, number>>(() => {
-  const counts: Record<string, number> = {}
-  for (const scenarioId of Object.values(view.value?.yourAssignments ?? {})) {
-    counts[scenarioId] = (counts[scenarioId] ?? 0) + 1
-  }
-  return counts
 })
 
 function townName(townId: string): string {
@@ -81,38 +58,75 @@ function memberAssignment(memberId: string): string {
   return view.value?.yourAssignments[memberId] ?? ''
 }
 
-/**
- * Button state for a member in the sheet. One member per scenario; a member already
- * committed elsewhere shows a disabled "Used" so they can't be reallocated by accident
- * (recall them from their own scenario first).
- */
-function memberButton(memberId: string): { label: string; disabled: boolean } {
-  const scenario = selectedScenario.value
-  if (!scenario) return { label: 'Send', disabled: true }
-  const assigned = memberAssignment(memberId)
-  if (assigned === scenario.id) return { label: 'Recall', disabled: false }
-  if (assigned) return { label: 'Used', disabled: true }
-  if ((assignedCounts.value[scenario.id] ?? 0) > 0) return { label: 'Send', disabled: true }
-  return { label: 'Send', disabled: false }
+/** the member currently occupying a scenario slot (at most one, enforced server-side) */
+function assignedMember(scenarioId: string): FamilyMember | undefined {
+  const memberId = Object.entries(view.value?.yourAssignments ?? {}).find(
+    ([, sid]) => sid === scenarioId,
+  )?.[0]
+  return game.yourFamily?.members.find((m) => m.id === memberId)
 }
 
-/** tap to send a member to the selected scenario (closes the sheet), tap again to recall */
-async function toggleAssign(memberId: string) {
-  if (!view.value || !selectedScenario.value) return
-  const next = { ...view.value.yourAssignments }
-  const sending = next[memberId] !== selectedScenario.value.id
-  if (sending) next[memberId] = selectedScenario.value.id
-  else delete next[memberId]
-  const err = await game.assign(next)
-  actionError.value = err ?? ''
-  if (!err && sending) selectedScenarioId.value = null
-}
-
-/** town name of the scenario a member is currently assigned to (for the sheet) */
-function assignedTownLabel(memberId: string): string {
+/** scenario title a member is currently deployed to, for the agent bar */
+function assignedScenarioLabel(memberId: string): string {
   const scenarioId = view.value?.yourAssignments[memberId]
   const scenario = view.value?.scenarios.find((s) => s.id === scenarioId)
-  return scenario ? townName(scenario.townId) : ''
+  return scenario ? `${scenario.emoji} ${scenario.title}` : ''
+}
+
+// ---------- drag-to-assign (pointer events so it works with touch and mouse alike) ----------
+
+const draggingMemberId = ref<string | null>(null)
+const dragOverScenarioId = ref<string | null>(null)
+const dragPos = ref({ x: 0, y: 0 })
+
+function draggingMember(): FamilyMember | undefined {
+  return game.yourFamily?.members.find((m) => m.id === draggingMemberId.value)
+}
+
+function onAgentPointerDown(e: PointerEvent, memberId: string) {
+  if (e.button !== undefined && e.button !== 0) return
+  draggingMemberId.value = memberId
+  dragPos.value = { x: e.clientX, y: e.clientY }
+  window.addEventListener('pointermove', onDragMove)
+  window.addEventListener('pointerup', onDragEnd)
+  window.addEventListener('pointercancel', onDragEnd)
+}
+
+function onDragMove(e: PointerEvent) {
+  dragPos.value = { x: e.clientX, y: e.clientY }
+  const el = document.elementFromPoint(e.clientX, e.clientY)
+  const card = el?.closest<HTMLElement>('[data-scenario-id]')
+  dragOverScenarioId.value = card?.dataset['scenarioId'] ?? null
+}
+
+async function onDragEnd() {
+  window.removeEventListener('pointermove', onDragMove)
+  window.removeEventListener('pointerup', onDragEnd)
+  window.removeEventListener('pointercancel', onDragEnd)
+  const memberId = draggingMemberId.value
+  const scenarioId = dragOverScenarioId.value
+  draggingMemberId.value = null
+  dragOverScenarioId.value = null
+  if (!memberId || !scenarioId || !view.value) return
+  if (assignedMember(scenarioId)?.id === memberId) return
+  if (assignedMember(scenarioId)) {
+    actionError.value = 'That scenario is already taken — recall them first.'
+    return
+  }
+  const next = { ...view.value.yourAssignments, [memberId]: scenarioId }
+  const err = await game.assign(next)
+  actionError.value = err ?? ''
+}
+
+/** tapping an occupied slot recalls that member back home */
+async function recallFromSlot(scenarioId: string) {
+  if (!view.value) return
+  const memberId = assignedMember(scenarioId)?.id
+  if (!memberId) return
+  const next = { ...view.value.yourAssignments }
+  delete next[memberId]
+  const err = await game.assign(next)
+  actionError.value = err ?? ''
 }
 
 function familyOf(playerId: string): Family | undefined {
@@ -185,6 +199,9 @@ watch(
 onUnmounted(() => {
   if (introTimer) clearTimeout(introTimer)
   if (revealTimer) clearTimeout(revealTimer)
+  window.removeEventListener('pointermove', onDragMove)
+  window.removeEventListener('pointerup', onDragEnd)
+  window.removeEventListener('pointercancel', onDragEnd)
 })
 
 // choices are live on the server as they're made, so a player is "ready" the moment the
@@ -229,14 +246,6 @@ function onLeave() {
   game.leave()
   void router.replace('/')
 }
-
-// clear stale selection when the round changes
-watch(
-  () => view.value?.round,
-  () => {
-    selectedScenarioId.value = null
-  },
-)
 
 // ---------- resolution helpers ----------
 // (the full story plays out on the host board; once its reveal ends the phone shows
@@ -354,71 +363,90 @@ const winnerNames = computed(() => {
 
     <!-- ================= PLANNING ================= -->
     <main v-else-if="view.phase === 'planning'" key="planning" class="planning">
-      <section class="map-pane">
-        <RealmMap
-          :towns="view.towns"
-          :scenarios="yourScenarios"
-          :families="view.families"
-          :assigned-counts="assignedCounts"
-          :selected-scenario-id="selectedScenarioId"
-          :landscape="isLandscape"
-          @select="(id) => (selectedScenarioId = id)"
-        />
+      <p class="hint plan-hint">Drag your agents onto a scenario to deploy them.</p>
 
-        <!-- assignment sheet over the map -->
+      <section class="scenario-list">
         <div
-          v-if="selectedScenario"
-          class="sheet-backdrop"
-          @click.self="selectedScenarioId = null"
+          v-for="s in yourScenarios"
+          :key="s.id"
+          class="card scenario-card"
+          :data-scenario-id="s.id"
+          :class="{
+            'drop-target': dragOverScenarioId === s.id,
+            'drop-blocked': dragOverScenarioId === s.id && !!assignedMember(s.id) && assignedMember(s.id)!.id !== draggingMemberId,
+          }"
         >
-          <div class="card sheet">
-            <div class="sheet-head">
-              <h3>
-                {{ selectedScenario.emoji }} {{ selectedScenario.title }}
-                <small>at {{ townName(selectedScenario.townId) }}</small>
-              </h3>
-              <button class="secondary small" @click="selectedScenarioId = null">✕</button>
-            </div>
-            <p class="hint">{{ selectedScenario.description }}</p>
-            <div class="sheet-members">
-              <div v-for="m in game.yourFamily?.members ?? []" :key="m.id" class="sheet-member">
-                <MemberAvatar
-                  :appearance="m.appearance"
-                  :seed="m.name"
-                  :shirt-color="game.yourFamily?.color ?? '#888888'"
-                  :size="80"
-                />
-                <span class="sheet-member-info">
-                  <strong>{{ m.name }}</strong>
-                  <small>
-                    <template v-for="(skill, i) in SKILLS" :key="skill">
-                      <template v-if="i > 0"> · </template>
-                      {{ SKILL_ICONS[skill] }}{{ m.skills[skill] }}
-                    </template>
-                    <template
-                      v-if="
-                        memberAssignment(m.id) && memberAssignment(m.id) !== selectedScenario.id
-                      "
-                    >
-                      · at {{ assignedTownLabel(m.id) }}
-                    </template>
-                  </small>
-                </span>
-                <button
-                  class="small"
-                  :class="{ secondary: memberButton(m.id).label !== 'Recall' }"
-                  :disabled="memberButton(m.id).disabled"
-                  @click="toggleAssign(m.id)"
-                >
-                  {{ memberButton(m.id).label }}
-                </button>
-              </div>
-            </div>
+          <div class="scenario-info">
+            <h4>
+              {{ s.emoji }} {{ s.title }} <small>at {{ townName(s.townId) }}</small>
+            </h4>
+            <p class="hint">{{ s.description }}</p>
           </div>
+          <button
+            class="scenario-slot"
+            :class="{ filled: !!assignedMember(s.id) }"
+            @click="recallFromSlot(s.id)"
+          >
+            <template v-if="assignedMember(s.id)">
+              <MemberAvatar
+                :appearance="assignedMember(s.id)!.appearance"
+                :seed="assignedMember(s.id)!.name"
+                :shirt-color="game.yourFamily?.color ?? '#888888'"
+                :size="52"
+              />
+              <small>{{ assignedMember(s.id)!.name }}</small>
+            </template>
+            <span v-else class="slot-empty">＋</span>
+          </button>
         </div>
       </section>
 
-      <!-- ready bar pinned under the map -->
+      <!-- your agents, dragged up onto a scenario slot above -->
+      <div class="agents-bar">
+        <div
+          v-for="m in game.yourFamily?.members ?? []"
+          :key="m.id"
+          class="agent"
+          :class="{
+            'is-dragging': draggingMemberId === m.id,
+            deployed: !!memberAssignment(m.id),
+          }"
+          @pointerdown="onAgentPointerDown($event, m.id)"
+        >
+          <MemberAvatar
+            :appearance="m.appearance"
+            :seed="m.name"
+            :shirt-color="game.yourFamily?.color ?? '#888888'"
+            :size="60"
+          />
+          <strong>{{ m.name }}</strong>
+          <small class="agent-skills">
+            <template v-for="(skill, i) in SKILLS" :key="skill">
+              <template v-if="i > 0"> · </template>
+              {{ SKILL_ICONS[skill] }}{{ m.skills[skill] }}
+            </template>
+          </small>
+          <small v-if="memberAssignment(m.id)" class="agent-location">
+            {{ assignedScenarioLabel(m.id) }}
+          </small>
+        </div>
+      </div>
+
+      <!-- floating drag ghost, follows the pointer -->
+      <div
+        v-if="draggingMember()"
+        class="drag-ghost"
+        :style="{ left: dragPos.x + 'px', top: dragPos.y + 'px' }"
+      >
+        <MemberAvatar
+          :appearance="draggingMember()!.appearance"
+          :seed="draggingMember()!.name"
+          :shirt-color="game.yourFamily?.color ?? '#888888'"
+          :size="64"
+        />
+      </div>
+
+      <!-- ready bar pinned under the agents -->
       <div class="plan-bar">
         <button class="ready-btn" @click="game.setReady(!game.you?.ready)">
           {{ game.you?.ready ? 'Not ready after all…' : 'Ready — seal the plans' }}
@@ -757,6 +785,7 @@ button.small {
   overflow: hidden;
 }
 
+/* planning: always a portrait phone-shaped column, even on a wide desktop browser */
 .planning {
   flex: 1;
   min-height: 0;
@@ -764,20 +793,162 @@ button.small {
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.5rem;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
 }
 
-.map-pane {
-  position: relative;
+.plan-hint {
+  text-align: center;
+}
+
+.scenario-list {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
+  padding-right: 0.1rem;
 }
 
-.map-pane .realm {
+.scenario-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.7rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.scenario-card.drop-target {
+  background: var(--bg-inset);
+  border-color: var(--gold-soft);
+}
+
+.scenario-card.drop-blocked {
+  border-color: var(--failure);
+}
+
+.scenario-info {
   flex: 1;
-  min-height: 0;
-  width: 100%;
+  min-width: 0;
+}
+
+.scenario-info h4 {
+  margin: 0 0 0.15rem;
+  line-height: 1.3;
+}
+
+.scenario-info h4 small {
+  color: var(--text-dim);
+  font-weight: normal;
+  font-size: 0.8em;
+  margin-left: 0.3em;
+}
+
+.scenario-info .hint {
+  margin: 0;
+}
+
+.scenario-slot {
+  flex-shrink: 0;
+  width: 4.6rem;
+  height: 4.6rem;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: var(--bg-inset);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.2rem;
+}
+
+.scenario-slot.filled {
+  border-style: solid;
+  border-color: var(--gold-soft);
+}
+
+.scenario-slot small {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-empty {
+  color: var(--text-dim);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+/* your 3 agents, pinned along the bottom — drag one up onto a scenario slot */
+.agents-bar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem 0.4rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  border-radius: 10px;
+}
+
+.agent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.4rem 0.2rem;
+  border-radius: 8px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  text-align: center;
+}
+
+.agent.deployed {
+  opacity: 0.55;
+}
+
+.agent.is-dragging {
+  opacity: 0.25;
+}
+
+.agent strong {
+  font-size: 0.85rem;
+  line-height: 1.1;
+}
+
+.agent-skills {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.agent-location {
+  color: var(--gold-soft);
+  font-size: 0.7rem;
+  line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: 40;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  opacity: 0.9;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
 }
 
 /* approach phase: one centered decision card at a time */
@@ -1041,74 +1212,7 @@ button.small {
   color: var(--text-dim);
 }
 
-/* assignment sheet over the map + pinned ready bar */
-.sheet-backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  background: rgba(10, 7, 3, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.8rem;
-  border-radius: 10px;
-}
-
-.sheet {
-  width: 100%;
-  max-width: 520px;
-  max-height: 100%;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.sheet-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.6rem;
-}
-
-.sheet-head h3 small {
-  color: var(--text-dim);
-  font-weight: normal;
-  font-size: 0.8em;
-  margin-left: 0.3em;
-}
-
-.sheet-members {
-  display: flex;
-  flex-direction: column;
-}
-
-.sheet-member {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.5rem 0;
-  border-top: 1px solid var(--border);
-}
-
-.sheet-member-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
-
-.sheet-member-info small {
-  color: var(--text-dim);
-}
-
-.sheet-member button {
-  min-width: 5.5em;
-  flex-shrink: 0;
-}
-
+/* pinned ready bar under the agents */
 .plan-bar {
   display: flex;
   align-items: center;
