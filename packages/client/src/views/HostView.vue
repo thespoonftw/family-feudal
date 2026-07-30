@@ -62,14 +62,19 @@ function outcomesFor(scenarioId: string): ScenarioOutcome[] {
   return view.value?.lastResult?.outcomes.filter((o) => o.scenarioId === scenarioId) ?? []
 }
 
-/** the herald's one-line telling of how the scenario went */
-function narrationFor(scenarioId: string): string {
-  return view.value?.lastResult?.narration?.[scenarioId] ?? ''
+function outcomeScenario(o: ScenarioOutcome): Scenario | undefined {
+  return view.value?.scenarios.find((s) => s.id === o.scenarioId)
 }
 
 function approachLabel(o: ScenarioOutcome): string {
-  const scenario = view.value?.scenarios.find((s) => s.id === o.scenarioId)
-  return scenario?.approaches[o.approachIndex]?.label ?? ''
+  return outcomeScenario(o)?.approaches[o.approachIndex]?.label ?? ''
+}
+
+/** the flavour line for the approach taken, chosen by whether the check succeeded */
+function outcomeMessage(o: ScenarioOutcome): string {
+  const approach = outcomeScenario(o)?.approaches[o.approachIndex]
+  if (!approach) return ''
+  return o.success ? approach.successMessage : approach.failureMessage
 }
 
 /** the attending member — used for the outcome's portrait */
@@ -77,11 +82,13 @@ function outcomeMember(o: ScenarioOutcome): FamilyMember | undefined {
   return familyById(o.familyId)?.members.find((m) => o.memberIds.includes(m.id))
 }
 
-/** the outcome's portrait, with a disappointed face swapped in on a failed check */
+/** the outcome's portrait, with the designed success/failure face swapped in (dev panel) */
 function outcomeAppearance(o: ScenarioOutcome): FamilyMember['appearance'] | undefined {
   const member = outcomeMember(o)
   if (!member) return undefined
-  return o.success ? member.appearance : { ...member.appearance, face: 'concerned' }
+  const override = view.value?.faceOutcomes[member.appearance.face]
+  const face = o.success ? override?.successFace : override?.failureFace
+  return face ? { ...member.appearance, face } : member.appearance
 }
 
 /** won the scenario / passed but beaten by a rival / failed the check outright */
@@ -265,25 +272,29 @@ function closeBoard() {
             class="outcome"
             :class="verdictClass(o)"
           >
-            <MemberAvatar
-              v-if="outcomeMember(o)"
-              :appearance="outcomeAppearance(o)!"
-              :seed="outcomeMember(o)!.name"
-              :shirt-color="familyById(o.familyId)?.color ?? '#888888'"
-              :size="56"
-            />
-            <span class="who">
-              <strong>{{ familyById(o.familyId)?.name }}</strong>
-              <small>{{ memberNames(o.familyId, o.memberIds) }} — “{{ approachLabel(o) }}”</small>
-            </span>
-            <span class="math">
-              {{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}
-            </span>
-            <span class="verdict">{{ verdictText(o) }}</span>
+            <div class="portrait-col">
+              <MemberAvatar
+                v-if="outcomeMember(o)"
+                :appearance="outcomeAppearance(o)!"
+                :seed="outcomeMember(o)!.name"
+                :shirt-color="familyById(o.familyId)?.color ?? '#888888'"
+                :size="96"
+              />
+            </div>
+            <div class="outcome-body">
+              <div class="outcome-head">
+                <span class="who">
+                  <strong>{{ familyById(o.familyId)?.name }}</strong>
+                  <small>{{ memberNames(o.familyId, o.memberIds) }} — “{{ approachLabel(o) }}”</small>
+                </span>
+                <span class="result-col">
+                  <span class="math">{{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}</span>
+                  <span class="verdict">{{ verdictText(o) }}</span>
+                </span>
+              </div>
+              <p v-if="outcomeMessage(o)" class="outcome-message">{{ outcomeMessage(o) }}</p>
+            </div>
           </div>
-          <p v-if="narrationFor(currentReveal.id)" class="narration">
-            🪶 <em>{{ narrationFor(currentReveal.id) }}</em>
-          </p>
         </div>
 
         <!-- everywhere nobody went, all at once -->
@@ -563,14 +574,6 @@ button.small {
   font-size: 1.9rem;
 }
 
-.narration {
-  margin-top: 0.5rem;
-  padding-top: 0.7rem;
-  border-top: 1px solid var(--border);
-  color: var(--gold-soft);
-  font-size: 1.05rem;
-  line-height: 1.4;
-}
 
 .quiet-row {
   display: flex;
@@ -627,11 +630,32 @@ button.small {
 .outcome {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.45rem 0.5rem;
+  gap: 0.9rem;
+  padding: 0.6rem 0.7rem;
   border-radius: 6px;
   margin-top: 0.45rem;
   background: var(--bg-inset);
+}
+
+.outcome .portrait-col {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.outcome .outcome-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.outcome .outcome-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .outcome .who {
@@ -643,6 +667,13 @@ button.small {
 
 .outcome .who small {
   color: var(--text-dim);
+}
+
+.outcome .result-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
 }
 
 .outcome .math {
@@ -666,6 +697,13 @@ button.small {
 
 .outcome.fail .verdict {
   color: var(--failure);
+}
+
+.outcome .outcome-message {
+  color: var(--gold-soft);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  font-style: italic;
 }
 
 /* finished */
@@ -732,19 +770,23 @@ button.small {
   }
 
   .outcome {
-    flex-wrap: wrap;
-    row-gap: 0.3rem;
+    flex-direction: column;
+    text-align: center;
   }
 
-  .outcome .math,
-  .outcome .verdict {
-    flex: 1 1 100%;
-    margin-left: calc(56px + 0.6rem);
-    text-align: left;
+  .outcome .outcome-head {
+    flex-direction: column;
+  }
+
+  .outcome .who,
+  .outcome .result-col {
+    align-items: center;
+    text-align: center;
   }
 
   .outcome .verdict {
     min-width: 0;
+    text-align: center;
   }
 }
 </style>

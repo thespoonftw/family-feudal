@@ -17,7 +17,6 @@ import type {
 import { CAPITAL_ID } from './data.js'
 import { buildPresets, buildTowns, getContent, type FamilyPreset } from './content.js'
 import { getConfig } from './config.js'
-import { narrateScenario } from './narration.js'
 
 export interface Room {
   code: string
@@ -280,10 +279,7 @@ export function setChoices(
 
 export function resolveRound(room: Room): void {
   const dc = getConfig().checkDC
-  // herald templates are read afresh, like scenario designs — edits reach the next reveal
-  const templates = getContent().narration
   const outcomes: ScenarioOutcome[] = []
-  const narration: Record<string, string> = {}
   for (const scenario of room.scenarios) {
     // every attending family rolls skill + d6 against the DC…
     const contenders: ScenarioOutcome[] = []
@@ -322,17 +318,8 @@ export function resolveRound(room: Room): void {
       }
       outcomes.push(contender)
     }
-    if (contenders.length > 0) {
-      narration[scenario.id] = narrateScenario(
-        scenario,
-        contenders,
-        room.families,
-        room.towns,
-        templates,
-      )
-    }
   }
-  const result: RoundResult = { round: room.round, outcomes, narration }
+  const result: RoundResult = { round: room.round, outcomes }
   room.lastResult = result
   room.resultHistory.push(result)
   room.phase = 'resolution'

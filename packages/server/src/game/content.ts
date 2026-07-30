@@ -13,7 +13,6 @@ import type {
   HouseDesign,
   MemberAppearance,
   MemberDesign,
-  NarrationTemplates,
   ScenarioDesign,
   ScenarioLocation,
   SkillKey,
@@ -28,8 +27,6 @@ import {
   APPEARANCE_SKIN_TONES,
   MEMBER_SKILL_BOUNDS,
   MEMBERS_PER_HOUSE,
-  NARRATION_KIND_INFO,
-  NARRATION_KINDS,
   SKILLS,
 } from '@family-feudal/shared'
 import {
@@ -38,7 +35,6 @@ import {
   CAPITAL_SLOT,
   CITY_SLOTS,
   DEFAULT_HOUSES,
-  DEFAULT_NARRATION,
   DEFAULT_SCENARIOS,
 } from './data.js'
 
@@ -51,7 +47,6 @@ const DEFAULT_FACE_OUTCOMES: FaceOutcomeMap = Object.fromEntries(
 export const DEFAULT_CONTENT: GameContent = {
   houses: DEFAULT_HOUSES,
   scenarios: DEFAULT_SCENARIOS,
-  narration: DEFAULT_NARRATION,
   faceOutcomes: DEFAULT_FACE_OUTCOMES,
 }
 
@@ -179,8 +174,12 @@ function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): A
   if (!label) return `${where}: label must be 1–60 characters`
   const skill = obj['skill']
   if (!SKILLS.includes(skill as SkillKey)) return `${where}: unknown skill`
+  const successMessage = cleanString(obj['successMessage'], 200)
+  if (!successMessage) return `${where}: success message must be 1–200 characters`
+  const failureMessage = cleanString(obj['failureMessage'], 200)
+  if (!failureMessage) return `${where}: failure message must be 1–200 characters`
   // a legacy per-approach `difficulty` is simply ignored (checks now roll against the DC)
-  return { label, skill: skill as SkillKey }
+  return { label, skill: skill as SkillKey, successMessage, failureMessage }
 }
 
 function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string {
@@ -211,26 +210,6 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
     approaches: cleanApproaches,
     location: location as ScenarioLocation,
   }
-}
-
-function sanitizeNarration(raw: unknown): NarrationTemplates | string {
-  const obj = (raw ?? {}) as Record<string, unknown>
-  const clean = {} as NarrationTemplates
-  for (const kind of NARRATION_KINDS) {
-    const label = `Herald lines (${NARRATION_KIND_INFO[kind].label})`
-    const lines = obj[kind]
-    if (!Array.isArray(lines) || lines.length === 0 || lines.length > 12) {
-      return `${label}: needs 1–12 templates`
-    }
-    const cleanLines: string[] = []
-    for (const line of lines) {
-      const text = cleanString(line, 200)
-      if (!text) return `${label}: each template must be 1–200 characters`
-      cleanLines.push(text)
-    }
-    clean[kind] = cleanLines
-  }
-  return clean
 }
 
 function sanitizeFaceOutcomes(raw: unknown): FaceOutcomeMap | string {
@@ -287,36 +266,40 @@ function sanitizeContent(raw: unknown): GameContent | string {
   if (!cleanScenarios.some((s) => s.location === 'home')) {
     return 'At least one scenario must be a home-estate scenario'
   }
-  const narration = sanitizeNarration(obj['narration'])
-  if (typeof narration === 'string') return narration
   const faceOutcomes = sanitizeFaceOutcomes(obj['faceOutcomes'])
   if (typeof faceOutcomes === 'string') return faceOutcomes
-  return { houses: cleanHouses, scenarios: cleanScenarios, narration, faceOutcomes }
+  return { houses: cleanHouses, scenarios: cleanScenarios, faceOutcomes }
+}
+
+// generic fallback flavour text for approaches persisted before successMessage/failureMessage existed
+const FALLBACK_SUCCESS_MESSAGE = 'The gambit pays off.'
+const FALLBACK_FAILURE_MESSAGE = 'It comes to nothing.'
+
+/** migration helper: keep a legacy message if it's still a valid string, else fall back */
+function pickMessage(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim().length > 0 && value.length <= 200
+    ? value.trim()
+    : fallback
 }
 
 /**
  * Upgrade a persisted content file written by an older build so design edits (titles,
  * descriptions, …) survive schema changes. Currently handles the pre-approach format
  * (scenarios with a single `skill` — and the old `beauty` skill — become two
- * generically-labelled approaches that keep the original text), the pre-narration
- * format (missing herald-line kinds are filled from the defaults), and the
- * pre-fixed-roster format (houses without a `members` array get that house's defaults,
- * matched by slot index — the randomly-rolled members they used to have are gone either way),
- * and the pre-portrait format (members without an `appearance`, or with one predating a
- * later appearance field such as eye/mouth/shirt style — or a skin/eye colour that predates
- * the curated preset lists — get that field backfilled from the same generated defaults the
- * stock roster uses, keyed off their house+member slot; fields already valid are left alone),
- * and the pre-face-outcomes format (missing `faceOutcomes` gets the default map).
+ * generically-labelled approaches that keep the original text), the pre-approach-message
+ * format (approaches without a `successMessage`/`failureMessage` get generic fallback
+ * text), the pre-fixed-roster format (houses without a `members` array get that house's
+ * defaults, matched by slot index — the randomly-rolled members they used to have are
+ * gone either way), and the pre-portrait format (members without an `appearance`, or with
+ * one predating a later appearance field such as eye/mouth/shirt style — or a skin/eye
+ * colour that predates the curated preset lists — get that field backfilled from the same
+ * generated defaults the stock roster uses, keyed off their house+member slot; fields
+ * already valid are left alone), and the pre-face-outcomes format (missing
+ * `faceOutcomes` gets the default map).
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
   if (!obj || !Array.isArray(obj['scenarios'])) return raw
-  // files from before the herald lines (or before a newly added kind) get the defaults
-  const oldNarration = (obj['narration'] ?? {}) as Record<string, unknown>
-  const narration: Record<string, unknown> = {}
-  for (const kind of NARRATION_KINDS) {
-    narration[kind] = oldNarration[kind] ?? DEFAULT_NARRATION[kind]
-  }
   const scenarios = obj['scenarios'].map((s) => {
     const sc = (s ?? {}) as Record<string, unknown>
     if (!Array.isArray(sc['approaches'])) {
@@ -328,18 +311,24 @@ function migrateContent(raw: unknown): unknown {
         description: sc['description'],
         location: sc['location'],
         approaches: [
-          { label: 'See it done', skill },
-          { label: 'Find another way', skill: skill === 'cunning' ? 'charm' : 'cunning' },
+          { label: 'See it done', skill, successMessage: FALLBACK_SUCCESS_MESSAGE, failureMessage: FALLBACK_FAILURE_MESSAGE },
+          { label: 'Find another way', skill: skill === 'cunning' ? 'charm' : 'cunning', successMessage: FALLBACK_SUCCESS_MESSAGE, failureMessage: FALLBACK_FAILURE_MESSAGE },
         ],
       }
     }
     // scenarios already in the approach-array shape may still carry retired skill
-    // keys (the game moved from 5 skills to 4) — remap each approach in place
+    // keys (the game moved from 5 skills to 4) — remap each approach in place, and
+    // backfill any approach persisted before the success/failure message fields existed
     return {
       ...sc,
       approaches: sc['approaches'].map((a) => {
         const approach = (a ?? {}) as Record<string, unknown>
-        return { ...approach, skill: remapSkill(approach['skill']) }
+        return {
+          ...approach,
+          skill: remapSkill(approach['skill']),
+          successMessage: pickMessage(approach['successMessage'], FALLBACK_SUCCESS_MESSAGE),
+          failureMessage: pickMessage(approach['failureMessage'], FALLBACK_FAILURE_MESSAGE),
+        }
       }),
     }
   })
@@ -378,7 +367,7 @@ function migrateContent(raw: unknown): unknown {
       })
     : obj['houses']
   const faceOutcomes = obj['faceOutcomes'] ?? DEFAULT_FACE_OUTCOMES
-  return { ...obj, houses, scenarios, narration, faceOutcomes }
+  return { ...obj, houses, scenarios, faceOutcomes }
 }
 
 function loadContent(): GameContent {

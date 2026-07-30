@@ -14,8 +14,6 @@ import type {
   HouseDesign,
   MemberAppearance,
   MemberDesign,
-  NarrationKind,
-  NarrationTemplates,
   Scenario,
   ScenarioDesign,
   ScenarioLocation,
@@ -29,8 +27,6 @@ import {
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
   MEMBER_SKILL_BOUNDS,
-  NARRATION_KIND_INFO,
-  NARRATION_KINDS,
   SCENARIO_LOCATION_LABELS,
   SKILL_LABELS,
   SKILLS,
@@ -62,7 +58,7 @@ const error = ref('')
 const status = ref('')
 const editingMember = ref<{ member: MemberDesign; house: HouseDesign } | null>(null)
 
-const TABS = ['Settings', 'Houses', 'Scenarios', 'Herald Lines', 'Faces', 'Rooms'] as const
+const TABS = ['Settings', 'Houses', 'Scenarios', 'Faces', 'Rooms'] as const
 type Tab = (typeof TABS)[number]
 const activeTab = ref<Tab>('Settings')
 
@@ -111,35 +107,9 @@ async function resetSettings() {
   }
 }
 
-// herald-line templates are edited as one-per-line text and folded back in on save
-const narrationDrafts = ref<Record<NarrationKind, string>>(
-  Object.fromEntries(NARRATION_KINDS.map((k) => [k, ''])) as Record<NarrationKind, string>,
-)
-
-function syncNarrationDrafts() {
-  const narration = contentData.value?.content.narration
-  if (!narration) return
-  for (const kind of NARRATION_KINDS) {
-    narrationDrafts.value[kind] = narration[kind].join('\n')
-  }
-}
-
-function draftedNarration(): NarrationTemplates {
-  return Object.fromEntries(
-    NARRATION_KINDS.map((kind) => [
-      kind,
-      narrationDrafts.value[kind]
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0),
-    ]),
-  ) as NarrationTemplates
-}
-
 async function loadContent() {
   try {
     contentData.value = await api<ContentResponse>('/dev/content')
-    syncNarrationDrafts()
     error.value = ''
   } catch (e) {
     error.value = String(e)
@@ -149,12 +119,10 @@ async function loadContent() {
 async function saveContent() {
   if (!contentData.value) return
   try {
-    contentData.value.content.narration = draftedNarration()
     contentData.value = await api<ContentResponse>('/dev/content', {
       method: 'PUT',
       body: JSON.stringify(contentData.value.content),
     })
-    syncNarrationDrafts()
     status.value = `Designs saved ✓ (${new Date().toLocaleTimeString()}) — applies to rooms created from now on`
     error.value = ''
   } catch (e) {
@@ -168,8 +136,8 @@ function addScenario() {
     title: 'New Scenario',
     description: 'Something is afoot at {town}.',
     approaches: [
-      { label: 'Meet it head-on', skill: 'might' },
-      { label: 'Find another way', skill: 'cunning' },
+      { label: 'Meet it head-on', skill: 'might', successMessage: 'Success!', failureMessage: 'It comes to nothing.' },
+      { label: 'Find another way', skill: 'cunning', successMessage: 'Success!', failureMessage: 'It comes to nothing.' },
     ],
     location: 'general',
   })
@@ -181,7 +149,12 @@ function removeScenario(index: number) {
 
 function addApproach(s: ScenarioDesign) {
   if (s.approaches.length < 3) {
-    s.approaches.push({ label: 'New approach', skill: 'might' })
+    s.approaches.push({
+      label: 'New approach',
+      skill: 'might',
+      successMessage: 'Success!',
+      failureMessage: 'It comes to nothing.',
+    })
   }
 }
 
@@ -196,10 +169,6 @@ function approachSummary(s: Scenario): string {
 
 function locationKeys(): ScenarioLocation[] {
   return ['general', 'capital', 'home']
-}
-
-function narrationKinds(): NarrationKind[] {
-  return [...NARRATION_KINDS]
 }
 
 async function loadRooms() {
@@ -435,7 +404,9 @@ onUnmounted(() => {
         and when several houses attend, the highest passing total takes the 1 Influence
         (ties share). Players see the approach labels but never the skill behind them —
         the wording is the only clue, so write labels that hint at the skill. Use
-        <code>{town}</code> for the town name. Applies to rounds planned after saving.
+        <code>{town}</code> for the town name. Each approach also has its own success and
+        failure message, shown on the results screen next to that family's outcome.
+        Applies to rounds planned after saving.
       </p>
       <div
         v-for="(s, i) in contentData.content.scenarios"
@@ -478,6 +449,20 @@ onUnmounted(() => {
             >
               ✕
             </button>
+            <input
+              v-model="a.successMessage"
+              type="text"
+              maxlength="200"
+              class="approach-message success"
+              placeholder="Success message (shown on the results screen)"
+            />
+            <input
+              v-model="a.failureMessage"
+              type="text"
+              maxlength="200"
+              class="approach-message failure"
+              placeholder="Failure message (shown on the results screen)"
+            />
           </div>
           <button
             v-if="s.approaches.length < 3"
@@ -490,29 +475,6 @@ onUnmounted(() => {
       </div>
       <div class="settings-actions">
         <button class="small" @click="addScenario">+ Add scenario</button>
-        <button class="small" @click="saveContent">Save designs</button>
-      </div>
-    </section>
-
-    <section v-if="contentData && activeTab === 'Herald Lines'" class="card">
-      <h2>Herald lines</h2>
-      <p class="dim">
-        Flavour lines read out on the results screen — one per attended scenario, picked at
-        random from the list matching how the scenario went. One template per line.
-        Placeholders: <code>{family}</code> (the featured house or houses),
-        <code>{member}</code> (their attending kin), <code>{approach}</code>,
-        <code>{rivals}</code> (the other attending houses), <code>{count}</code> (how many),
-        <code>{town}</code>, <code>{scenario}</code>. Long lists shorten themselves
-        (“House A, House B and 3 other houses”). Applies to rounds resolved after saving.
-      </p>
-      <div v-for="kind in narrationKinds()" :key="kind" class="narration-edit">
-        <span class="setting-label">
-          {{ NARRATION_KIND_INFO[kind].label }}
-          <small class="dim">— {{ NARRATION_KIND_INFO[kind].hint }}</small>
-        </span>
-        <textarea v-model="narrationDrafts[kind]" rows="3" spellcheck="false" />
-      </div>
-      <div class="settings-actions">
         <button class="small" @click="saveContent">Save designs</button>
       </div>
     </section>
@@ -1104,25 +1066,24 @@ table.faces select {
   grid-template-columns: 1fr auto auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+.approach-edit .approach-message {
+  grid-column: 1 / -1;
+}
+
+.approach-edit .approach-message.success {
+  color: var(--success);
+}
+
+.approach-edit .approach-message.failure {
+  color: var(--failure);
 }
 
 .scenario-row .approaches > button {
   align-self: flex-start;
-}
-
-/* herald-line editor */
-.narration-edit {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 0.8rem;
-}
-
-.narration-edit textarea {
-  width: 100%;
-  padding: 0.35em 0.5em;
-  font-size: 0.9rem;
-  resize: vertical;
 }
 
 @media (max-width: 800px) {

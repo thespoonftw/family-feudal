@@ -322,6 +322,13 @@ function approachLabel(o: ScenarioOutcome): string {
   return outcomeScenario(o)?.approaches[o.approachIndex]?.label ?? ''
 }
 
+/** the flavour line for the approach taken, chosen by whether the check succeeded */
+function outcomeMessage(o: ScenarioOutcome): string {
+  const approach = outcomeScenario(o)?.approaches[o.approachIndex]
+  if (!approach) return ''
+  return o.success ? approach.successMessage : approach.failureMessage
+}
+
 /** won the scenario / passed but beaten by a rival / failed the check outright */
 function verdictClass(o: ScenarioOutcome): string {
   return o.influenceGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
@@ -607,18 +614,21 @@ const winnerNames = computed(() => {
                   :appearance="outcomeAppearance(o)!"
                   :seed="outcomeMember(o)!.name"
                   :shirt-color="game.yourFamily?.color ?? '#888888'"
-                  :size="72"
+                  :size="96"
                 />
                 <span class="verdict">{{ verdictText(o) }}</span>
                 <span class="math">{{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}</span>
               </div>
-              <span class="who">
-                <strong>{{ outcomeMemberNames(o) }}</strong>
-                <small>
-                  {{ outcomeScenario(o)?.emoji }} {{ outcomeScenario(o)?.title }} —
-                  “{{ approachLabel(o) }}”
-                </small>
-              </span>
+              <div class="outcome-body">
+                <span class="who">
+                  <strong>{{ outcomeMemberNames(o) }}</strong>
+                  <small>
+                    {{ outcomeScenario(o)?.emoji }} {{ outcomeScenario(o)?.title }} —
+                    “{{ approachLabel(o) }}”
+                  </small>
+                </span>
+                <p v-if="outcomeMessage(o)" class="outcome-message">{{ outcomeMessage(o) }}</p>
+              </div>
             </div>
           </div>
           <p v-else class="hint">You sent no one out this round.</p>
@@ -1144,9 +1154,9 @@ button.small {
 
 .mini-outcome {
   display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.45rem 0.5rem;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.6rem;
   border-radius: 6px;
   background: var(--bg-inset);
 }
@@ -1156,16 +1166,30 @@ button.small {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0.15rem;
 }
 
-.mini-outcome .who {
+.mini-outcome .outcome-body {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mini-outcome .who {
   display: flex;
   flex-direction: column;
   line-height: 1.25;
   min-width: 0;
-  padding-top: 0.2rem;
+}
+
+.mini-outcome .outcome-message {
+  color: var(--gold-soft);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  font-style: italic;
 }
 
 .mini-outcome .who small {
