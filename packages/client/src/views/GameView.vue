@@ -152,10 +152,7 @@ async function onDragEnd() {
   }
 
   if (!scenarioId || scenarioId === sourceScenarioId) return
-  if (assignedMember(scenarioId) && assignedMember(scenarioId)!.id !== memberId) {
-    actionError.value = 'That scenario is already taken — recall them first.'
-    return
-  }
+  if (assignedMember(scenarioId) && assignedMember(scenarioId)!.id !== memberId) return
   const next = { ...view.value.yourAssignments, [memberId]: scenarioId }
   const err = await game.assign(next)
   actionError.value = err ?? ''
@@ -928,6 +925,7 @@ button.small {
 }
 
 .slot-circle {
+  box-sizing: content-box;
   width: 4.75rem;
   height: 4.75rem;
   border-radius: 50%;
