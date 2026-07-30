@@ -553,7 +553,7 @@ onUnmounted(() => {
                   :appearance="facePreviewAppearance(faceEntry(face).successFace ?? face)"
                   :seed="face + '-success'"
                   shirt-color="#8a8a8a"
-                  :size="40"
+                  :size="64"
                 />
               </span>
             </td>
@@ -570,7 +570,7 @@ onUnmounted(() => {
                   :appearance="facePreviewAppearance(faceEntry(face).failureFace ?? face)"
                   :seed="face + '-failure'"
                   shirt-color="#8a8a8a"
-                  :size="40"
+                  :size="64"
                 />
               </span>
             </td>
