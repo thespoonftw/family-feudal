@@ -7,6 +7,8 @@ import type {
   AppearanceHairColor,
   AppearanceHeadStyle,
   AppearanceSkinTone,
+  FaceOutcomeDesign,
+  FaceOutcomeMap,
   GameContent,
   HouseDesign,
   MemberAppearance,
@@ -40,10 +42,17 @@ import {
   DEFAULT_SCENARIOS,
 } from './data.js'
 
+// every face defaults to a downcast "concerned" look on a failed check, matching the
+// game's original hardcoded behaviour; success keeps whichever face the character already has
+const DEFAULT_FACE_OUTCOMES: FaceOutcomeMap = Object.fromEntries(
+  APPEARANCE_FACES.map((face) => [face, { failureFace: 'concerned' }]),
+) as FaceOutcomeMap
+
 export const DEFAULT_CONTENT: GameContent = {
   houses: DEFAULT_HOUSES,
   scenarios: DEFAULT_SCENARIOS,
   narration: DEFAULT_NARRATION,
+  faceOutcomes: DEFAULT_FACE_OUTCOMES,
 }
 
 // Persisted so designs survive restarts/deploys. Resolved against the server process
@@ -224,6 +233,30 @@ function sanitizeNarration(raw: unknown): NarrationTemplates | string {
   return clean
 }
 
+function sanitizeFaceOutcomes(raw: unknown): FaceOutcomeMap | string {
+  const obj = (raw ?? {}) as Record<string, unknown>
+  const clean: FaceOutcomeMap = {}
+  for (const [key, value] of Object.entries(obj)) {
+    if (!APPEARANCE_FACES.includes(key as AppearanceFace)) return `Face outcomes: unknown face "${key}"`
+    const v = (value ?? {}) as Record<string, unknown>
+    const entry: FaceOutcomeDesign = {}
+    if (v['successFace'] !== undefined) {
+      if (!APPEARANCE_FACES.includes(v['successFace'] as AppearanceFace)) {
+        return `Face outcomes (${key}): unknown success face`
+      }
+      entry.successFace = v['successFace'] as AppearanceFace
+    }
+    if (v['failureFace'] !== undefined) {
+      if (!APPEARANCE_FACES.includes(v['failureFace'] as AppearanceFace)) {
+        return `Face outcomes (${key}): unknown failure face`
+      }
+      entry.failureFace = v['failureFace'] as AppearanceFace
+    }
+    clean[key as AppearanceFace] = entry
+  }
+  return clean
+}
+
 /** Validate raw (client or file) content. Returns the cleaned content or an error message. */
 function sanitizeContent(raw: unknown): GameContent | string {
   const obj = (raw ?? {}) as Record<string, unknown>
@@ -256,7 +289,9 @@ function sanitizeContent(raw: unknown): GameContent | string {
   }
   const narration = sanitizeNarration(obj['narration'])
   if (typeof narration === 'string') return narration
-  return { houses: cleanHouses, scenarios: cleanScenarios, narration }
+  const faceOutcomes = sanitizeFaceOutcomes(obj['faceOutcomes'])
+  if (typeof faceOutcomes === 'string') return faceOutcomes
+  return { houses: cleanHouses, scenarios: cleanScenarios, narration, faceOutcomes }
 }
 
 /**
@@ -270,7 +305,8 @@ function sanitizeContent(raw: unknown): GameContent | string {
  * and the pre-portrait format (members without an `appearance`, or with one predating a
  * later appearance field such as eye/mouth/shirt style — or a skin/eye colour that predates
  * the curated preset lists — get that field backfilled from the same generated defaults the
- * stock roster uses, keyed off their house+member slot; fields already valid are left alone).
+ * stock roster uses, keyed off their house+member slot; fields already valid are left alone),
+ * and the pre-face-outcomes format (missing `faceOutcomes` gets the default map).
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
@@ -341,7 +377,8 @@ function migrateContent(raw: unknown): unknown {
         return { ...house, members }
       })
     : obj['houses']
-  return { ...obj, houses, scenarios, narration }
+  const faceOutcomes = obj['faceOutcomes'] ?? DEFAULT_FACE_OUTCOMES
+  return { ...obj, houses, scenarios, narration, faceOutcomes }
 }
 
 function loadContent(): GameContent {

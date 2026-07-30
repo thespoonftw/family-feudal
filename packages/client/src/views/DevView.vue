@@ -8,9 +8,11 @@ import type {
   AppearanceSkinTone,
   DevRoomDetail,
   DevRoomSummary,
+  FaceOutcomeDesign,
   GameConfig,
   GameContent,
   HouseDesign,
+  MemberAppearance,
   MemberDesign,
   NarrationKind,
   NarrationTemplates,
@@ -59,6 +61,10 @@ const detail = ref<DevRoomDetail | null>(null)
 const error = ref('')
 const status = ref('')
 const editingMember = ref<{ member: MemberDesign; house: HouseDesign } | null>(null)
+
+const TABS = ['Settings', 'Houses', 'Scenarios', 'Herald Lines', 'Faces', 'Rooms'] as const
+type Tab = (typeof TABS)[number]
+const activeTab = ref<Tab>('Settings')
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -230,7 +236,7 @@ function headStyles(): string[] {
   return [...APPEARANCE_HEAD_STYLES]
 }
 
-function faceOptions(): string[] {
+function faceOptions(): AppearanceFace[] {
   return [...APPEARANCE_FACES]
 }
 
@@ -263,6 +269,38 @@ function asHex(value: string): string {
   return `#${value}`
 }
 
+/** the face's outcome overrides, creating an empty entry the first time it's touched */
+function faceEntry(face: AppearanceFace): FaceOutcomeDesign {
+  const map = contentData.value?.content.faceOutcomes
+  if (!map) return {}
+  if (!map[face]) map[face] = {}
+  return map[face]!
+}
+
+function onSuccessFaceChange(face: AppearanceFace, e: Event) {
+  const value = (e.target as HTMLSelectElement).value
+  if (value) faceEntry(face).successFace = value as AppearanceFace
+  else delete faceEntry(face).successFace
+}
+
+function onFailureFaceChange(face: AppearanceFace, e: Event) {
+  const value = (e.target as HTMLSelectElement).value
+  if (value) faceEntry(face).failureFace = value as AppearanceFace
+  else delete faceEntry(face).failureFace
+}
+
+/** flat neutral appearance used to preview a face on its own in the faces table */
+function facePreviewAppearance(face: AppearanceFace): MemberAppearance {
+  return {
+    skinColor: APPEARANCE_SKIN_TONES[0],
+    hairColor: APPEARANCE_HAIR_COLORS[0],
+    head: 'short1',
+    face,
+    facialHair: 'none',
+    accessories: 'none',
+  }
+}
+
 onMounted(() => {
   void loadConfig()
   void loadContent()
@@ -285,7 +323,20 @@ onUnmounted(() => {
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="status" class="status">{{ status }}</p>
 
-    <section v-if="configData" class="card">
+    <nav class="tabs">
+      <button
+        v-for="tab in TABS"
+        :key="tab"
+        type="button"
+        class="tab-btn"
+        :class="{ active: activeTab === tab }"
+        @click="activeTab = tab"
+      >
+        {{ tab }}
+      </button>
+    </nav>
+
+    <section v-if="configData && activeTab === 'Settings'" class="card">
       <h2>Game settings</h2>
       <p class="dim">
         These parameters apply to games <strong>started after saving</strong> — games already in
@@ -317,7 +368,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="contentData" class="card">
+    <section v-if="contentData && activeTab === 'Houses'" class="card">
       <h2>Houses</h2>
       <p class="dim">
         The eight houses a joining player can be dealt — name, banner colour, home city, and
@@ -377,7 +428,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="contentData" class="card">
+    <section v-if="contentData && activeTab === 'Scenarios'" class="card">
       <h2>Scenarios</h2>
       <p class="dim">
         Every scenario offers 2–3 approaches; checks roll skill + d6 against the Check DC,
@@ -443,7 +494,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="contentData" class="card">
+    <section v-if="contentData && activeTab === 'Herald Lines'" class="card">
       <h2>Herald lines</h2>
       <p class="dim">
         Flavour lines read out on the results screen — one per attended scenario, picked at
@@ -466,7 +517,56 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section class="card">
+    <section v-if="contentData && activeTab === 'Faces'" class="card">
+      <h2>Faces</h2>
+      <p class="dim">
+        Every possible portrait face, and what it swaps to on the resolution screen when a
+        character wearing it succeeds or fails a check. Leave a column on
+        <code>(same face)</code> to keep the character's own face for that outcome. Applies
+        to results resolved after saving.
+      </p>
+      <table class="faces">
+        <thead>
+          <tr><th></th><th>Face</th><th>Success face</th><th>Failure face</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="face in faceOptions()" :key="face">
+            <td>
+              <MemberAvatar
+                :appearance="facePreviewAppearance(face)"
+                :seed="face"
+                shirt-color="#8a8a8a"
+                :size="64"
+              />
+            </td>
+            <td>{{ face }}</td>
+            <td>
+              <select
+                :value="faceEntry(face).successFace ?? ''"
+                @change="onSuccessFaceChange(face, $event)"
+              >
+                <option value="">(same face)</option>
+                <option v-for="f2 in faceOptions()" :key="f2" :value="f2">{{ f2 }}</option>
+              </select>
+            </td>
+            <td>
+              <select
+                :value="faceEntry(face).failureFace ?? ''"
+                @change="onFailureFaceChange(face, $event)"
+              >
+                <option value="">(same face)</option>
+                <option v-for="f2 in faceOptions()" :key="f2" :value="f2">{{ f2 }}</option>
+              </select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="settings-actions">
+        <button class="small" @click="saveContent">Save designs</button>
+      </div>
+    </section>
+
+    <section v-if="activeTab === 'Rooms'" class="card">
       <h2>Active rooms</h2>
       <p v-if="rooms.length === 0" class="dim">No active rooms. Start a game first.</p>
       <table v-else>
@@ -486,7 +586,7 @@ onUnmounted(() => {
       </table>
     </section>
 
-    <template v-if="detail">
+    <template v-if="activeTab === 'Rooms' && detail">
       <section class="card">
         <h2>
           Room {{ detail.code }} — {{ detail.phase }}, round {{ detail.round }}/{{
@@ -681,6 +781,27 @@ h2 {
   gap: 0.8rem;
 }
 
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.6rem;
+}
+
+.tab-btn {
+  padding: 0.4em 0.9em;
+  font-size: 0.85rem;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.tab-btn.active {
+  border-color: var(--gold-soft);
+  color: var(--gold-soft);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -834,6 +955,16 @@ input.swatch {
   height: 2em;
   padding: 0.1em;
   cursor: pointer;
+}
+
+/* faces table */
+table.faces td {
+  vertical-align: middle;
+}
+
+table.faces select {
+  padding: 0.25em 0.4em;
+  font-size: 0.85rem;
 }
 
 /* appearance edit popup */

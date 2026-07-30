@@ -370,5 +370,6 @@ export function buildView(room: Room, playerId: string | null): GameView {
     lastResult: room.phase === 'resolution' || room.phase === 'finished' ? room.lastResult : null,
     resultHistory: room.phase === 'finished' ? room.resultHistory : [],
     winnerFamilyIds: room.winnerFamilyIds,
+    faceOutcomes: getContent().faceOutcomes,
   }
 }

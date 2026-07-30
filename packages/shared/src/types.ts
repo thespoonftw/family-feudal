@@ -122,6 +122,8 @@ export interface GameView {
   /** full history, populated when finished */
   resultHistory: RoundResult[]
   winnerFamilyIds: string[] | null
+  /** per-face success/failure portrait overrides, for the resolution screen */
+  faceOutcomes: FaceOutcomeMap
 }
 
 // ---------- Global game configuration (dev panel) ----------
@@ -407,12 +409,28 @@ export const NARRATION_PLACEHOLDERS = [
 /** Herald line templates per outcome shape; one is picked at random each time. */
 export type NarrationTemplates = Record<NarrationKind, string[]>
 
+// ---------- Face outcome overrides (dev panel) ----------
+
+/**
+ * Which face to swap in when a character wearing a given base face succeeds or fails a
+ * check on the resolution screen. Either side left unset means "keep the same face".
+ */
+export interface FaceOutcomeDesign {
+  successFace?: AppearanceFace
+  failureFace?: AppearanceFace
+}
+
+/** base face -> its outcome overrides; a face absent from the map behaves as fully unset */
+export type FaceOutcomeMap = Partial<Record<AppearanceFace, FaceOutcomeDesign>>
+
 /** Designable content: applies to rooms/rounds created after saving. */
 export interface GameContent {
   houses: HouseDesign[]
   scenarios: ScenarioDesign[]
   /** herald lines spoken on the results screen */
   narration: NarrationTemplates
+  /** per-face success/failure portrait overrides used on the resolution screen */
+  faceOutcomes: FaceOutcomeMap
 }
 
 // ---------- Dev panel (REST) types ----------

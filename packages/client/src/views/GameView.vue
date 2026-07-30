@@ -85,7 +85,7 @@ function assignedMember(scenarioId: string): FamilyMember | undefined {
 // ---------- drag-to-assign (pointer events so it works with touch and mouse alike) ----------
 
 /** every portrait on this screen — agent bar, scenario slots, drag ghost — is this size */
-const AVATAR_SIZE = 90
+const AVATAR_SIZE = 76
 
 const draggingMemberId = ref<string | null>(null)
 /** the scenario slot a drag was picked up from, or null when dragging from the agent bar */
@@ -309,11 +309,13 @@ function outcomeMember(o: ScenarioOutcome): FamilyMember | undefined {
   return (game.yourFamily?.members ?? []).find((m) => o.memberIds.includes(m.id))
 }
 
-/** the outcome's portrait, with a disappointed face swapped in on a failed check */
+/** the outcome's portrait, with the designed success/failure face swapped in (dev panel) */
 function outcomeAppearance(o: ScenarioOutcome): FamilyMember['appearance'] | undefined {
   const member = outcomeMember(o)
   if (!member) return undefined
-  return o.success ? member.appearance : { ...member.appearance, face: 'concerned' }
+  const override = view.value?.faceOutcomes[member.appearance.face]
+  const face = o.success ? override?.successFace : override?.failureFace
+  return face ? { ...member.appearance, face } : member.appearance
 }
 
 function approachLabel(o: ScenarioOutcome): string {
@@ -437,7 +439,6 @@ const winnerNames = computed(() => {
                 :shirt-color="game.yourFamily?.color ?? '#888888'"
                 :size="AVATAR_SIZE"
               />
-              <span v-else class="slot-empty">＋</span>
             </span>
           </button>
         </div>
@@ -913,12 +914,12 @@ button.small {
   font-weight: normal;
   display: flex;
   padding: 0.1rem;
-  width: 5.625rem;
+  width: 4.75rem;
 }
 
 .slot-circle {
-  width: 5.625rem;
-  height: 5.625rem;
+  width: 4.75rem;
+  height: 4.75rem;
   border-radius: 50%;
   border: 1px dashed var(--border);
   background: var(--bg-inset);
@@ -931,12 +932,6 @@ button.small {
 .slot-circle.filled {
   border-style: solid;
   border-color: var(--gold-soft);
-}
-
-.slot-empty {
-  color: var(--text-dim);
-  font-size: 1.4rem;
-  line-height: 1;
 }
 
 /* your 3 agents, pinned along the bottom — drag one up onto a scenario slot */
