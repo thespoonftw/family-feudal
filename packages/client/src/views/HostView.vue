@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import type { Family, Scenario, ScenarioOutcome } from '@family-feudal/shared'
+import type { Family, FamilyMember, Scenario, ScenarioOutcome } from '@family-feudal/shared'
 import { revealSteps } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
+import MemberAvatar from '../components/MemberAvatar.vue'
 
 const router = useRouter()
 const game = useGameStore()
@@ -69,6 +70,18 @@ function narrationFor(scenarioId: string): string {
 function approachLabel(o: ScenarioOutcome): string {
   const scenario = view.value?.scenarios.find((s) => s.id === o.scenarioId)
   return scenario?.approaches[o.approachIndex]?.label ?? ''
+}
+
+/** the attending member — used for the outcome's portrait */
+function outcomeMember(o: ScenarioOutcome): FamilyMember | undefined {
+  return familyById(o.familyId)?.members.find((m) => o.memberIds.includes(m.id))
+}
+
+/** the outcome's portrait, with a disappointed face swapped in on a failed check */
+function outcomeAppearance(o: ScenarioOutcome): FamilyMember['appearance'] | undefined {
+  const member = outcomeMember(o)
+  if (!member) return undefined
+  return o.success ? member.appearance : { ...member.appearance, face: 'concerned' }
 }
 
 /** won the scenario / passed but beaten by a rival / failed the check outright */
@@ -245,18 +258,20 @@ function closeBoard() {
         <!-- current scenario on stage -->
         <div v-else-if="currentReveal" :key="currentReveal.id" class="card reveal-card">
           <p class="progress hint">Round {{ view.round }} — the tales are told</p>
-          <h3>
-            {{ currentReveal.emoji }} {{ currentReveal.title }}
-            <small>at {{ townName(currentReveal.townId) }}</small>
-          </h3>
-          <p class="reveal-desc hint">{{ currentReveal.description }}</p>
+          <h3>{{ currentReveal.emoji }} {{ currentReveal.title }}</h3>
           <div
             v-for="o in outcomesFor(currentReveal.id)"
             :key="o.familyId"
             class="outcome"
             :class="verdictClass(o)"
           >
-            <span class="chip" :style="{ background: familyById(o.familyId)?.color }" />
+            <MemberAvatar
+              v-if="outcomeMember(o)"
+              :appearance="outcomeAppearance(o)!"
+              :seed="outcomeMember(o)!.name"
+              :shirt-color="familyById(o.familyId)?.color ?? '#888888'"
+              :size="56"
+            />
             <span class="who">
               <strong>{{ familyById(o.familyId)?.name }}</strong>
               <small>{{ memberNames(o.familyId, o.memberIds) }} — “{{ approachLabel(o) }}”</small>
@@ -619,13 +634,6 @@ button.small {
   background: var(--bg-inset);
 }
 
-.outcome .chip {
-  width: 12px;
-  height: 12px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
 .outcome .who {
   flex: 1;
   display: flex;
@@ -703,6 +711,39 @@ button.small {
     width: 100%;
     flex: 0 1 auto;
     max-height: 40%;
+  }
+}
+
+/* the reveal card is written for a wide board — reflow it for a narrow phone screen */
+@media (max-width: 480px) {
+  .reveal-stage {
+    padding: 0.75rem;
+  }
+
+  .reveal-card {
+    width: min(680px, 96vw);
+    padding: 1.2rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .reveal-card h3 {
+    font-size: 1.2rem;
+  }
+
+  .outcome {
+    flex-wrap: wrap;
+    row-gap: 0.3rem;
+  }
+
+  .outcome .math,
+  .outcome .verdict {
+    flex: 1 1 100%;
+    margin-left: calc(56px + 0.6rem);
+    text-align: left;
+  }
+
+  .outcome .verdict {
+    min-width: 0;
   }
 }
 </style>

@@ -54,6 +54,17 @@ function townName(townId: string): string {
   return view.value?.towns.find((t) => t.id === townId)?.name ?? '?'
 }
 
+/** splits a description around its town name so the name can be bolded/coloured inline */
+function descriptionParts(description: string, townId: string): { text: string; town: boolean }[] {
+  const name = townName(townId)
+  if (!name || name === '?') return [{ text: description, town: false }]
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return description
+    .split(new RegExp(`(${escaped})`))
+    .filter((part) => part.length > 0)
+    .map((text) => ({ text, town: text === name }))
+}
+
 function memberAssignment(memberId: string): string {
   return view.value?.yourAssignments[memberId] ?? ''
 }
@@ -293,6 +304,13 @@ function outcomeMember(o: ScenarioOutcome): FamilyMember | undefined {
   return (game.yourFamily?.members ?? []).find((m) => o.memberIds.includes(m.id))
 }
 
+/** the outcome's portrait, with a disappointed face swapped in on a failed check */
+function outcomeAppearance(o: ScenarioOutcome): FamilyMember['appearance'] | undefined {
+  const member = outcomeMember(o)
+  if (!member) return undefined
+  return o.success ? member.appearance : { ...member.appearance, face: 'concerned' }
+}
+
 function approachLabel(o: ScenarioOutcome): string {
   return outcomeScenario(o)?.approaches[o.approachIndex]?.label ?? ''
 }
@@ -391,10 +409,13 @@ const winnerNames = computed(() => {
           }"
         >
           <div class="scenario-info">
-            <h4>
-              {{ s.emoji }} {{ s.title }} <small>at {{ townName(s.townId) }}</small>
-            </h4>
-            <p class="hint">{{ s.description }}</p>
+            <h4>{{ s.emoji }} {{ s.title }}</h4>
+            <p class="hint">
+              <template v-for="(part, i) in descriptionParts(s.description, s.townId)" :key="i">
+                <b v-if="part.town" :style="{ color: game.yourFamily?.color }">{{ part.text }}</b>
+                <template v-else>{{ part.text }}</template>
+              </template>
+            </p>
           </div>
           <button class="scenario-slot" type="button">
             <span
@@ -487,11 +508,19 @@ const winnerNames = computed(() => {
               Round {{ view.round }} · decision {{ choiceIndex + 1 }} of
               {{ yourDeployments.length }}
             </p>
-            <h3>
-              {{ currentDeployment.scenario.emoji }} {{ currentDeployment.scenario.title }}
-              <small>at {{ townName(currentDeployment.scenario.townId) }}</small>
-            </h3>
-            <p class="hint">{{ currentDeployment.scenario.description }}</p>
+            <h3>{{ currentDeployment.scenario.emoji }} {{ currentDeployment.scenario.title }}</h3>
+            <p class="hint">
+              <template
+                v-for="(part, i) in descriptionParts(
+                  currentDeployment.scenario.description,
+                  currentDeployment.scenario.townId,
+                )"
+                :key="i"
+              >
+                <b v-if="part.town" :style="{ color: game.yourFamily?.color }">{{ part.text }}</b>
+                <template v-else>{{ part.text }}</template>
+              </template>
+            </p>
             <p class="attendee">
               <MemberAvatar
                 :appearance="currentDeployment.member.appearance"
@@ -499,8 +528,8 @@ const winnerNames = computed(() => {
                 :shirt-color="game.yourFamily?.color ?? '#888888'"
                 :size="72"
               />
-              <span>
-                <strong>{{ currentDeployment.member.name }}</strong> attends —
+              <span class="attendee-info">
+                <span class="attendee-name"><strong>{{ currentDeployment.member.name }}</strong> attends</span>
                 <small>
                   <template v-for="(skill, i) in SKILLS" :key="skill">
                     <template v-if="i > 0"> · </template>
@@ -565,7 +594,7 @@ const winnerNames = computed(() => {
             >
               <MemberAvatar
                 v-if="outcomeMember(o)"
-                :appearance="outcomeMember(o)!.appearance"
+                :appearance="outcomeAppearance(o)!"
                 :seed="outcomeMember(o)!.name"
                 :shirt-color="game.yourFamily?.color ?? '#888888'"
                 :size="72"
@@ -621,6 +650,7 @@ const winnerNames = computed(() => {
 <style scoped>
 .game {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -998,6 +1028,12 @@ button.small {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+}
+
+.attendee-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .choice-card .attendee small {
