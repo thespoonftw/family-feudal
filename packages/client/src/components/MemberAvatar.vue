@@ -35,7 +35,14 @@ const dataUri = computed(() =>
 </script>
 
 <template>
-  <img :src="dataUri" :width="size" :height="size" class="member-avatar" alt="" />
+  <img
+    :src="dataUri"
+    :width="size"
+    :height="size"
+    class="member-avatar"
+    alt=""
+    draggable="false"
+  />
 </template>
 
 <style scoped>
@@ -43,5 +50,7 @@ const dataUri = computed(() =>
   border-radius: 50%;
   background: var(--bg-inset);
   flex-shrink: 0;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 </style>

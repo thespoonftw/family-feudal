@@ -85,6 +85,9 @@ function draggingMember(): FamilyMember | undefined {
 
 function onAgentPointerDown(e: PointerEvent, memberId: string) {
   if (e.button !== undefined && e.button !== 0) return
+  // avatars are <img>s, which browsers make natively draggable — that native drag would
+  // hijack the gesture (no more pointermove/up) before our own drag logic sees it
+  e.preventDefault()
   draggingMemberId.value = memberId
   dragPos.value = { x: e.clientX, y: e.clientY }
   window.addEventListener('pointermove', onDragMove)
@@ -382,21 +385,18 @@ const winnerNames = computed(() => {
             </h4>
             <p class="hint">{{ s.description }}</p>
           </div>
-          <button
-            class="scenario-slot"
-            :class="{ filled: !!assignedMember(s.id) }"
-            @click="recallFromSlot(s.id)"
-          >
-            <template v-if="assignedMember(s.id)">
+          <button class="scenario-slot" @click="recallFromSlot(s.id)">
+            <span class="slot-circle" :class="{ filled: !!assignedMember(s.id) }">
               <MemberAvatar
+                v-if="assignedMember(s.id)"
                 :appearance="assignedMember(s.id)!.appearance"
                 :seed="assignedMember(s.id)!.name"
                 :shirt-color="game.yourFamily?.color ?? '#888888'"
-                :size="52"
+                :size="78"
               />
-              <small>{{ assignedMember(s.id)!.name }}</small>
-            </template>
-            <span v-else class="slot-empty">＋</span>
+              <span v-else class="slot-empty">＋</span>
+            </span>
+            <small v-if="assignedMember(s.id)">{{ assignedMember(s.id)!.name }}</small>
           </button>
         </div>
       </section>
@@ -417,7 +417,7 @@ const winnerNames = computed(() => {
             :appearance="m.appearance"
             :seed="m.name"
             :shirt-color="game.yourFamily?.color ?? '#888888'"
-            :size="60"
+            :size="90"
           />
           <strong>{{ m.name }}</strong>
           <small class="agent-skills">
@@ -442,7 +442,7 @@ const winnerNames = computed(() => {
           :appearance="draggingMember()!.appearance"
           :seed="draggingMember()!.name"
           :shirt-color="game.yourFamily?.color ?? '#888888'"
-          :size="64"
+          :size="96"
         />
       </div>
 
@@ -852,20 +852,29 @@ button.small {
 
 .scenario-slot {
   flex-shrink: 0;
-  width: 4.6rem;
-  height: 4.6rem;
-  border-radius: 10px;
-  border: 1px dashed var(--border);
-  background: var(--bg-inset);
+  background: none;
+  border: none;
+  font-weight: normal;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.1rem;
+  gap: 0.25rem;
   padding: 0.2rem;
+  width: 6.9rem;
 }
 
-.scenario-slot.filled {
+.slot-circle {
+  width: 6.9rem;
+  height: 6.9rem;
+  border-radius: 50%;
+  border: 1px dashed var(--border);
+  background: var(--bg-inset);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slot-circle.filled {
   border-style: solid;
   border-color: var(--gold-soft);
 }

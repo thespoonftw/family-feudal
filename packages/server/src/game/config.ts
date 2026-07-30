@@ -4,7 +4,7 @@ import { CITY_SLOTS } from './data.js'
 
 export const DEFAULT_CONFIG: GameConfig = {
   totalRounds: 5,
-  scenariosPerRound: 5,
+  scenariosPerRound: 4,
   checkDC: 6,
   maxPlayers: CITY_SLOTS.length,
 }
