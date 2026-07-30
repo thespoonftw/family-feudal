@@ -66,13 +66,6 @@ function assignedMember(scenarioId: string): FamilyMember | undefined {
   return game.yourFamily?.members.find((m) => m.id === memberId)
 }
 
-/** scenario title a member is currently deployed to, for the agent bar */
-function assignedScenarioLabel(memberId: string): string {
-  const scenarioId = view.value?.yourAssignments[memberId]
-  const scenario = view.value?.scenarios.find((s) => s.id === scenarioId)
-  return scenario ? `${scenario.emoji} ${scenario.title}` : ''
-}
-
 // ---------- drag-to-assign (pointer events so it works with touch and mouse alike) ----------
 
 /** every portrait on this screen — agent bar, scenario slots, drag ghost — is this size */
@@ -386,8 +379,6 @@ const winnerNames = computed(() => {
 
     <!-- ================= PLANNING ================= -->
     <main v-else-if="view.phase === 'planning'" key="planning" class="planning">
-      <p class="hint plan-hint">Drag your agents onto a scenario to deploy them.</p>
-
       <section class="scenario-list">
         <div
           v-for="s in yourScenarios"
@@ -422,7 +413,6 @@ const winnerNames = computed(() => {
               />
               <span v-else class="slot-empty">＋</span>
             </span>
-            <small v-if="assignedMember(s.id)">{{ assignedMember(s.id)!.name }}</small>
           </button>
         </div>
       </section>
@@ -451,9 +441,6 @@ const winnerNames = computed(() => {
               <template v-if="i > 0"> · </template>
               {{ SKILL_ICONS[skill] }}{{ m.skills[skill] }}
             </template>
-          </small>
-          <small v-if="memberAssignment(m.id)" class="agent-location">
-            {{ assignedScenarioLabel(m.id) }}
           </small>
         </div>
       </div>
@@ -824,10 +811,6 @@ button.small {
   margin: 0 auto;
 }
 
-.plan-hint {
-  text-align: center;
-}
-
 .scenario-list {
   flex: 1;
   min-height: 0;
@@ -889,16 +872,13 @@ button.small {
   border: none;
   font-weight: normal;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
   padding: 0.1rem;
-  width: 7rem;
+  width: 5.625rem;
 }
 
 .slot-circle {
-  width: 7rem;
-  height: 7rem;
+  width: 5.625rem;
+  height: 5.625rem;
   border-radius: 50%;
   border: 1px dashed var(--border);
   background: var(--bg-inset);
@@ -911,16 +891,6 @@ button.small {
 .slot-circle.filled {
   border-style: solid;
   border-color: var(--gold-soft);
-}
-
-.scenario-slot small {
-  color: var(--text-dim);
-  font-size: 0.7rem;
-  line-height: 1.1;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .slot-empty {
@@ -972,16 +942,6 @@ button.small {
 .agent-skills {
   color: var(--text-dim);
   font-size: 0.7rem;
-  white-space: nowrap;
-}
-
-.agent-location {
-  color: var(--gold-soft);
-  font-size: 0.7rem;
-  line-height: 1.1;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
