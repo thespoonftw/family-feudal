@@ -541,22 +541,38 @@ onUnmounted(() => {
             </td>
             <td>{{ face }}</td>
             <td>
-              <select
-                :value="faceEntry(face).successFace ?? ''"
-                @change="onSuccessFaceChange(face, $event)"
-              >
-                <option value="">(same face)</option>
-                <option v-for="f2 in faceOptions()" :key="f2" :value="f2">{{ f2 }}</option>
-              </select>
+              <span class="face-cell">
+                <select
+                  :value="faceEntry(face).successFace ?? ''"
+                  @change="onSuccessFaceChange(face, $event)"
+                >
+                  <option value="">(same face)</option>
+                  <option v-for="f2 in faceOptions()" :key="f2" :value="f2">{{ f2 }}</option>
+                </select>
+                <MemberAvatar
+                  :appearance="facePreviewAppearance(faceEntry(face).successFace ?? face)"
+                  :seed="face + '-success'"
+                  shirt-color="#8a8a8a"
+                  :size="40"
+                />
+              </span>
             </td>
             <td>
-              <select
-                :value="faceEntry(face).failureFace ?? ''"
-                @change="onFailureFaceChange(face, $event)"
-              >
-                <option value="">(same face)</option>
-                <option v-for="f2 in faceOptions()" :key="f2" :value="f2">{{ f2 }}</option>
-              </select>
+              <span class="face-cell">
+                <select
+                  :value="faceEntry(face).failureFace ?? ''"
+                  @change="onFailureFaceChange(face, $event)"
+                >
+                  <option value="">(same face)</option>
+                  <option v-for="f2 in faceOptions()" :key="f2" :value="f2">{{ f2 }}</option>
+                </select>
+                <MemberAvatar
+                  :appearance="facePreviewAppearance(faceEntry(face).failureFace ?? face)"
+                  :seed="face + '-failure'"
+                  shirt-color="#8a8a8a"
+                  :size="40"
+                />
+              </span>
             </td>
           </tr>
         </tbody>
@@ -965,6 +981,12 @@ table.faces td {
 table.faces select {
   padding: 0.25em 0.4em;
   font-size: 0.85rem;
+}
+
+.face-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* appearance edit popup */
