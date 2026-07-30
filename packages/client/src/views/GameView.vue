@@ -75,21 +75,34 @@ function assignedScenarioLabel(memberId: string): string {
 
 // ---------- drag-to-assign (pointer events so it works with touch and mouse alike) ----------
 
+/** every portrait on this screen — agent bar, scenario slots, drag ghost — is this size */
+const AVATAR_SIZE = 90
+
 const draggingMemberId = ref<string | null>(null)
+/** the scenario slot a drag was picked up from, or null when dragging from the agent bar */
+const dragSourceScenarioId = ref<string | null>(null)
 const dragOverScenarioId = ref<string | null>(null)
 const dragPos = ref({ x: 0, y: 0 })
+const dragStartPos = ref({ x: 0, y: 0 })
+/** stays false for a plain tap (no pointer movement past the threshold) */
+const dragMoved = ref(false)
 
 function draggingMember(): FamilyMember | undefined {
   return game.yourFamily?.members.find((m) => m.id === draggingMemberId.value)
 }
 
-function onAgentPointerDown(e: PointerEvent, memberId: string) {
+/** begin a potential drag; sourceScenarioId is set when picking a member up off a slot
+ *  (so we can tell a re-drag from a fresh deploy, and a plain tap from an actual drag) */
+function startDrag(e: PointerEvent, memberId: string, sourceScenarioId: string | null) {
   if (e.button !== undefined && e.button !== 0) return
   // avatars are <img>s, which browsers make natively draggable — that native drag would
   // hijack the gesture (no more pointermove/up) before our own drag logic sees it
   e.preventDefault()
   draggingMemberId.value = memberId
+  dragSourceScenarioId.value = sourceScenarioId
+  dragStartPos.value = { x: e.clientX, y: e.clientY }
   dragPos.value = { x: e.clientX, y: e.clientY }
+  dragMoved.value = false
   window.addEventListener('pointermove', onDragMove)
   window.addEventListener('pointerup', onDragEnd)
   window.addEventListener('pointercancel', onDragEnd)
@@ -97,6 +110,11 @@ function onAgentPointerDown(e: PointerEvent, memberId: string) {
 
 function onDragMove(e: PointerEvent) {
   dragPos.value = { x: e.clientX, y: e.clientY }
+  if (!dragMoved.value) {
+    const dx = e.clientX - dragStartPos.value.x
+    const dy = e.clientY - dragStartPos.value.y
+    if (Math.hypot(dx, dy) > 6) dragMoved.value = true
+  }
   const el = document.elementFromPoint(e.clientX, e.clientY)
   const card = el?.closest<HTMLElement>('[data-scenario-id]')
   dragOverScenarioId.value = card?.dataset['scenarioId'] ?? null
@@ -108,26 +126,28 @@ async function onDragEnd() {
   window.removeEventListener('pointercancel', onDragEnd)
   const memberId = draggingMemberId.value
   const scenarioId = dragOverScenarioId.value
+  const sourceScenarioId = dragSourceScenarioId.value
+  const moved = dragMoved.value
   draggingMemberId.value = null
   dragOverScenarioId.value = null
-  if (!memberId || !scenarioId || !view.value) return
-  if (assignedMember(scenarioId)?.id === memberId) return
-  if (assignedMember(scenarioId)) {
+  dragSourceScenarioId.value = null
+  if (!memberId || !view.value) return
+
+  // a plain tap on an occupied slot (picked up, but never actually dragged) recalls them
+  if (!moved && sourceScenarioId) {
+    const next = { ...view.value.yourAssignments }
+    delete next[memberId]
+    const err = await game.assign(next)
+    actionError.value = err ?? ''
+    return
+  }
+
+  if (!scenarioId || scenarioId === sourceScenarioId) return
+  if (assignedMember(scenarioId) && assignedMember(scenarioId)!.id !== memberId) {
     actionError.value = 'That scenario is already taken — recall them first.'
     return
   }
   const next = { ...view.value.yourAssignments, [memberId]: scenarioId }
-  const err = await game.assign(next)
-  actionError.value = err ?? ''
-}
-
-/** tapping an occupied slot recalls that member back home */
-async function recallFromSlot(scenarioId: string) {
-  if (!view.value) return
-  const memberId = assignedMember(scenarioId)?.id
-  if (!memberId) return
-  const next = { ...view.value.yourAssignments }
-  delete next[memberId]
   const err = await game.assign(next)
   actionError.value = err ?? ''
 }
@@ -385,14 +405,20 @@ const winnerNames = computed(() => {
             </h4>
             <p class="hint">{{ s.description }}</p>
           </div>
-          <button class="scenario-slot" @click="recallFromSlot(s.id)">
-            <span class="slot-circle" :class="{ filled: !!assignedMember(s.id) }">
+          <button class="scenario-slot" type="button">
+            <span
+              class="slot-circle"
+              :class="{ filled: !!assignedMember(s.id) }"
+              @pointerdown="
+                assignedMember(s.id) && startDrag($event, assignedMember(s.id)!.id, s.id)
+              "
+            >
               <MemberAvatar
                 v-if="assignedMember(s.id)"
                 :appearance="assignedMember(s.id)!.appearance"
                 :seed="assignedMember(s.id)!.name"
                 :shirt-color="game.yourFamily?.color ?? '#888888'"
-                :size="78"
+                :size="AVATAR_SIZE"
               />
               <span v-else class="slot-empty">＋</span>
             </span>
@@ -411,13 +437,13 @@ const winnerNames = computed(() => {
             'is-dragging': draggingMemberId === m.id,
             deployed: !!memberAssignment(m.id),
           }"
-          @pointerdown="onAgentPointerDown($event, m.id)"
+          @pointerdown="startDrag($event, m.id, null)"
         >
           <MemberAvatar
             :appearance="m.appearance"
             :seed="m.name"
             :shirt-color="game.yourFamily?.color ?? '#888888'"
-            :size="90"
+            :size="AVATAR_SIZE"
           />
           <strong>{{ m.name }}</strong>
           <small class="agent-skills">
@@ -442,7 +468,7 @@ const winnerNames = computed(() => {
           :appearance="draggingMember()!.appearance"
           :seed="draggingMember()!.name"
           :shirt-color="game.yourFamily?.color ?? '#888888'"
-          :size="96"
+          :size="AVATAR_SIZE"
         />
       </div>
 
@@ -808,15 +834,15 @@ button.small {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
   padding-right: 0.1rem;
 }
 
 .scenario-card {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.6rem 0.7rem;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -835,8 +861,9 @@ button.small {
 }
 
 .scenario-info h4 {
-  margin: 0 0 0.15rem;
-  line-height: 1.3;
+  margin: 0 0 0.1rem;
+  font-size: 0.95rem;
+  line-height: 1.2;
 }
 
 .scenario-info h4 small {
@@ -848,6 +875,12 @@ button.small {
 
 .scenario-info .hint {
   margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .scenario-slot {
@@ -858,20 +891,21 @@ button.small {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem;
-  width: 6.9rem;
+  gap: 0.2rem;
+  padding: 0.1rem;
+  width: 7rem;
 }
 
 .slot-circle {
-  width: 6.9rem;
-  height: 6.9rem;
+  width: 7rem;
+  height: 7rem;
   border-radius: 50%;
   border: 1px dashed var(--border);
   background: var(--bg-inset);
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: none;
 }
 
 .slot-circle.filled {
