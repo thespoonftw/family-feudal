@@ -112,7 +112,7 @@ const UI_SCALE_MAX = 1.5
 
 /** below this viewport height, zoom out below 1 (proportionally, so a shorter screen
  *  always gets a smaller scale) */
-const HEIGHT_ZOOM_OUT_PIVOT = 1150
+const HEIGHT_ZOOM_OUT_PIVOT = 700
 /** above HEIGHT_ZOOM_OUT_PIVOT, zoom in above 1 — but only as far as the width can take it;
  *  a screen exactly this wide caps zoom-in at 1 */
 const WIDTH_ZOOM_IN_PIVOT = 750
