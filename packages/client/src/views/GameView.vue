@@ -108,7 +108,6 @@ const headerZoom = computed(() => (view.value?.phase === 'planning' ? uiScale.va
 const debugMetrics = ref({ height: 0, width: 0 })
 
 const UI_SCALE_MIN = 0.6
-const UI_SCALE_MAX = 1.5
 
 /** a screen exactly this tall (or wide) renders at zoom 1; shorter/narrower zooms out,
  *  taller/wider zooms in — always the more constraining of the two axes, so the result
@@ -124,7 +123,7 @@ function recalcUiScale() {
   const widthScale = game.clientWidth / WIDTH_ZOOM_PIVOT
   const rawScale = Math.min(heightScale, widthScale)
 
-  uiScale.value = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, rawScale))
+  uiScale.value = Math.max(UI_SCALE_MIN, rawScale)
   debugMetrics.value = { height: game.clientHeight, width: game.clientWidth }
 }
 
@@ -754,6 +753,10 @@ header {
   border-bottom: 1px solid var(--border);
   background: var(--bg-raised);
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 /* hamburger menu (title + leave) */
@@ -1035,7 +1038,7 @@ button.small {
   flex-shrink: 0;
   display: flex;
   gap: 0.5rem;
-  padding: 0.6rem 0.4rem;
+  padding: 0.35rem 0.4rem;
   border-top: 1px solid var(--border);
   background: var(--bg-raised);
   border-radius: 10px;
@@ -1048,7 +1051,7 @@ button.small {
   flex-direction: column;
   align-items: center;
   gap: 0.15rem;
-  padding: 0.4rem 0.2rem;
+  padding: 0.2rem 0.2rem;
   border-radius: 8px;
   cursor: grab;
   touch-action: none;
