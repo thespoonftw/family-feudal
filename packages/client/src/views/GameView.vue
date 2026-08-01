@@ -114,7 +114,7 @@ const UI_SCALE_MAX = 1.5
  *  taller/wider zooms in — always the more constraining of the two axes, so the result
  *  stays continuous as either dimension crosses its pivot (no jump at the boundary) */
 const HEIGHT_ZOOM_PIVOT = 750
-const WIDTH_ZOOM_PIVOT = 500
+const WIDTH_ZOOM_PIVOT = 400
 
 function recalcUiScale() {
   const game = gameEl.value
