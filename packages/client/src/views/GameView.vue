@@ -230,11 +230,7 @@ const yourDeployments = computed<{ scenario: Scenario; member: FamilyMember }[]>
 })
 
 function chosenIndex(scenarioId: string): number | null {
-  return view.value?.yourChoices[scenarioId]?.approachIndex ?? null
-}
-
-function chosenBoughtOut(scenarioId: string): boolean {
-  return view.value?.yourChoices[scenarioId]?.boughtOut ?? false
+  return view.value?.yourChoices[scenarioId] ?? null
 }
 
 const allChosen = computed(() =>
@@ -246,9 +242,9 @@ const pendingGoldSpend = computed(() => {
   if (!view.value) return 0
   let total = 0
   for (const d of yourDeployments.value) {
-    const choice = view.value.yourChoices[d.scenario.id]
-    if (!choice?.boughtOut) continue
-    total += d.scenario.approaches[choice.approachIndex]?.buyoutCost ?? 0
+    const index = chosenIndex(d.scenario.id)
+    if (index === null) continue
+    total += d.scenario.approaches[index]?.buyoutCost ?? 0
   }
   return total
 })
@@ -317,9 +313,9 @@ watch(
   { immediate: true },
 )
 
-async function pickApproach(scenarioId: string, index: number, boughtOut = false) {
+async function pickApproach(scenarioId: string, index: number) {
   if (!view.value) return
-  const next = { ...view.value.yourChoices, [scenarioId]: { approachIndex: index, boughtOut } }
+  const next = { ...view.value.yourChoices, [scenarioId]: index }
   const err = await game.choose(next)
   actionError.value = err ?? ''
   if (err) return
@@ -336,8 +332,9 @@ function chosenLabel(scenarioId: string): string {
   const index = chosenIndex(scenarioId)
   if (index === null) return '—'
   const scenario = view.value?.scenarios.find((s) => s.id === scenarioId)
-  const label = scenario?.approaches[index]?.label ?? '—'
-  return chosenBoughtOut(scenarioId) ? `${label} (paid)` : label
+  const approach = scenario?.approaches[index]
+  if (!approach) return '—'
+  return approach.buyoutCost !== undefined ? `${approach.label} (paid)` : approach.label
 }
 
 async function onNextRound() {
@@ -645,24 +642,26 @@ const winnerNames = computed(() => {
               </span>
             </p>
             <div class="approach-options">
-              <div v-for="(a, i) in currentDeployment.scenario.approaches" :key="i" class="approach-option">
-                <button
-                  class="approach-btn"
-                  :class="{ secondary: !(chosenIndex(currentDeployment.scenario.id) === i && !chosenBoughtOut(currentDeployment.scenario.id)) }"
-                  @click="pickApproach(currentDeployment.scenario.id, i, false)"
-                >
-                  {{ a.label }}
-                </button>
-                <button
-                  v-if="a.buyoutCost"
-                  class="approach-btn buyout-btn"
-                  :class="{ secondary: !(chosenIndex(currentDeployment.scenario.id) === i && chosenBoughtOut(currentDeployment.scenario.id)) }"
-                  :disabled="remainingGold < a.buyoutCost && !(chosenIndex(currentDeployment.scenario.id) === i && chosenBoughtOut(currentDeployment.scenario.id))"
-                  @click="pickApproach(currentDeployment.scenario.id, i, true)"
-                >
+              <button
+                v-for="(a, i) in currentDeployment.scenario.approaches"
+                :key="i"
+                class="approach-btn"
+                :class="{
+                  secondary: chosenIndex(currentDeployment.scenario.id) !== i,
+                  'buyout-btn': a.buyoutCost !== undefined,
+                }"
+                :disabled="
+                  a.buyoutCost !== undefined &&
+                  remainingGold < a.buyoutCost &&
+                  chosenIndex(currentDeployment.scenario.id) !== i
+                "
+                @click="pickApproach(currentDeployment.scenario.id, i)"
+              >
+                {{ a.label }}
+                <small v-if="a.buyoutCost !== undefined" class="buyout-cost">
                   💰 Pay {{ a.buyoutCost }}g — guarantee +{{ view.buyoutBonus }}
-                </button>
-              </div>
+                </small>
+              </button>
             </div>
           </div>
 
@@ -1193,24 +1192,25 @@ button.small {
 .approach-options {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.5rem;
   margin-top: 0.3rem;
-}
-
-.approach-option {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
 }
 
 .approach-btn {
   width: 100%;
   text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 .buyout-btn {
-  font-size: 0.9em;
   border-color: var(--gold);
+}
+
+.buyout-btn .buyout-cost {
+  color: var(--gold-soft);
+  font-weight: normal;
 }
 
 .buyout-btn:disabled {

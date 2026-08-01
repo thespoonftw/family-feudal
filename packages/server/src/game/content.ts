@@ -192,22 +192,20 @@ function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): A
   const where = `${scenarioLabel}, approach ${index + 1}`
   const label = cleanString(obj['label'], 60)
   if (!label) return `${where}: label must be 1–60 characters`
-  const skill = obj['skill']
-  if (!SKILLS.includes(skill as SkillKey)) return `${where}: unknown skill`
   const successMessage = cleanString(obj['successMessage'], 200)
   if (!successMessage) return `${where}: success message must be 1–200 characters`
   const failureMessage = cleanString(obj['failureMessage'], 200)
   if (!failureMessage) return `${where}: failure message must be 1–200 characters`
   const buyoutCost = sanitizeGoldAmount(obj['buyoutCost'], BUYOUT_COST_BOUNDS, `${where} buyout cost`)
   if (typeof buyoutCost === 'string') return buyoutCost
-  // a legacy per-approach `difficulty` is simply ignored (checks now roll against the DC)
-  return {
-    label,
-    skill: skill as SkillKey,
-    successMessage,
-    failureMessage,
-    ...(buyoutCost !== undefined ? { buyoutCost } : {}),
+  // a buyout approach stands alone — no skill behind it, just the flat buyout bonus
+  if (buyoutCost !== undefined) {
+    return { label, successMessage, failureMessage, buyoutCost }
   }
+  const skill = obj['skill']
+  if (!SKILLS.includes(skill as SkillKey)) return `${where}: unknown skill`
+  // a legacy per-approach `difficulty` is simply ignored (checks now roll against the DC)
+  return { label, skill: skill as SkillKey, successMessage, failureMessage }
 }
 
 function sanitizeReward(raw: unknown, where: string): ScenarioReward | string {
@@ -235,8 +233,8 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
   const location = obj['location']
   if (!LOCATIONS.includes(location as ScenarioLocation)) return `${label}: unknown location`
   const approaches = obj['approaches']
-  if (!Array.isArray(approaches) || approaches.length < 2 || approaches.length > 3) {
-    return `${label}: needs 2–3 approaches`
+  if (!Array.isArray(approaches) || approaches.length < 2 || approaches.length > 4) {
+    return `${label}: needs 2–4 approaches`
   }
   const cleanApproaches: ApproachDesign[] = []
   for (const [i, approach] of approaches.entries()) {
@@ -367,9 +365,13 @@ function migrateContent(raw: unknown): unknown {
       ...sc,
       approaches: sc['approaches'].map((a) => {
         const approach = (a ?? {}) as Record<string, unknown>
+        // a buyout approach (persisted with a buyoutCost) has no skill to remap — the
+        // old {approachIndex, boughtOut} choice shape used to bolt a buyout onto a
+        // skill approach, but a buyout approach now stands alone
+        const hasBuyout = typeof approach['buyoutCost'] === 'number'
         return {
           ...approach,
-          skill: remapSkill(approach['skill']),
+          ...(hasBuyout ? { skill: undefined } : { skill: remapSkill(approach['skill']) }),
           successMessage: pickMessage(approach['successMessage'], FALLBACK_SUCCESS_MESSAGE),
           failureMessage: pickMessage(approach['failureMessage'], FALLBACK_FAILURE_MESSAGE),
         }

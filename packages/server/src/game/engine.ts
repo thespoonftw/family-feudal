@@ -12,6 +12,7 @@ import type {
   ScenarioApproach,
   ScenarioDesign,
   ScenarioOutcome,
+  SkillKey,
   Town,
 } from '@family-feudal/shared'
 import { CAPITAL_ID } from './data.js'
@@ -267,20 +268,16 @@ export function setChoices(
   const assigned = new Set(Object.values(room.assignments[family.id] ?? {}))
   const clean: ApproachChoices = {}
   let goldCommitted = 0
-  for (const [scenarioId, choice] of Object.entries(choices)) {
+  for (const [scenarioId, approachIndex] of Object.entries(choices)) {
     if (!assigned.has(scenarioId)) return 'You have no one at that scenario'
     const scenario = room.scenarios.find((s) => s.id === scenarioId)
     if (!scenario) return 'Unknown scenario'
-    const { approachIndex, boughtOut } = choice
     if (!Number.isInteger(approachIndex) || approachIndex < 0 || approachIndex >= scenario.approaches.length) {
       return 'Unknown approach'
     }
     const approach = scenario.approaches[approachIndex] as ScenarioApproach
-    if (boughtOut) {
-      if (!approach.buyoutCost) return 'That approach cannot be bought out'
-      goldCommitted += approach.buyoutCost
-    }
-    clean[scenarioId] = { approachIndex, boughtOut: !!boughtOut }
+    if (approach.buyoutCost) goldCommitted += approach.buyoutCost
+    clean[scenarioId] = approachIndex
   }
   if (goldCommitted > family.gold) return 'Not enough gold'
   room.choices[family.id] = clean
@@ -302,21 +299,21 @@ export function resolveRound(room: Room): void {
         .map(([mid]) => mid)
       if (memberIds.length === 0) continue
       const members = family.members.filter((m) => memberIds.includes(m.id))
-      // families that never picked take the first approach, not bought out
-      const choice = room.choices[family.id]?.[scenario.id] ?? { approachIndex: 0, boughtOut: false }
-      const approach = scenario.approaches[choice.approachIndex] as ScenarioApproach
-      const boughtOut = choice.boughtOut && !!approach.buyoutCost
+      // families that never picked take the first approach
+      const approachIndex = room.choices[family.id]?.[scenario.id] ?? 0
+      const approach = scenario.approaches[approachIndex] as ScenarioApproach
+      const boughtOut = approach.buyoutCost !== undefined
       if (boughtOut) family.gold -= approach.buyoutCost as number
       const skillTotal = boughtOut
         ? config.buyoutBonus
-        : members.reduce((sum, m) => sum + m.skills[approach.skill], 0)
+        : members.reduce((sum, m) => sum + m.skills[approach.skill as SkillKey], 0)
       const roll = randomInt(1, 6)
       const total = skillTotal + roll
       contenders.push({
         scenarioId: scenario.id,
         familyId: family.id,
         memberIds,
-        approachIndex: choice.approachIndex,
+        approachIndex,
         boughtOut,
         skillTotal,
         roll,

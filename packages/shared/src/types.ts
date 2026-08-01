@@ -56,16 +56,18 @@ export interface Town {
   color?: string
 }
 
-/** one way of tackling a scenario — the label is public, the skill behind it is not */
+/** one way of tackling a scenario — the label is public, the skill behind it is not.
+ *  Either `skill` is set (a normal roll) or `buyoutCost` is set (a standalone approach
+ *  that pays gold for a flat bonus instead of a skill roll) — never both. */
 export interface ScenarioApproach {
   /** short verb phrase shown to players when choosing, e.g. "Storm the gates" */
   label: string
-  skill: SkillKey
+  skill?: SkillKey
   /** flavour text shown on the results screen when this approach succeeds */
   successMessage: string
   /** flavour text shown on the results screen when this approach fails the check */
   failureMessage: string
-  /** if set, gold cost to skip the skill roll — the check instead uses the buyout bonus */
+  /** if set, this approach pays gold for a flat bonus instead of rolling a skill */
   buyoutCost?: number
 }
 
@@ -96,16 +98,8 @@ export interface Player {
 /** memberId -> scenarioId (members absent from the map stay idle at home) */
 export type Assignments = Record<string, string>
 
-/** a family's decision at one scenario during the approach phase */
-export interface ApproachChoice {
-  /** index into that scenario's approaches */
-  approachIndex: number
-  /** paid gold to skip the skill roll — the check uses the buyout bonus instead */
-  boughtOut: boolean
-}
-
-/** scenarioId -> choice (unchosen assignments default to approach 0, not bought out) */
-export type ApproachChoices = Record<string, ApproachChoice>
+/** scenarioId -> chosen approach index (unchosen assignments default to approach 0) */
+export type ApproachChoices = Record<string, number>
 
 export interface ScenarioOutcome {
   scenarioId: string
@@ -369,17 +363,19 @@ export interface HouseDesign {
   members: MemberDesign[]
 }
 
-/** one designed way of tackling a scenario */
+/** one designed way of tackling a scenario. Either `skill` is set (a normal roll) or
+ *  `buyoutCost` is set (a standalone approach that pays gold for a flat bonus instead
+ *  of a skill roll) — never both. */
 export interface ApproachDesign {
   /** short verb phrase shown to players when choosing, e.g. "Storm the gates" */
   label: string
   /** hidden skill this approach tests */
-  skill: SkillKey
+  skill?: SkillKey
   /** flavour text shown on the results screen when this approach succeeds */
   successMessage: string
   /** flavour text shown on the results screen when this approach fails the check */
   failureMessage: string
-  /** if set, gold cost to skip the skill roll — the check instead uses the buyout bonus */
+  /** if set, this approach pays gold for a flat bonus instead of rolling a skill */
   buyoutCost?: number
 }
 

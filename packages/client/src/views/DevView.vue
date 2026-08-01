@@ -165,11 +165,19 @@ function setGoldRewardAmount(s: ScenarioDesign, amount: number) {
   s.reward = { type: 'gold', amount }
 }
 
-function toggleBuyout(a: ApproachDesign, enabled: boolean) {
-  if (enabled) {
-    a.buyoutCost = 20
+/** a buyout approach has no skill — it stands as its own choice, paying gold for a flat
+ *  bonus instead of rolling a skill */
+function approachKind(a: ApproachDesign): 'skill' | 'buyout' {
+  return a.buyoutCost !== undefined ? 'buyout' : 'skill'
+}
+
+function setApproachKind(a: ApproachDesign, kind: 'skill' | 'buyout') {
+  if (kind === 'buyout') {
+    delete a.skill
+    if (a.buyoutCost === undefined) a.buyoutCost = 20
   } else {
     delete a.buyoutCost
+    if (a.skill === undefined) a.skill = 'might'
   }
 }
 
@@ -178,7 +186,7 @@ function removeScenario(index: number) {
 }
 
 function addApproach(s: ScenarioDesign) {
-  if (s.approaches.length < 3) {
+  if (s.approaches.length < 4) {
     s.approaches.push({
       label: 'New approach',
       skill: 'might',
@@ -194,7 +202,9 @@ function removeApproach(s: ScenarioDesign, index: number) {
 
 /** compact "label (Skill)" list for the room inspector */
 function approachSummary(s: Scenario): string {
-  return s.approaches.map((a) => `${a.label} (${SKILL_LABELS[a.skill]})`).join(' / ')
+  return s.approaches
+    .map((a) => `${a.label} (${a.skill ? SKILL_LABELS[a.skill] : `💰${a.buyoutCost}g`})`)
+    .join(' / ')
 }
 
 function locationKeys(): ScenarioLocation[] {
@@ -430,15 +440,16 @@ onUnmounted(() => {
     <section v-if="contentData && activeTab === 'Scenarios'" class="card">
       <h2>Scenarios</h2>
       <p class="dim">
-        Every scenario offers 2–3 approaches; checks roll skill + d6 against the Check DC,
+        Every scenario offers 2–4 approaches; checks roll skill + d6 against the Check DC,
         and when several houses attend, the highest passing total takes the reward
         (ties share) — 1 Influence, or gold if designed that way. Players see the approach
         labels but never the skill behind them — the wording is the only clue, so write
         labels that hint at the skill. Use <code>{town}</code> for the town name. Each
         approach also has its own success and failure message, shown on the results screen
-        next to that family's outcome. An approach can also be given a buyout cost, letting
-        players pay gold to skip the roll for the "Buyout bonus" total (Settings tab) + d6
-        instead of their skill. Applies to rounds planned after saving.
+        next to that family's outcome. An approach can instead be a gold buyout — a
+        standalone option with no hidden skill, shown to players as its own choice, that
+        pays gold for the "Buyout bonus" total (Settings tab) + d6 instead of a skill.
+        Applies to rounds planned after saving.
       </p>
       <div
         v-for="(s, i) in contentData.content.scenarios"
@@ -487,11 +498,29 @@ onUnmounted(() => {
               maxlength="60"
               placeholder="Approach label (shown to players)"
             />
-            <select v-model="a.skill" title="Hidden skill tested">
+            <select
+              :value="approachKind(a)"
+              title="Approach kind"
+              @change="setApproachKind(a, ($event.target as HTMLSelectElement).value as 'skill' | 'buyout')"
+            >
+              <option value="skill">Skill</option>
+              <option value="buyout">Gold buyout</option>
+            </select>
+            <select v-if="approachKind(a) === 'skill'" v-model="a.skill" title="Hidden skill tested">
               <option v-for="skill in skillKeys()" :key="skill" :value="skill">
                 {{ SKILL_LABELS[skill] }}
               </option>
             </select>
+            <input
+              v-else
+              v-model.number="a.buyoutCost"
+              type="number"
+              class="gold-amount"
+              :min="BUYOUT_COST_BOUNDS[0]"
+              :max="BUYOUT_COST_BOUNDS[1]"
+              :step="GOLD_STEP"
+              title="Gold cost to buy out this approach"
+            />
             <button
               class="small secondary"
               title="Remove approach"
@@ -514,27 +543,9 @@ onUnmounted(() => {
               class="approach-message failure"
               placeholder="Failure message (shown on the results screen)"
             />
-            <label class="buyout-toggle">
-              <input
-                type="checkbox"
-                :checked="a.buyoutCost !== undefined"
-                @change="toggleBuyout(a, ($event.target as HTMLInputElement).checked)"
-              />
-              Allow paying to skip the roll
-            </label>
-            <input
-              v-if="a.buyoutCost !== undefined"
-              v-model.number="a.buyoutCost"
-              type="number"
-              class="gold-amount"
-              :min="BUYOUT_COST_BOUNDS[0]"
-              :max="BUYOUT_COST_BOUNDS[1]"
-              :step="GOLD_STEP"
-              title="Gold cost to buy out this approach"
-            />
           </div>
           <button
-            v-if="s.approaches.length < 3"
+            v-if="s.approaches.length < 4"
             class="small secondary"
             @click="addApproach(s)"
           >
@@ -1132,7 +1143,7 @@ table.faces select {
 
 .approach-edit {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding-bottom: 0.4rem;
@@ -1149,19 +1160,6 @@ table.faces select {
 
 .approach-edit .approach-message.failure {
   color: var(--failure);
-}
-
-.approach-edit .buyout-toggle {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-}
-
-.approach-edit .buyout-toggle input {
-  width: auto;
 }
 
 .gold-amount {
