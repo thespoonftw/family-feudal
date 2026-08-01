@@ -389,11 +389,13 @@ function approachLabel(o: ScenarioOutcome): string {
   return outcomeScenario(o)?.approaches[o.approachIndex]?.label ?? ''
 }
 
-/** the flavour line for the approach taken, chosen by whether the check succeeded */
+/** the flavour line for the approach taken, chosen by whether the check succeeded, with
+ *  {actor} filled in with the attending member's name */
 function outcomeMessage(o: ScenarioOutcome): string {
   const approach = outcomeScenario(o)?.approaches[o.approachIndex]
   if (!approach) return ''
-  return o.success ? approach.successMessage : approach.failureMessage
+  const raw = o.success ? approach.successMessage : approach.failureMessage
+  return raw.replace(/\{actor\}/g, outcomeMember(o)?.name ?? 'they')
 }
 
 /** won the scenario / passed but beaten by a rival / failed the check outright */
@@ -402,8 +404,12 @@ function verdictClass(o: ScenarioOutcome): string {
 }
 
 function verdictText(o: ScenarioOutcome): string {
-  if (o.goldGained > 0) return `Success! +${o.goldGained}g`
-  if (o.influenceGained > 0) return `Success! +${o.influenceGained}`
+  if (o.influenceGained > 0 || o.goldGained > 0) {
+    const parts: string[] = []
+    if (o.influenceGained > 0) parts.push(`+${o.influenceGained}`)
+    if (o.goldGained > 0) parts.push(`+${o.goldGained}g`)
+    return `Success! ${parts.join(' ')}`
+  }
   if (o.success) return 'Outdone!'
   return 'Failure'
 }

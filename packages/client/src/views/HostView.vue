@@ -70,16 +70,18 @@ function approachLabel(o: ScenarioOutcome): string {
   return outcomeScenario(o)?.approaches[o.approachIndex]?.label ?? ''
 }
 
-/** the flavour line for the approach taken, chosen by whether the check succeeded */
-function outcomeMessage(o: ScenarioOutcome): string {
-  const approach = outcomeScenario(o)?.approaches[o.approachIndex]
-  if (!approach) return ''
-  return o.success ? approach.successMessage : approach.failureMessage
-}
-
 /** the attending member — used for the outcome's portrait */
 function outcomeMember(o: ScenarioOutcome): FamilyMember | undefined {
   return familyById(o.familyId)?.members.find((m) => o.memberIds.includes(m.id))
+}
+
+/** the flavour line for the approach taken, chosen by whether the check succeeded, with
+ *  {actor} filled in with the attending member's name */
+function outcomeMessage(o: ScenarioOutcome): string {
+  const approach = outcomeScenario(o)?.approaches[o.approachIndex]
+  if (!approach) return ''
+  const raw = o.success ? approach.successMessage : approach.failureMessage
+  return raw.replace(/\{actor\}/g, outcomeMember(o)?.name ?? 'they')
 }
 
 /** the outcome's portrait, with the designed success/failure face swapped in (dev panel) */
@@ -93,11 +95,16 @@ function outcomeAppearance(o: ScenarioOutcome): FamilyMember['appearance'] | und
 
 /** won the scenario / passed but beaten by a rival / failed the check outright */
 function verdictClass(o: ScenarioOutcome): string {
-  return o.influenceGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
+  return o.influenceGained > 0 || o.goldGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
 }
 
 function verdictText(o: ScenarioOutcome): string {
-  if (o.influenceGained > 0) return `Success! +${o.influenceGained}`
+  if (o.influenceGained > 0 || o.goldGained > 0) {
+    const parts: string[] = []
+    if (o.influenceGained > 0) parts.push(`+${o.influenceGained}`)
+    if (o.goldGained > 0) parts.push(`+${o.goldGained}g`)
+    return `Success! ${parts.join(' ')}`
+  }
   if (o.success) return 'Outdone!'
   return 'Failure'
 }

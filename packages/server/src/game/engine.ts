@@ -143,6 +143,7 @@ export function startGame(room: Room): void {
   for (const family of room.families) {
     const preset = room.presets.find((p) => p.homeTownId === family.homeTownId)
     family.members = generateMembers(preset)
+    family.gold = config.startingGold
   }
   room.phase = 'planning'
   room.round = 1
@@ -192,7 +193,7 @@ function instantiate(design: ScenarioDesign, townId: string, towns: Town[]): Sce
     description: design.description.replace('{town}', town?.name ?? 'the realm'),
     townId,
     approaches: design.approaches.map((a) => ({ ...a })),
-    reward: design.reward ?? { type: 'influence' },
+    reward: design.reward ?? { influence: true },
   }
 }
 
@@ -323,19 +324,20 @@ export function resolveRound(room: Room): void {
         goldGained: 0,
       })
     }
-    // …and the highest passing total takes the prize (Influence, or gold for a
-    // gold-reward scenario); ties all score
+    // …and the highest passing total takes the prize (Influence and/or gold, as designed
+    // for this scenario); ties all score
     const best = Math.max(...contenders.filter((c) => c.success).map((c) => c.total))
     for (const contender of contenders) {
       if (contender.success && contender.total === best) {
         const family = room.families.find((f) => f.id === contender.familyId)
-        const reward = scenario.reward ?? { type: 'influence' as const }
-        if (reward.type === 'gold') {
-          contender.goldGained = reward.amount
-          if (family) family.gold += reward.amount
-        } else {
+        const reward = scenario.reward ?? { influence: true }
+        if (reward.influence) {
           contender.influenceGained = 1
           if (family) family.influence += 1
+        }
+        if (reward.gold) {
+          contender.goldGained = reward.gold
+          if (family) family.gold += reward.gold
         }
       }
       outcomes.push(contender)

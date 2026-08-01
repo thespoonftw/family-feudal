@@ -42,8 +42,11 @@ export const GOLD_REWARD_BOUNDS: [number, number] = [10, 100]
 /** inclusive bounds for an approach's buyout cost */
 export const BUYOUT_COST_BOUNDS: [number, number] = [10, 50]
 
-/** what a scenario pays out on success — 1 Influence unless designed to pay gold instead */
-export type ScenarioReward = { type: 'influence' } | { type: 'gold'; amount: number }
+/** what a scenario pays out on success — Influence, gold, or both. At least one must be set. */
+export interface ScenarioReward {
+  influence: boolean
+  gold?: number
+}
 
 export interface Town {
   id: string
@@ -63,9 +66,9 @@ export interface ScenarioApproach {
   /** short verb phrase shown to players when choosing, e.g. "Storm the gates" */
   label: string
   skill?: SkillKey
-  /** flavour text shown on the results screen when this approach succeeds */
+  /** flavour text shown on the results screen when this approach succeeds. {actor} is replaced with the attending member's name */
   successMessage: string
-  /** flavour text shown on the results screen when this approach fails the check */
+  /** flavour text shown on the results screen when this approach fails the check. {actor} is replaced with the attending member's name */
   failureMessage: string
   /** if set, this approach pays gold for a flat bonus instead of rolling a skill */
   buyoutCost?: number
@@ -82,7 +85,7 @@ export interface Scenario {
   approaches: ScenarioApproach[]
   /** set when this is a home scenario belonging to one family */
   homeFamilyId?: string
-  /** what success at this scenario pays out — defaults to 1 Influence when absent */
+  /** what success at this scenario pays out — defaults to Influence only when absent */
   reward?: ScenarioReward
 }
 
@@ -114,9 +117,9 @@ export interface ScenarioOutcome {
   total: number
   /** met the DC — but a rival with a higher total can still take the prize */
   success: boolean
-  /** 1 for the highest successful total(s) at the scenario, else 0 — mutually exclusive with goldGained */
+  /** 1 for the highest successful total(s) at the scenario, else 0 */
   influenceGained: number
-  /** gold gained if this was the highest passing total at a gold-reward scenario */
+  /** gold gained if this was the highest passing total at a gold-reward scenario — can be nonzero alongside influenceGained */
   goldGained: number
 }
 
@@ -170,6 +173,8 @@ export interface GameConfig {
   maxPlayers: number
   /** flat total used instead of a skill roll when a family pays to buy out an approach */
   buyoutBonus: number
+  /** gold every family starts the game with */
+  startingGold: number
 }
 
 // ---------- Editable game content (dev panel) ----------
@@ -371,9 +376,9 @@ export interface ApproachDesign {
   label: string
   /** hidden skill this approach tests */
   skill?: SkillKey
-  /** flavour text shown on the results screen when this approach succeeds */
+  /** flavour text shown on the results screen when this approach succeeds. {actor} is replaced with the attending member's name */
   successMessage: string
-  /** flavour text shown on the results screen when this approach fails the check */
+  /** flavour text shown on the results screen when this approach fails the check. {actor} is replaced with the attending member's name */
   failureMessage: string
   /** if set, this approach pays gold for a flat bonus instead of rolling a skill */
   buyoutCost?: number

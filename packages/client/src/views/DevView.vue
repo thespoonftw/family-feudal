@@ -53,6 +53,7 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
   { key: 'checkDC', label: 'Check DC', hint: 'Every check is skill + d6 vs this; the highest passing total at a scenario takes the Influence, ties share' },
   { key: 'maxPlayers', label: 'Max players per room', hint: 'Limited by the number of family presets' },
   { key: 'buyoutBonus', label: 'Buyout bonus', hint: 'Flat total used instead of a skill roll when a family pays gold to buy out an approach (still + d6 vs the DC)' },
+  { key: 'startingGold', label: 'Starting gold', hint: 'Gold every family has at the start of the game' },
 ]
 
 const configData = ref<ConfigResponse | null>(null)
@@ -145,24 +146,40 @@ function addScenario() {
       { label: 'Find another way', skill: 'cunning', successMessage: 'Success!', failureMessage: 'It comes to nothing.' },
     ],
     location: 'general',
-    reward: { type: 'influence' },
+    reward: { influence: true },
   })
 }
 
-function rewardType(s: ScenarioDesign): 'influence' | 'gold' {
-  return s.reward?.type === 'gold' ? 'gold' : 'influence'
+function rewardHasInfluence(s: ScenarioDesign): boolean {
+  return s.reward?.influence !== false
 }
 
-function setRewardType(s: ScenarioDesign, type: 'influence' | 'gold') {
-  s.reward = type === 'gold' ? { type: 'gold', amount: s.reward?.type === 'gold' ? s.reward.amount : 20 } : { type: 'influence' }
+function hasGoldReward(s: ScenarioDesign): boolean {
+  return s.reward?.gold !== undefined
+}
+
+function toggleRewardInfluence(s: ScenarioDesign, value: boolean) {
+  // a reward can't grant neither — turning influence off with no gold set forces gold on
+  if (!value && !hasGoldReward(s)) {
+    s.reward = { influence: false, gold: 20 }
+    return
+  }
+  s.reward = { influence: value, ...(hasGoldReward(s) ? { gold: goldRewardAmount(s) } : {}) }
+}
+
+function toggleGoldReward(s: ScenarioDesign, value: boolean) {
+  s.reward = value
+    ? { influence: rewardHasInfluence(s), gold: goldRewardAmount(s) || 20 }
+    : { influence: true }
 }
 
 function goldRewardAmount(s: ScenarioDesign): number {
-  return s.reward?.type === 'gold' ? s.reward.amount : 0
+  return s.reward?.gold ?? 0
 }
 
 function setGoldRewardAmount(s: ScenarioDesign, amount: number) {
-  s.reward = { type: 'gold', amount }
+  if (!s.reward) s.reward = { influence: true }
+  s.reward.gold = amount
 }
 
 /** a buyout approach has no skill — it stands as its own choice, paying gold for a flat
@@ -442,14 +459,15 @@ onUnmounted(() => {
       <p class="dim">
         Every scenario offers 2–4 approaches; checks roll skill + d6 against the Check DC,
         and when several houses attend, the highest passing total takes the reward
-        (ties share) — 1 Influence, or gold if designed that way. Players see the approach
-        labels but never the skill behind them — the wording is the only clue, so write
-        labels that hint at the skill. Use <code>{town}</code> for the town name. Each
-        approach also has its own success and failure message, shown on the results screen
-        next to that family's outcome. An approach can instead be a gold buyout — a
-        standalone option with no hidden skill, shown to players as its own choice, that
-        pays gold for the "Buyout bonus" total (Settings tab) + d6 instead of a skill.
-        Applies to rounds planned after saving.
+        (ties share) — Influence, gold, or both, as toggled per scenario below. Players see
+        the approach labels but never the skill behind them — the wording is the only clue,
+        so write labels that hint at the skill. Use <code>{town}</code> for the town name
+        and <code>{actor}</code> for the attending character's name in success/failure
+        messages. Each approach also has its own success and failure message, shown on the
+        results screen next to that family's outcome. An approach can instead be a gold
+        buyout — a standalone option with no hidden skill, shown to players as its own
+        choice, that pays gold for the "Buyout bonus" total (Settings tab) + d6 instead of a
+        skill. Applies to rounds planned after saving.
       </p>
       <div
         v-for="(s, i) in contentData.content.scenarios"
@@ -463,16 +481,26 @@ onUnmounted(() => {
             {{ SCENARIO_LOCATION_LABELS[loc] }}
           </option>
         </select>
-        <select
-          :value="rewardType(s)"
-          title="What success at this scenario pays out"
-          @change="setRewardType(s, ($event.target as HTMLSelectElement).value as 'influence' | 'gold')"
-        >
-          <option value="influence">Influence</option>
-          <option value="gold">Gold</option>
-        </select>
+        <span class="reward-toggles" title="What success at this scenario pays out">
+          <label class="reward-toggle">
+            <input
+              type="checkbox"
+              :checked="rewardHasInfluence(s)"
+              @change="toggleRewardInfluence(s, ($event.target as HTMLInputElement).checked)"
+            />
+            Influence
+          </label>
+          <label class="reward-toggle">
+            <input
+              type="checkbox"
+              :checked="hasGoldReward(s)"
+              @change="toggleGoldReward(s, ($event.target as HTMLInputElement).checked)"
+            />
+            Gold
+          </label>
+        </span>
         <input
-          v-if="rewardType(s) === 'gold'"
+          v-if="hasGoldReward(s)"
           type="number"
           class="gold-amount"
           :min="GOLD_REWARD_BOUNDS[0]"
@@ -534,14 +562,14 @@ onUnmounted(() => {
               type="text"
               maxlength="200"
               class="approach-message success"
-              placeholder="Success message (shown on the results screen)"
+              placeholder="Success message — {actor} becomes the character's name"
             />
             <input
               v-model="a.failureMessage"
               type="text"
               maxlength="200"
               class="approach-message failure"
-              placeholder="Failure message (shown on the results screen)"
+              placeholder="Failure message — {actor} becomes the character's name"
             />
           </div>
           <button
@@ -1131,6 +1159,24 @@ table.faces select {
 .scenario-row select {
   padding: 0.25em 0.3em;
   font-size: 0.85rem;
+}
+
+.reward-toggles {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.reward-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.reward-toggle input {
+  width: auto;
 }
 
 .scenario-row .approaches {

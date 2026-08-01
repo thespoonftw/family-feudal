@@ -210,15 +210,11 @@ function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): A
 
 function sanitizeReward(raw: unknown, where: string): ScenarioReward | string {
   const obj = (raw ?? {}) as Record<string, unknown>
-  const type = obj['type']
-  if (type === undefined || type === 'influence') return { type: 'influence' }
-  if (type === 'gold') {
-    const amount = sanitizeGoldAmount(obj['amount'], GOLD_REWARD_BOUNDS, where)
-    if (typeof amount === 'string') return amount
-    if (amount === undefined) return `${where}: gold amount is required`
-    return { type: 'gold', amount }
-  }
-  return `${where}: unknown reward type`
+  const influence = obj['influence'] !== false
+  const gold = sanitizeGoldAmount(obj['gold'], GOLD_REWARD_BOUNDS, where)
+  if (typeof gold === 'string') return gold
+  if (!influence && gold === undefined) return `${where}: must grant influence, gold, or both`
+  return gold === undefined ? { influence } : { influence, gold }
 }
 
 function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string {
@@ -325,6 +321,21 @@ function pickMessage(value: unknown, fallback: string): string {
 }
 
 /**
+ * migration helper: upgrade a scenario's reward from the old mutually-exclusive
+ * `{type: 'influence'}` / `{type: 'gold', amount}` shape to the current
+ * `{influence, gold?}` shape. A gold-only legacy reward must NOT gain a free influence
+ * grant it never had, so this runs before sanitizeReward's lenient `influence` default.
+ * Already-current-shape (or absent) rewards pass through untouched.
+ */
+function migrateReward(raw: unknown): unknown {
+  if (raw === undefined || raw === null) return raw
+  const obj = raw as Record<string, unknown>
+  if (obj['type'] === 'gold') return { influence: false, gold: obj['amount'] }
+  if (obj['type'] === 'influence') return { influence: true }
+  return raw
+}
+
+/**
  * Upgrade a persisted content file written by an older build so design edits (titles,
  * descriptions, …) survive schema changes. Currently handles the pre-approach format
  * (scenarios with a single `skill` — and the old `beauty` skill — become two
@@ -336,8 +347,10 @@ function pickMessage(value: unknown, fallback: string): string {
  * one predating a later appearance field such as eye/mouth/shirt style — or a skin/eye
  * colour that predates the curated preset lists — get that field backfilled from the same
  * generated defaults the stock roster uses, keyed off their house+member slot; fields
- * already valid are left alone), and the pre-face-outcomes format (missing
- * `faceOutcomes` gets the default map).
+ * already valid are left alone), the pre-face-outcomes format (missing
+ * `faceOutcomes` gets the default map), and the pre-combined-reward format (a scenario's
+ * old mutually-exclusive `{type: 'influence'}` / `{type: 'gold', amount}` reward becomes
+ * `{influence, gold?}` — see {@link migrateReward}).
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
@@ -363,6 +376,7 @@ function migrateContent(raw: unknown): unknown {
     // backfill any approach persisted before the success/failure message fields existed
     return {
       ...sc,
+      reward: migrateReward(sc['reward']),
       approaches: sc['approaches'].map((a) => {
         const approach = (a ?? {}) as Record<string, unknown>
         // a buyout approach (persisted with a buyoutCost) has no skill to remap — the
