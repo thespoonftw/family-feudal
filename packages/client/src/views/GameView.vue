@@ -91,92 +91,33 @@ const AVATAR_SIZE = 76
 // on any device (small phone vs. large tablet), header and agent bar included ----------
 
 const gameEl = ref<HTMLElement | null>(null)
-const headerEl = ref<HTMLElement | null>(null)
 const planningEl = ref<HTMLElement | null>(null)
-const scenarioListEl = ref<HTMLElement | null>(null)
-const agentsBarEl = ref<HTMLElement | null>(null)
-const planBarEl = ref<HTMLElement | null>(null)
 
 /** applied as `zoom` to the header + planning screen; 1 = authored size */
 const uiScale = ref(1)
 const headerZoom = computed(() => (view.value?.phase === 'planning' ? uiScale.value : 1))
 
-const TARGET_VISIBLE_CARDS = 5
 const UI_SCALE_MIN = 0.6
 const UI_SCALE_MAX = 1.5
 
-/** an element's height with the currently-applied zoom divided back out, i.e. its
- *  size as if zoom were 1 — lets each pass converge without a separate zoom-1 measurement.
- *  (offsetHeight reliably reports the zoomed size; getComputedStyle of a zoomed element's
- *  own declared lengths does not, consistently, across browsers — so gaps/padding below
- *  are converted from their authored rem values via the (never-zoomed) root font size
- *  instead of read back off the zoomed elements) */
-function naturalHeight(el: HTMLElement | null): number {
-  return el ? el.offsetHeight / uiScale.value : 0
-}
+/** below this viewport height, zoom out below 1 (proportionally, so a shorter screen
+ *  always gets a smaller scale) */
+const HEIGHT_ZOOM_OUT_PIVOT = 1150
+/** above HEIGHT_ZOOM_OUT_PIVOT, zoom in above 1 — but only as far as the width can take it;
+ *  a screen exactly this wide caps zoom-in at 1 */
+const WIDTH_ZOOM_IN_PIVOT = 750
 
-/** must track `.planning`'s authored gap/padding and `.scenario-list`'s authored gap below */
-const MAIN_GAP_REM = 0.5
-const MAIN_PADDING_REM = 0.5 * 2
-const LIST_GAP_REM = 0.35
-
-/** must track `.agent`'s and `.agents-bar`'s authored horizontal padding/gap below */
-const AGENT_PADDING_X_REM = 0.2 * 2
-const AGENTS_BAR_GAP_REM = 0.5
-const AGENTS_BAR_PADDING_X_REM = 0.4 * 2
-/** the narrowest a scenario card's text column can get before it's unreadable */
-const MIN_TEXT_COLUMN_PX = 80
-
-/** on a tall, narrow phone the height budget alone would zoom in far enough to overflow
- *  the (comparatively tight) width — cap zoom so the fixed-width avatar row (which can't
- *  shrink, unlike scenario text) and a legible card text column both still fit horizontally.
- *  agents-bar stretches to the same true (un-zoomed) width as the rest of the screen, so its
- *  offsetWidth doubles as that width budget regardless of the currently-applied zoom */
-function widthCeiling(rootPx: number): number {
-  const bar = agentsBarEl.value
-  const trueWidth = bar?.offsetWidth ?? 0
-  if (!bar || !(trueWidth > 0)) return Infinity
-  const memberCount = bar.children.length || 1
-
-  const agentsRowNatural =
-    memberCount * (AVATAR_SIZE + AGENT_PADDING_X_REM * rootPx) +
-    (memberCount - 1) * AGENTS_BAR_GAP_REM * rootPx +
-    AGENTS_BAR_PADDING_X_REM * rootPx
-  const slotRowNatural = AVATAR_SIZE + MIN_TEXT_COLUMN_PX
-
-  return Math.min(trueWidth / agentsRowNatural, trueWidth / slotRowNatural)
-}
-
-/** re-measures for a few frames after applying a new scale, since text reflow at the new
- *  size (more/fewer wrapped lines) can shift the natural card height the first pass assumed */
-const MAX_RECALC_PASSES = 4
-
-function recalcUiScale(pass = 0) {
+function recalcUiScale() {
   const game = gameEl.value
-  const header = headerEl.value
-  const list = scenarioListEl.value
-  const agentsBar = agentsBarEl.value
-  const planBar = planBarEl.value
-  const card = list?.querySelector<HTMLElement>('.scenario-card')
-  if (!game || !header || !list || !agentsBar || !planBar || !card) return
+  if (!game || !(game.clientHeight > 0) || !(game.clientWidth > 0)) return
 
-  const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  const heightScale = game.clientHeight / HEIGHT_ZOOM_OUT_PIVOT
+  const widthScale = game.clientWidth / WIDTH_ZOOM_IN_PIVOT
+  // zooming out (short screens) only ever shrinks the footprint, so it never needs a width
+  // cap — only zooming in (tall screens) risks overflowing a narrow width
+  const rawScale = heightScale > 1 ? Math.min(heightScale, widthScale) : heightScale
 
-  const naturalTotal =
-    naturalHeight(header) +
-    naturalHeight(agentsBar) +
-    naturalHeight(planBar) +
-    (2 * MAIN_GAP_REM + MAIN_PADDING_REM) * rootPx +
-    TARGET_VISIBLE_CARDS * naturalHeight(card) +
-    (TARGET_VISIBLE_CARDS - 1) * LIST_GAP_REM * rootPx
-
-  if (!(naturalTotal > 0) || !(game.clientHeight > 0)) return
-  const heightTarget = game.clientHeight / naturalTotal
-  const next = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, Math.min(heightTarget, widthCeiling(rootPx))))
-
-  const changed = Math.abs(next - uiScale.value) > 0.01
-  uiScale.value = next
-  if (changed && pass < MAX_RECALC_PASSES) requestAnimationFrame(() => recalcUiScale(pass + 1))
+  uiScale.value = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, rawScale))
 }
 
 let uiScaleObserver: ResizeObserver | null = null
@@ -465,7 +406,7 @@ const winnerNames = computed(() => {
     class="game"
     :class="{ 'lock-viewport': view.phase === 'planning' }"
   >
-    <header ref="headerEl" :style="{ zoom: headerZoom }">
+    <header :style="{ zoom: headerZoom }">
       <span
         v-if="game.yourFamily"
         class="family-chip"
@@ -525,7 +466,7 @@ const winnerNames = computed(() => {
       class="planning"
       :style="{ zoom: uiScale }"
     >
-      <section ref="scenarioListEl" class="scenario-list">
+      <section class="scenario-list">
         <div
           v-for="s in yourScenarios"
           :key="s.id"
@@ -566,7 +507,7 @@ const winnerNames = computed(() => {
       </section>
 
       <!-- your agents, dragged up onto a scenario slot above -->
-      <div ref="agentsBarEl" class="agents-bar">
+      <div class="agents-bar">
         <div
           v-for="m in game.yourFamily?.members ?? []"
           :key="m.id"
@@ -608,7 +549,7 @@ const winnerNames = computed(() => {
       </div>
 
       <!-- ready bar pinned under the agents -->
-      <div ref="planBarEl" class="plan-bar">
+      <div class="plan-bar">
         <button class="ready-btn" @click="game.setReady(!game.you?.ready)">
           {{ game.you?.ready ? 'Not ready after all…' : 'Ready — seal the plans' }}
         </button>
