@@ -110,22 +110,19 @@ const debugMetrics = ref({ height: 0, width: 0 })
 const UI_SCALE_MIN = 0.6
 const UI_SCALE_MAX = 1.5
 
-/** below this viewport height, zoom out below 1 (proportionally, so a shorter screen
- *  always gets a smaller scale) */
-const HEIGHT_ZOOM_OUT_PIVOT = 700
-/** above HEIGHT_ZOOM_OUT_PIVOT, zoom in above 1 — but only as far as the width can take it;
- *  a screen exactly this wide caps zoom-in at 1 */
-const WIDTH_ZOOM_IN_PIVOT = 750
+/** a screen exactly this tall (or wide) renders at zoom 1; shorter/narrower zooms out,
+ *  taller/wider zooms in — always the more constraining of the two axes, so the result
+ *  stays continuous as either dimension crosses its pivot (no jump at the boundary) */
+const HEIGHT_ZOOM_PIVOT = 750
+const WIDTH_ZOOM_PIVOT = 750
 
 function recalcUiScale() {
   const game = gameEl.value
   if (!game || !(game.clientHeight > 0) || !(game.clientWidth > 0)) return
 
-  const heightScale = game.clientHeight / HEIGHT_ZOOM_OUT_PIVOT
-  const widthScale = game.clientWidth / WIDTH_ZOOM_IN_PIVOT
-  // zooming out (short screens) only ever shrinks the footprint, so it never needs a width
-  // cap — only zooming in (tall screens) risks overflowing a narrow width
-  const rawScale = heightScale > 1 ? Math.min(heightScale, widthScale) : heightScale
+  const heightScale = game.clientHeight / HEIGHT_ZOOM_PIVOT
+  const widthScale = game.clientWidth / WIDTH_ZOOM_PIVOT
+  const rawScale = Math.min(heightScale, widthScale)
 
   uiScale.value = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, rawScale))
   debugMetrics.value = { height: game.clientHeight, width: game.clientWidth }
