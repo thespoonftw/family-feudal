@@ -187,7 +187,12 @@ function sanitizeGoldAmount(
   return rounded
 }
 
-function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): ApproachDesign | string {
+function sanitizeApproach(
+  raw: unknown,
+  scenarioLabel: string,
+  index: number,
+  rewardCount: number,
+): ApproachDesign | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const where = `${scenarioLabel}, approach ${index + 1}`
   const label = cleanString(obj['label'], 60)
@@ -196,16 +201,29 @@ function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): A
   if (!successMessage) return `${where}: success message must be 1–200 characters`
   const failureMessage = cleanString(obj['failureMessage'], 200)
   if (!failureMessage) return `${where}: failure message must be 1–200 characters`
+  const rewardIndexRaw = obj['rewardIndex']
+  let rewardIndex: number | undefined
+  if (rewardIndexRaw !== undefined) {
+    if (
+      typeof rewardIndexRaw !== 'number' ||
+      !Number.isInteger(rewardIndexRaw) ||
+      rewardIndexRaw < 0 ||
+      rewardIndexRaw >= rewardCount
+    ) {
+      return `${where}: unknown reward option`
+    }
+    rewardIndex = rewardIndexRaw
+  }
   const buyoutCost = sanitizeGoldAmount(obj['buyoutCost'], BUYOUT_COST_BOUNDS, `${where} buyout cost`)
   if (typeof buyoutCost === 'string') return buyoutCost
   // a buyout approach stands alone — no skill behind it, just the flat buyout bonus
   if (buyoutCost !== undefined) {
-    return { label, successMessage, failureMessage, buyoutCost }
+    return { label, successMessage, failureMessage, buyoutCost, ...(rewardIndex !== undefined ? { rewardIndex } : {}) }
   }
   const skill = obj['skill']
   if (!SKILLS.includes(skill as SkillKey)) return `${where}: unknown skill`
   // a legacy per-approach `difficulty` is simply ignored (checks now roll against the DC)
-  return { label, skill: skill as SkillKey, successMessage, failureMessage }
+  return { label, skill: skill as SkillKey, successMessage, failureMessage, ...(rewardIndex !== undefined ? { rewardIndex } : {}) }
 }
 
 function sanitizeReward(raw: unknown, where: string): ScenarioReward | string {
@@ -215,6 +233,20 @@ function sanitizeReward(raw: unknown, where: string): ScenarioReward | string {
   if (typeof gold === 'string') return gold
   if (!influence && gold === undefined) return `${where}: must grant influence, gold, or both`
   return gold === undefined ? { influence } : { influence, gold }
+}
+
+function sanitizeRewards(raw: unknown, label: string): ScenarioReward[] | string {
+  if (raw === undefined) return [{ influence: true }]
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 4) {
+    return `${label}: needs 1–4 reward options`
+  }
+  const clean: ScenarioReward[] = []
+  for (const [i, reward] of raw.entries()) {
+    const result = sanitizeReward(reward, `${label}, reward ${i + 1}`)
+    if (typeof result === 'string') return result
+    clean.push(result)
+  }
+  return clean
 }
 
 function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string {
@@ -228,25 +260,25 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
   if (!description) return `${label}: description must be 1–240 characters`
   const location = obj['location']
   if (!LOCATIONS.includes(location as ScenarioLocation)) return `${label}: unknown location`
+  const rewards = sanitizeRewards(obj['rewards'], label)
+  if (typeof rewards === 'string') return rewards
   const approaches = obj['approaches']
   if (!Array.isArray(approaches) || approaches.length < 2 || approaches.length > 4) {
     return `${label}: needs 2–4 approaches`
   }
   const cleanApproaches: ApproachDesign[] = []
   for (const [i, approach] of approaches.entries()) {
-    const result = sanitizeApproach(approach, label, i)
+    const result = sanitizeApproach(approach, label, i, rewards.length)
     if (typeof result === 'string') return result
     cleanApproaches.push(result)
   }
-  const reward = sanitizeReward(obj['reward'], `${label} reward`)
-  if (typeof reward === 'string') return reward
   return {
     emoji,
     title,
     description,
     approaches: cleanApproaches,
     location: location as ScenarioLocation,
-    reward,
+    rewards,
   }
 }
 
@@ -336,6 +368,17 @@ function migrateReward(raw: unknown): unknown {
 }
 
 /**
+ * migration helper: upgrade a scenario's single `reward` field to the current `rewards`
+ * list (each approach then names one by index — see {@link ApproachDesign.rewardIndex}).
+ * A scenario already carrying a `rewards` array passes through untouched.
+ */
+function migrateRewards(sc: Record<string, unknown>): unknown {
+  if (Array.isArray(sc['rewards'])) return sc['rewards']
+  if (sc['reward'] === undefined) return undefined
+  return [migrateReward(sc['reward'])]
+}
+
+/**
  * Upgrade a persisted content file written by an older build so design edits (titles,
  * descriptions, …) survive schema changes. Currently handles the pre-approach format
  * (scenarios with a single `skill` — and the old `beauty` skill — become two
@@ -348,9 +391,11 @@ function migrateReward(raw: unknown): unknown {
  * colour that predates the curated preset lists — get that field backfilled from the same
  * generated defaults the stock roster uses, keyed off their house+member slot; fields
  * already valid are left alone), the pre-face-outcomes format (missing
- * `faceOutcomes` gets the default map), and the pre-combined-reward format (a scenario's
+ * `faceOutcomes` gets the default map), the pre-combined-reward format (a scenario's
  * old mutually-exclusive `{type: 'influence'}` / `{type: 'gold', amount}` reward becomes
- * `{influence, gold?}` — see {@link migrateReward}).
+ * `{influence, gold?}` — see {@link migrateReward}), and the pre-reward-list format (a
+ * scenario's single `reward` becomes a one-element `rewards` list — see
+ * {@link migrateRewards}).
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
@@ -376,7 +421,7 @@ function migrateContent(raw: unknown): unknown {
     // backfill any approach persisted before the success/failure message fields existed
     return {
       ...sc,
-      reward: migrateReward(sc['reward']),
+      rewards: migrateRewards(sc),
       approaches: sc['approaches'].map((a) => {
         const approach = (a ?? {}) as Record<string, unknown>
         // a buyout approach (persisted with a buyoutCost) has no skill to remap — the

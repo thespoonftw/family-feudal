@@ -193,7 +193,7 @@ function instantiate(design: ScenarioDesign, townId: string, towns: Town[]): Sce
     description: design.description.replace('{town}', town?.name ?? 'the realm'),
     townId,
     approaches: design.approaches.map((a) => ({ ...a })),
-    reward: design.reward ?? { influence: true },
+    rewards: design.rewards?.length ? design.rewards.map((r) => ({ ...r })) : [{ influence: true }],
   }
 }
 
@@ -330,7 +330,9 @@ export function resolveRound(room: Room): void {
     for (const contender of contenders) {
       if (contender.success && contender.total === best) {
         const family = room.families.find((f) => f.id === contender.familyId)
-        const reward = scenario.reward ?? { influence: true }
+        const chosenApproach = scenario.approaches[contender.approachIndex] as ScenarioApproach
+        const rewards = scenario.rewards ?? [{ influence: true }]
+        const reward = rewards[chosenApproach.rewardIndex ?? 0] ?? rewards[0] ?? { influence: true }
         if (reward.influence) {
           contender.influenceGained = 1
           if (family) family.influence += 1

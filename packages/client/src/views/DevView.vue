@@ -18,6 +18,7 @@ import type {
   Scenario,
   ScenarioDesign,
   ScenarioLocation,
+  ScenarioReward,
   SkillKey,
 } from '@family-feudal/shared'
 import {
@@ -146,40 +147,65 @@ function addScenario() {
       { label: 'Find another way', skill: 'cunning', successMessage: 'Success!', failureMessage: 'It comes to nothing.' },
     ],
     location: 'general',
-    reward: { influence: true },
+    rewards: [{ influence: true }],
   })
 }
 
-function rewardHasInfluence(s: ScenarioDesign): boolean {
-  return s.reward?.influence !== false
+/** every scenario has at least one reward option; back-fills a fresh scenario in place */
+function rewards(s: ScenarioDesign): ScenarioReward[] {
+  if (!s.rewards || s.rewards.length === 0) s.rewards = [{ influence: true }]
+  return s.rewards
 }
 
-function hasGoldReward(s: ScenarioDesign): boolean {
-  return s.reward?.gold !== undefined
+function rewardHasInfluence(r: ScenarioReward): boolean {
+  return r.influence !== false
 }
 
-function toggleRewardInfluence(s: ScenarioDesign, value: boolean) {
+function hasGoldReward(r: ScenarioReward): boolean {
+  return r.gold !== undefined
+}
+
+function toggleRewardInfluence(r: ScenarioReward, value: boolean) {
   // a reward can't grant neither — turning influence off with no gold set forces gold on
-  if (!value && !hasGoldReward(s)) {
-    s.reward = { influence: false, gold: 20 }
-    return
+  if (!value && !hasGoldReward(r)) r.gold = 20
+  r.influence = value
+}
+
+function toggleGoldReward(r: ScenarioReward, value: boolean) {
+  if (value) {
+    r.gold = r.gold || 20
+  } else {
+    r.influence = true
+    delete r.gold
   }
-  s.reward = { influence: value, ...(hasGoldReward(s) ? { gold: goldRewardAmount(s) } : {}) }
 }
 
-function toggleGoldReward(s: ScenarioDesign, value: boolean) {
-  s.reward = value
-    ? { influence: rewardHasInfluence(s), gold: goldRewardAmount(s) || 20 }
-    : { influence: true }
+function setGoldRewardAmount(r: ScenarioReward, amount: number) {
+  r.gold = amount
 }
 
-function goldRewardAmount(s: ScenarioDesign): number {
-  return s.reward?.gold ?? 0
+function addReward(s: ScenarioDesign) {
+  if (rewards(s).length < 4) rewards(s).push({ influence: true })
 }
 
-function setGoldRewardAmount(s: ScenarioDesign, amount: number) {
-  if (!s.reward) s.reward = { influence: true }
-  s.reward.gold = amount
+function removeReward(s: ScenarioDesign, index: number) {
+  const list = rewards(s)
+  if (list.length <= 1) return
+  list.splice(index, 1)
+  // approaches pointing at the removed option fall back to the first; later options shift down
+  for (const a of s.approaches) {
+    const ri = a.rewardIndex ?? 0
+    if (ri === index) a.rewardIndex = 0
+    else if (ri > index) a.rewardIndex = ri - 1
+  }
+}
+
+/** compact "1: Influence +20g" label for a reward option's <select> entry */
+function rewardSummary(r: ScenarioReward, index: number): string {
+  const parts: string[] = []
+  if (r.influence !== false) parts.push('Influence')
+  if (r.gold !== undefined) parts.push(`+${r.gold}g`)
+  return `${index + 1}: ${parts.join(' ')}`
 }
 
 /** a buyout approach has no skill — it stands as its own choice, paying gold for a flat
@@ -459,15 +485,17 @@ onUnmounted(() => {
       <p class="dim">
         Every scenario offers 2–4 approaches; checks roll skill + d6 against the Check DC,
         and when several houses attend, the highest passing total takes the reward
-        (ties share) — Influence, gold, or both, as toggled per scenario below. Players see
-        the approach labels but never the skill behind them — the wording is the only clue,
-        so write labels that hint at the skill. Use <code>{town}</code> for the town name
-        and <code>{actor}</code> for the attending character's name in success/failure
-        messages. Each approach also has its own success and failure message, shown on the
-        results screen next to that family's outcome. An approach can instead be a gold
-        buyout — a standalone option with no hidden skill, shown to players as its own
-        choice, that pays gold for the "Buyout bonus" total (Settings tab) + d6 instead of a
-        skill. Applies to rounds planned after saving.
+        (ties share). A scenario can offer several reward options below — Influence, gold,
+        or both, per option — and each approach picks which one it pays out on success
+        (defaults to the first). Players see the approach labels but never the skill behind
+        them — the wording is the only clue, so write labels that hint at the skill. Use
+        <code>{town}</code> for the town name and <code>{actor}</code> for the attending
+        character's name in success/failure messages. Each approach also has its own
+        success and failure message, shown on the results screen next to that family's
+        outcome. An approach can instead be a gold buyout — a standalone option with no
+        hidden skill, shown to players as its own choice, that pays gold for the "Buyout
+        bonus" total (Settings tab) + d6 instead of a skill. Applies to rounds planned
+        after saving.
       </p>
       <div
         v-for="(s, i) in contentData.content.scenarios"
@@ -481,35 +509,6 @@ onUnmounted(() => {
             {{ SCENARIO_LOCATION_LABELS[loc] }}
           </option>
         </select>
-        <span class="reward-toggles" title="What success at this scenario pays out">
-          <label class="reward-toggle">
-            <input
-              type="checkbox"
-              :checked="rewardHasInfluence(s)"
-              @change="toggleRewardInfluence(s, ($event.target as HTMLInputElement).checked)"
-            />
-            Influence
-          </label>
-          <label class="reward-toggle">
-            <input
-              type="checkbox"
-              :checked="hasGoldReward(s)"
-              @change="toggleGoldReward(s, ($event.target as HTMLInputElement).checked)"
-            />
-            Gold
-          </label>
-        </span>
-        <input
-          v-if="hasGoldReward(s)"
-          type="number"
-          class="gold-amount"
-          :min="GOLD_REWARD_BOUNDS[0]"
-          :max="GOLD_REWARD_BOUNDS[1]"
-          :step="GOLD_STEP"
-          :value="goldRewardAmount(s)"
-          title="Gold reward amount"
-          @change="setGoldRewardAmount(s, Number(($event.target as HTMLInputElement).value))"
-        />
         <button class="small secondary" title="Remove scenario" @click="removeScenario(i)">✕</button>
         <input
           v-model="s.description"
@@ -518,6 +517,49 @@ onUnmounted(() => {
           class="description"
           placeholder="Description — {town} becomes the town name"
         />
+        <div class="rewards">
+          <div v-for="(r, ri) in rewards(s)" :key="ri" class="reward-edit">
+            <span class="reward-label">Reward {{ ri + 1 }}</span>
+            <label class="reward-toggle">
+              <input
+                type="checkbox"
+                :checked="rewardHasInfluence(r)"
+                @change="toggleRewardInfluence(r, ($event.target as HTMLInputElement).checked)"
+              />
+              Influence
+            </label>
+            <label class="reward-toggle">
+              <input
+                type="checkbox"
+                :checked="hasGoldReward(r)"
+                @change="toggleGoldReward(r, ($event.target as HTMLInputElement).checked)"
+              />
+              Gold
+            </label>
+            <input
+              v-if="hasGoldReward(r)"
+              type="number"
+              class="gold-amount"
+              :min="GOLD_REWARD_BOUNDS[0]"
+              :max="GOLD_REWARD_BOUNDS[1]"
+              :step="GOLD_STEP"
+              :value="r.gold"
+              title="Gold reward amount"
+              @change="setGoldRewardAmount(r, Number(($event.target as HTMLInputElement).value))"
+            />
+            <button
+              class="small secondary"
+              title="Remove reward option"
+              :disabled="rewards(s).length <= 1"
+              @click="removeReward(s, ri)"
+            >
+              ✕
+            </button>
+          </div>
+          <button v-if="rewards(s).length < 4" class="small secondary" @click="addReward(s)">
+            + reward option
+          </button>
+        </div>
         <div class="approaches">
           <div v-for="(a, j) in s.approaches" :key="j" class="approach-edit">
             <input
@@ -549,6 +591,16 @@ onUnmounted(() => {
               :step="GOLD_STEP"
               title="Gold cost to buy out this approach"
             />
+            <select
+              v-if="rewards(s).length > 1"
+              :value="a.rewardIndex ?? 0"
+              title="Which reward option this approach pays out on success"
+              @change="a.rewardIndex = Number(($event.target as HTMLSelectElement).value)"
+            >
+              <option v-for="(r, ri) in rewards(s)" :key="ri" :value="ri">
+                {{ rewardSummary(r, ri) }}
+              </option>
+            </select>
             <button
               class="small secondary"
               title="Remove approach"
@@ -1141,7 +1193,7 @@ table.faces select {
 /* scenario editor */
 .scenario-row {
   display: grid;
-  grid-template-columns: 3.2em 1fr auto auto auto auto;
+  grid-template-columns: 3.2em 1fr auto auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding: 0.55rem 0;
@@ -1161,11 +1213,6 @@ table.faces select {
   font-size: 0.85rem;
 }
 
-.reward-toggles {
-  display: flex;
-  gap: 0.6rem;
-}
-
 .reward-toggle {
   display: flex;
   align-items: center;
@@ -1179,6 +1226,32 @@ table.faces select {
   width: auto;
 }
 
+.scenario-row .rewards {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-left: 1.2rem;
+}
+
+.reward-edit {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+.reward-edit .reward-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  min-width: 5em;
+}
+
+.scenario-row .rewards > button {
+  align-self: flex-start;
+}
+
 .scenario-row .approaches {
   grid-column: 1 / -1;
   display: flex;
@@ -1189,7 +1262,7 @@ table.faces select {
 
 .approach-edit {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto auto auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding-bottom: 0.4rem;
@@ -1214,12 +1287,6 @@ table.faces select {
 
 .scenario-row .approaches > button {
   align-self: flex-start;
-}
-
-@media (max-width: 800px) {
-  .scenario-row {
-    grid-template-columns: 3.2em 1fr auto auto;
-  }
 }
 
 @media (max-width: 700px) {

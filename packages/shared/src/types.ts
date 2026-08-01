@@ -72,6 +72,8 @@ export interface ScenarioApproach {
   failureMessage: string
   /** if set, this approach pays gold for a flat bonus instead of rolling a skill */
   buyoutCost?: number
+  /** index into the scenario's `rewards` list this approach pays out on success — defaults to 0 */
+  rewardIndex?: number
 }
 
 export interface Scenario {
@@ -85,8 +87,9 @@ export interface Scenario {
   approaches: ScenarioApproach[]
   /** set when this is a home scenario belonging to one family */
   homeFamilyId?: string
-  /** what success at this scenario pays out — defaults to Influence only when absent */
-  reward?: ScenarioReward
+  /** the possible payouts on success; each approach names one by `rewardIndex` (default 0)
+   *  — defaults to a single Influence-only reward when absent */
+  rewards?: ScenarioReward[]
 }
 
 export interface Player {
@@ -382,6 +385,8 @@ export interface ApproachDesign {
   failureMessage: string
   /** if set, this approach pays gold for a flat bonus instead of rolling a skill */
   buyoutCost?: number
+  /** index into the scenario's `rewards` list this approach pays out on success — defaults to 0 */
+  rewardIndex?: number
 }
 
 /** a scenario template; rewards 1 Influence on success unless designed to pay gold instead */
@@ -394,8 +399,9 @@ export interface ScenarioDesign {
   /** 2–3 approaches players can pick between */
   approaches: ApproachDesign[]
   location: ScenarioLocation
-  /** what success pays out — defaults to 1 Influence when absent */
-  reward?: ScenarioReward
+  /** the possible payouts on success; each approach names one by `rewardIndex` (default 0)
+   *  — defaults to a single Influence-only reward when absent */
+  rewards?: ScenarioReward[]
 }
 
 // ---------- Face outcome overrides (dev panel) ----------

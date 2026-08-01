@@ -158,14 +158,15 @@ export const DEFAULT_HOUSES: HouseDesign[] = [
 // so the description is what players deploy on). Checks roll skill + d6 (or the buyout
 // bonus + d6) against the configured DC; rival houses at the same scenario contest the
 // prize (highest passing total wins) — which may pay Influence, gold, or both, per
-// `reward` (absent means Influence only). successMessage/failureMessage are shown on the
-// results screen next to that approach's outcome — one told per family per attended
-// scenario, based on whether their check passed; {actor} is replaced with the name of the
-// family member who attended.
+// `rewards` (absent means a single Influence-only reward; an approach can name a
+// different entry via `rewardIndex`, default 0). successMessage/failureMessage are shown
+// on the results screen next to that approach's outcome — one told per family per
+// attended scenario, based on whether their check passed; {actor} is replaced with the
+// name of the family member who attended.
 export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   // General
   {
-    emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}, and the merchants have put a bounty on their stolen loot.', location: 'general', reward: { influence: false, gold: 20 }, approaches: [
+    emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}, and the merchants have put a bounty on their stolen loot.', location: 'general', rewards: [{ influence: false, gold: 20 }], approaches: [
       { label: 'Ride them down', skill: 'might', successMessage: '{actor} rides them down, steel flashing until the bandits break and leave their plunder in the mud.', failureMessage: '{actor} loses the bandits before the line can hold, and the loot goes with them.' },
       { label: 'Infiltrate their camp', skill: 'cunning', successMessage: '{actor} lays a false trail, leading the bandits away from their own hoard.', failureMessage: "{actor}'s disguise slips at the worst moment, and the camp turns hostile." },
     ],
@@ -213,14 +214,14 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     ],
   },
   {
-    emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. The reward for its return is generous.', location: 'general', reward: { influence: true, gold: 30 }, approaches: [
+    emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. The reward for its return is generous.', location: 'general', rewards: [{ influence: true, gold: 30 }], approaches: [
       { label: 'Follow the clues', skill: 'wit', successMessage: '{actor} follows the trail straight to the relic, tucked away exactly where reason said it would be.', failureMessage: "{actor}'s clues lead in circles, and the relic remains lost." },
       { label: 'Shake down the fences', skill: 'cunning', successMessage: '{actor} shakes down a frightened fence, who gives up the relic without much persuading at all.', failureMessage: 'The fences close ranks against {actor}, and not one of them talks.' },
       { label: 'Pay a ransom for its return', buyoutCost: 30, successMessage: '{actor} pays a fat purse to loosen tongues, and the relic changes hands quietly before sundown.', failureMessage: "Word of {actor}'s offer spreads faster than the relic does, and someone else buys it first." },
     ],
   },
   {
-    emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats over a fortune in cargo.', location: 'general', reward: { influence: false, gold: 20 }, approaches: [
+    emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats over a fortune in cargo.', location: 'general', rewards: [{ influence: false, gold: 20 }], approaches: [
       { label: 'Broker a settlement', skill: 'charm', successMessage: '{actor} brings both sides to a handshake, more or less satisfied, and the cargo finally moves.', failureMessage: 'Neither merchant will budge for {actor}, and the settlement talks collapse.' },
       { label: 'Quietly rig the ledgers', skill: 'cunning', successMessage: '{actor} quietly adjusts the numbers, and the dispute resolves itself overnight.', failureMessage: "{actor}'s tampering is noticed almost immediately, and the dispute only worsens." },
       { label: "Buy out both merchants' claims outright", buyoutCost: 20, successMessage: "{actor}'s coin settles what argument could not, and the cargo is theirs to sell on.", failureMessage: 'A third merchant swoops in with a better offer before {actor} can sign the deal.' },
@@ -248,7 +249,7 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     ],
   },
   {
-    emoji: '💰', title: "Smugglers' Cache", description: 'Rumour says a smugglers’ cache lies hidden somewhere near {town}, still unclaimed.', location: 'general', reward: { influence: false, gold: 30 }, approaches: [
+    emoji: '💰', title: "Smugglers' Cache", description: 'Rumour says a smugglers’ cache lies hidden somewhere near {town}, still unclaimed.', location: 'general', rewards: [{ influence: false, gold: 30 }], approaches: [
       { label: "Track the smugglers' route", skill: 'wit', successMessage: '{actor} follows the trail of hoofprints and broken twigs straight to the cache.', failureMessage: 'The trail goes cold at a stream crossing, and {actor} loses the cache.' },
       { label: 'Muscle the truth out of a lookout', skill: 'might', successMessage: "{actor}'s firm hand and firmer glare loosen the lookout's tongue soon enough.", failureMessage: 'The lookout would rather take a beating from {actor} than talk, and says nothing.' },
       { label: 'Buy the map off a turncoat smuggler', buyoutCost: 20, successMessage: 'The map {actor} bought is genuine, and the cache is exactly where it promises.', failureMessage: 'The "map" {actor} bought turns out to be an old bar tab sketched on the back — a costly joke.' },
@@ -263,7 +264,7 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     ],
   },
   {
-    emoji: '🏰', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', location: 'capital', reward: { influence: true, gold: 20 }, approaches: [
+    emoji: '🏰', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', location: 'capital', rewards: [{ influence: true, gold: 20 }], approaches: [
       { label: 'Petition the crown', skill: 'wit', successMessage: "{actor}'s petition is heard in full, and the crown's favour is granted.", failureMessage: "{actor}'s petition is dismissed before it's even finished being read." },
       { label: 'Call in a favour from an old ally at court', skill: 'cunning', successMessage: "A quiet word from {actor}'s well-placed friend, and the audience is granted at once.", failureMessage: "{actor}'s old ally has fallen out of favour too, and can do nothing after all." },
       { label: 'Bribe the chamberlain outright', buyoutCost: 20, successMessage: "{actor}'s quiet exchange in the antechamber goes exactly as planned, and coin flows back their way besides.", failureMessage: "The chamberlain pockets {actor}'s bribe and does nothing whatsoever in return." },
@@ -289,7 +290,7 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     ],
   },
   {
-    emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray — and the tax collector is due.', location: 'home', reward: { influence: false, gold: 20 }, approaches: [
+    emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray — and the tax collector is due.', location: 'home', rewards: [{ influence: false, gold: 20 }], approaches: [
       { label: 'Balance the books', skill: 'wit', successMessage: 'Every column {actor} adds up, and the tax collector finds nothing to complain about.', failureMessage: 'The numbers refuse to balance no matter how many times {actor} checks them.' },
       { label: 'Cook the books', skill: 'cunning', successMessage: '{actor} quietly rewrites the figures, and the collector is none the wiser.', failureMessage: "{actor}'s forgery is clumsy, and the collector's eyebrow stays raised the whole visit." },
       { label: 'Cover the shortfall out of pocket', buyoutCost: 20, successMessage: "The collector counts {actor}'s coin, nods once, and troubles the estate no further.", failureMessage: "The collector counts {actor}'s coin twice, finds it short anyway, and levies a fine besides." },
@@ -302,7 +303,7 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     ],
   },
   {
-    emoji: '🗝️', title: 'Buried Family Fortune', description: "Family legend swears a strongbox lies buried somewhere on the {town} estate.", location: 'home', reward: { influence: true, gold: 30 }, approaches: [
+    emoji: '🗝️', title: 'Buried Family Fortune', description: "Family legend swears a strongbox lies buried somewhere on the {town} estate.", location: 'home', rewards: [{ influence: true, gold: 30 }], approaches: [
       { label: "Puzzle out grandfather's old riddle", skill: 'wit', successMessage: 'The riddle finally clicks for {actor}, and the spade strikes wood on the very first try.', failureMessage: '{actor} discovers too late that the riddle describes a landmark torn down decades ago.' },
       { label: 'Dig up every likely spot yourself', skill: 'might', successMessage: 'After a long, filthy afternoon of digging, {actor} finally turns up the strongbox.', failureMessage: '{actor} leaves the estate pockmarked with holes, and not one of them holds anything.' },
       { label: 'Hire a diviner to point the way', buyoutCost: 20, successMessage: "The diviner's rod {actor} hired dips sharply, and the strongbox is exactly where it points.", failureMessage: '{actor} hired a diviner who is confident, theatrical, and completely wrong.' },
