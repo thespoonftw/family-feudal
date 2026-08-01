@@ -75,13 +75,17 @@ function outcomeMember(o: ScenarioOutcome): FamilyMember | undefined {
   return familyById(o.familyId)?.members.find((m) => o.memberIds.includes(m.id))
 }
 
-/** the flavour line for the approach taken, chosen by whether the check succeeded, with
- *  {actor} filled in with the attending member's name */
-function outcomeMessage(o: ScenarioOutcome): string {
+/** the flavour line for the approach taken, chosen by whether the check succeeded, split
+ *  around {actor} so the attending member's name can be rendered in bold */
+function outcomeMessageParts(o: ScenarioOutcome): { text: string; actor: boolean }[] {
   const approach = outcomeScenario(o)?.approaches[o.approachIndex]
-  if (!approach) return ''
+  if (!approach) return []
   const raw = o.success ? approach.successMessage : approach.failureMessage
-  return raw.replace(/\{actor\}/g, outcomeMember(o)?.name ?? 'they')
+  const name = outcomeMember(o)?.name ?? 'they'
+  return raw
+    .split(/(\{actor\})/)
+    .filter((part) => part.length > 0)
+    .map((part) => (part === '{actor}' ? { text: name, actor: true } : { text: part, actor: false }))
 }
 
 /** the outcome's portrait, with the designed success/failure face swapped in (dev panel) */
@@ -260,6 +264,16 @@ function closeBoard() {
 
     <!-- ================= RESOLUTION: one tale at a time ================= -->
     <main v-else-if="view.phase === 'resolution'" key="resolution" class="reveal-stage">
+      <div
+        v-if="currentStep"
+        :key="revealIndex"
+        class="reveal-progress"
+      >
+        <div
+          class="reveal-progress-bar"
+          :style="{ animationDuration: currentStep.holdMs + 'ms' }"
+        />
+      </div>
       <Transition name="card-rise" mode="out-in" appear>
         <!-- opening beat: give everyone a moment to look up -->
         <div v-if="currentStep?.kind === 'intro'" key="intro" class="card reveal-card intro-card">
@@ -299,7 +313,12 @@ function closeBoard() {
                   <span class="verdict">{{ verdictText(o) }}</span>
                 </span>
               </div>
-              <p v-if="outcomeMessage(o)" class="outcome-message">{{ outcomeMessage(o) }}</p>
+              <p v-if="outcomeMessageParts(o).length" class="outcome-message">
+                <template v-for="(part, i) in outcomeMessageParts(o)" :key="i">
+                  <strong v-if="part.actor">{{ part.text }}</strong>
+                  <template v-else>{{ part.text }}</template>
+                </template>
+              </p>
             </div>
           </div>
         </div>
@@ -526,6 +545,7 @@ button.small {
 
 /* resolution reveal: one scenario at a time, centre stage */
 .reveal-stage {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -533,6 +553,35 @@ button.small {
   justify-content: center;
   padding: 1.5rem;
   overflow-y: auto;
+}
+
+.reveal-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  z-index: 1;
+}
+
+.reveal-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--gold-soft);
+  animation-name: reveal-progress-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes reveal-progress-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
 }
 
 .reveal-card {

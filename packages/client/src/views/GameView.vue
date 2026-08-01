@@ -385,17 +385,17 @@ function outcomeAppearance(o: ScenarioOutcome): FamilyMember['appearance'] | und
   return face ? { ...member.appearance, face } : member.appearance
 }
 
-function approachLabel(o: ScenarioOutcome): string {
-  return outcomeScenario(o)?.approaches[o.approachIndex]?.label ?? ''
-}
-
-/** the flavour line for the approach taken, chosen by whether the check succeeded, with
- *  {actor} filled in with the attending member's name */
-function outcomeMessage(o: ScenarioOutcome): string {
+/** the flavour line for the approach taken, chosen by whether the check succeeded, split
+ *  around {actor} so the attending member's name can be rendered in bold */
+function outcomeMessageParts(o: ScenarioOutcome): { text: string; actor: boolean }[] {
   const approach = outcomeScenario(o)?.approaches[o.approachIndex]
-  if (!approach) return ''
+  if (!approach) return []
   const raw = o.success ? approach.successMessage : approach.failureMessage
-  return raw.replace(/\{actor\}/g, outcomeMember(o)?.name ?? 'they')
+  const name = outcomeMember(o)?.name ?? 'they'
+  return raw
+    .split(/(\{actor\})/)
+    .filter((part) => part.length > 0)
+    .map((part) => (part === '{actor}' ? { text: name, actor: true } : { text: part, actor: false }))
 }
 
 /** won the scenario / passed but beaten by a rival / failed the check outright */
@@ -404,14 +404,17 @@ function verdictClass(o: ScenarioOutcome): string {
 }
 
 function verdictText(o: ScenarioOutcome): string {
-  if (o.influenceGained > 0 || o.goldGained > 0) {
-    const parts: string[] = []
-    if (o.influenceGained > 0) parts.push(`+${o.influenceGained}`)
-    if (o.goldGained > 0) parts.push(`+${o.goldGained}g`)
-    return `Success! ${parts.join(' ')}`
-  }
+  if (o.influenceGained > 0 || o.goldGained > 0) return 'Success!'
   if (o.success) return 'Outdone!'
   return 'Failure'
+}
+
+/** what was actually won at this scenario, shown under the flavour text */
+function rewardText(o: ScenarioOutcome): string {
+  const parts: string[] = []
+  if (o.influenceGained > 0) parts.push(`+${o.influenceGained} influence`)
+  if (o.goldGained > 0) parts.push(`+${o.goldGained}g`)
+  return parts.join(' ')
 }
 
 const confirmedCount = computed(
@@ -447,6 +450,7 @@ const winnerNames = computed(() => {
       </span>
       <span class="spacer" />
       <span v-if="!game.connected" class="offline">reconnecting…</span>
+      <span v-if="game.yourFamily" class="gold-chip">💰 {{ game.yourFamily.gold }}g</span>
       <div class="menu-wrap">
         <button class="secondary small menu-btn" aria-label="Menu" @click="menuOpen = !menuOpen">
           <span class="menu-lines"><span /><span /><span /></span>
@@ -665,7 +669,7 @@ const winnerNames = computed(() => {
               >
                 {{ a.label }}
                 <small v-if="a.buyoutCost !== undefined" class="buyout-cost">
-                  💰 Pay {{ a.buyoutCost }}g — guarantee +{{ view.buyoutBonus }}
+                  💰 Pay {{ a.buyoutCost }}g
                 </small>
               </button>
             </div>
@@ -731,12 +735,15 @@ const winnerNames = computed(() => {
               <div class="outcome-body">
                 <span class="who">
                   <strong>{{ outcomeMemberNames(o) }}</strong>
-                  <small>
-                    {{ outcomeScenario(o)?.emoji }} {{ outcomeScenario(o)?.title }} —
-                    “{{ approachLabel(o) }}”{{ o.boughtOut ? ' (paid)' : '' }}
-                  </small>
+                  <small>{{ outcomeScenario(o)?.emoji }} {{ outcomeScenario(o)?.title }}</small>
                 </span>
-                <p v-if="outcomeMessage(o)" class="outcome-message">{{ outcomeMessage(o) }}</p>
+                <p v-if="outcomeMessageParts(o).length" class="outcome-message">
+                  <template v-for="(part, i) in outcomeMessageParts(o)" :key="i">
+                    <strong v-if="part.actor">{{ part.text }}</strong>
+                    <template v-else>{{ part.text }}</template>
+                  </template>
+                </p>
+                <p v-if="rewardText(o)" class="reward-line">{{ rewardText(o) }}</p>
               </div>
             </div>
           </div>
@@ -889,6 +896,18 @@ header {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+}
+
+.gold-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--gold-soft);
+  white-space: nowrap;
 }
 
 .spacer {
@@ -1347,6 +1366,12 @@ button.small {
   font-size: 0.85rem;
   line-height: 1.3;
   font-style: italic;
+}
+
+.mini-outcome .reward-line {
+  color: var(--success);
+  font-size: 0.8rem;
+  font-weight: bold;
 }
 
 .mini-outcome .who small {
