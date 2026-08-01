@@ -87,43 +87,75 @@ function assignedMember(scenarioId: string): FamilyMember | undefined {
 /** every portrait on this screen — agent bar, scenario slots, drag ghost — is this size */
 const AVATAR_SIZE = 76
 
-// ---------- planning: zoom the scenario list so ~5 cards fit the visible area on any device ----------
+// ---------- planning: zoom the whole screen so ~5 scenario cards fit the visible area
+// on any device (small phone vs. large tablet), header and agent bar included ----------
 
+const gameEl = ref<HTMLElement | null>(null)
+const headerEl = ref<HTMLElement | null>(null)
+const planningEl = ref<HTMLElement | null>(null)
 const scenarioListEl = ref<HTMLElement | null>(null)
-/** multiplies the scenario card's avatar/padding/font sizes; 1 = authored size */
-const cardScale = ref(1)
-const slotAvatarSize = computed(() => Math.round(AVATAR_SIZE * cardScale.value))
+const agentsBarEl = ref<HTMLElement | null>(null)
+const planBarEl = ref<HTMLElement | null>(null)
+
+/** applied as `zoom` to the header + planning screen; 1 = authored size */
+const uiScale = ref(1)
+const headerZoom = computed(() => (view.value?.phase === 'planning' ? uiScale.value : 1))
 
 const TARGET_VISIBLE_CARDS = 5
-const CARD_SCALE_MIN = 0.6
-const CARD_SCALE_MAX = 1.5
+const UI_SCALE_MIN = 0.6
+const UI_SCALE_MAX = 1.5
 
-function recalcCardScale() {
-  const list = scenarioListEl.value
-  const card = list?.querySelector<HTMLElement>('.scenario-card')
-  if (!list || !card) return
-  const gapPx = parseFloat(getComputedStyle(list).rowGap || '0') || 0
-  // back out the scale-1 size using the scale we last rendered at, so this converges
-  // without ever needing a scale-1 measurement pass
-  const naturalCard = card.offsetHeight / cardScale.value
-  const naturalGap = gapPx / cardScale.value
-  const totalNatural = TARGET_VISIBLE_CARDS * naturalCard + (TARGET_VISIBLE_CARDS - 1) * naturalGap
-  if (!(totalNatural > 0) || !(list.clientHeight > 0)) return
-  const next = list.clientHeight / totalNatural
-  cardScale.value = Math.min(CARD_SCALE_MAX, Math.max(CARD_SCALE_MIN, next))
+/** an element's height with the currently-applied zoom divided back out, i.e. its
+ *  size as if zoom were 1 — lets each pass converge without a separate zoom-1 measurement.
+ *  (offsetHeight reliably reports the zoomed size; getComputedStyle of a zoomed element's
+ *  own declared lengths does not, consistently, across browsers — so gaps/padding below
+ *  are converted from their authored rem values via the (never-zoomed) root font size
+ *  instead of read back off the zoomed elements) */
+function naturalHeight(el: HTMLElement | null): number {
+  return el ? el.offsetHeight / uiScale.value : 0
 }
 
-let cardScaleObserver: ResizeObserver | null = null
+/** must track `.planning`'s authored gap/padding and `.scenario-list`'s authored gap below */
+const MAIN_GAP_REM = 0.5
+const MAIN_PADDING_REM = 0.5 * 2
+const LIST_GAP_REM = 0.35
 
-watch(scenarioListEl, (el, oldEl) => {
-  if (oldEl && cardScaleObserver) cardScaleObserver.unobserve(oldEl)
+function recalcUiScale() {
+  const game = gameEl.value
+  const header = headerEl.value
+  const list = scenarioListEl.value
+  const agentsBar = agentsBarEl.value
+  const planBar = planBarEl.value
+  const card = list?.querySelector<HTMLElement>('.scenario-card')
+  if (!game || !header || !list || !agentsBar || !planBar || !card) return
+
+  const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+
+  const naturalTotal =
+    naturalHeight(header) +
+    naturalHeight(agentsBar) +
+    naturalHeight(planBar) +
+    (2 * MAIN_GAP_REM + MAIN_PADDING_REM) * rootPx +
+    TARGET_VISIBLE_CARDS * naturalHeight(card) +
+    (TARGET_VISIBLE_CARDS - 1) * LIST_GAP_REM * rootPx
+
+  if (!(naturalTotal > 0) || !(game.clientHeight > 0)) return
+  const next = game.clientHeight / naturalTotal
+  uiScale.value = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, next))
+}
+
+let uiScaleObserver: ResizeObserver | null = null
+
+watch(gameEl, (el, oldEl) => {
+  if (oldEl && uiScaleObserver) uiScaleObserver.unobserve(oldEl)
   if (!el) return
-  if (!cardScaleObserver) cardScaleObserver = new ResizeObserver(() => recalcCardScale())
-  cardScaleObserver.observe(el)
-  requestAnimationFrame(recalcCardScale)
+  if (!uiScaleObserver) uiScaleObserver = new ResizeObserver(() => recalcUiScale())
+  uiScaleObserver.observe(el)
 })
 
-watch(yourScenarios, () => requestAnimationFrame(recalcCardScale))
+watch(planningEl, (el) => {
+  if (el) requestAnimationFrame(recalcUiScale)
+})
 
 const draggingMemberId = ref<string | null>(null)
 /** the scenario slot a drag was picked up from, or null when dragging from the agent bar */
@@ -269,7 +301,7 @@ onUnmounted(() => {
   window.removeEventListener('pointermove', onDragMove)
   window.removeEventListener('pointerup', onDragEnd)
   window.removeEventListener('pointercancel', onDragEnd)
-  cardScaleObserver?.disconnect()
+  uiScaleObserver?.disconnect()
 })
 
 // choices are live on the server as they're made, so a player is "ready" the moment the
@@ -392,8 +424,13 @@ const winnerNames = computed(() => {
 </script>
 
 <template>
-  <div v-if="view" class="game" :class="{ 'lock-viewport': view.phase === 'planning' }">
-    <header>
+  <div
+    v-if="view"
+    ref="gameEl"
+    class="game"
+    :class="{ 'lock-viewport': view.phase === 'planning' }"
+  >
+    <header ref="headerEl" :style="{ zoom: headerZoom }">
       <span
         v-if="game.yourFamily"
         class="family-chip"
@@ -446,8 +483,14 @@ const winnerNames = computed(() => {
     </main>
 
     <!-- ================= PLANNING ================= -->
-    <main v-else-if="view.phase === 'planning'" key="planning" class="planning">
-      <section ref="scenarioListEl" class="scenario-list" :style="{ '--card-scale': cardScale }">
+    <main
+      v-else-if="view.phase === 'planning'"
+      key="planning"
+      ref="planningEl"
+      class="planning"
+      :style="{ zoom: uiScale }"
+    >
+      <section ref="scenarioListEl" class="scenario-list">
         <div
           v-for="s in yourScenarios"
           :key="s.id"
@@ -480,7 +523,7 @@ const winnerNames = computed(() => {
                 :appearance="assignedMember(s.id)!.appearance"
                 :seed="assignedMember(s.id)!.name"
                 :shirt-color="game.yourFamily?.color ?? '#888888'"
-                :size="slotAvatarSize"
+                :size="AVATAR_SIZE"
               />
             </span>
           </button>
@@ -488,7 +531,7 @@ const winnerNames = computed(() => {
       </section>
 
       <!-- your agents, dragged up onto a scenario slot above -->
-      <div class="agents-bar">
+      <div ref="agentsBarEl" class="agents-bar">
         <div
           v-for="m in game.yourFamily?.members ?? []"
           :key="m.id"
@@ -530,7 +573,7 @@ const winnerNames = computed(() => {
       </div>
 
       <!-- ready bar pinned under the agents -->
-      <div class="plan-bar">
+      <div ref="planBarEl" class="plan-bar">
         <button class="ready-btn" @click="game.setReady(!game.you?.ready)">
           {{ game.you?.ready ? 'Not ready after all…' : 'Ready — seal the plans' }}
         </button>
@@ -899,21 +942,20 @@ button.small {
 }
 
 .scenario-list {
-  --card-scale: 1;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: calc(0.35rem * var(--card-scale));
+  gap: 0.35rem;
   padding-right: 0.1rem;
 }
 
 .scenario-card {
   display: flex;
   align-items: center;
-  gap: calc(0.6rem * var(--card-scale));
-  padding: calc(0.4rem * var(--card-scale)) calc(0.6rem * var(--card-scale));
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -933,7 +975,7 @@ button.small {
 
 .scenario-info h4 {
   margin: 0 0 0.1rem;
-  font-size: calc(0.95rem * var(--card-scale));
+  font-size: 0.95rem;
   line-height: 1.2;
 }
 
@@ -946,7 +988,7 @@ button.small {
 
 .scenario-info .hint {
   margin: 0;
-  font-size: calc(0.78rem * var(--card-scale));
+  font-size: 0.78rem;
   line-height: 1.2;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -961,13 +1003,13 @@ button.small {
   font-weight: normal;
   display: flex;
   padding: 0.1rem;
-  width: calc(4.75rem * var(--card-scale));
+  width: 4.75rem;
 }
 
 .slot-circle {
   box-sizing: content-box;
-  width: calc(4.75rem * var(--card-scale));
-  height: calc(4.75rem * var(--card-scale));
+  width: 4.75rem;
+  height: 4.75rem;
   border-radius: 50%;
   border: 1px dashed var(--border);
   background: var(--bg-inset);
