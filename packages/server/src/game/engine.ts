@@ -92,6 +92,7 @@ function claimFamily(room: Room, playerId: string): void {
     homeTownId: preset.homeTownId,
     members: [],
     influence: 0,
+    gold: 0,
   })
 }
 
@@ -190,6 +191,7 @@ function instantiate(design: ScenarioDesign, townId: string, towns: Town[]): Sce
     description: design.description.replace('{town}', town?.name ?? 'the realm'),
     townId,
     approaches: design.approaches.map((a) => ({ ...a })),
+    reward: design.reward ?? { type: 'influence' },
   }
 }
 
@@ -264,24 +266,34 @@ export function setChoices(
   if (!family) return 'You have no family in this game'
   const assigned = new Set(Object.values(room.assignments[family.id] ?? {}))
   const clean: ApproachChoices = {}
-  for (const [scenarioId, index] of Object.entries(choices)) {
+  let goldCommitted = 0
+  for (const [scenarioId, choice] of Object.entries(choices)) {
     if (!assigned.has(scenarioId)) return 'You have no one at that scenario'
     const scenario = room.scenarios.find((s) => s.id === scenarioId)
     if (!scenario) return 'Unknown scenario'
-    if (!Number.isInteger(index) || index < 0 || index >= scenario.approaches.length) {
+    const { approachIndex, boughtOut } = choice
+    if (!Number.isInteger(approachIndex) || approachIndex < 0 || approachIndex >= scenario.approaches.length) {
       return 'Unknown approach'
     }
-    clean[scenarioId] = index
+    const approach = scenario.approaches[approachIndex] as ScenarioApproach
+    if (boughtOut) {
+      if (!approach.buyoutCost) return 'That approach cannot be bought out'
+      goldCommitted += approach.buyoutCost
+    }
+    clean[scenarioId] = { approachIndex, boughtOut: !!boughtOut }
   }
+  if (goldCommitted > family.gold) return 'Not enough gold'
   room.choices[family.id] = clean
   return null
 }
 
 export function resolveRound(room: Room): void {
-  const dc = getConfig().checkDC
+  const config = getConfig()
+  const dc = config.checkDC
   const outcomes: ScenarioOutcome[] = []
   for (const scenario of room.scenarios) {
-    // every attending family rolls skill + d6 against the DC…
+    // every attending family rolls skill + d6 against the DC (or pays gold to buy out
+    // the roll with a flat bonus instead) …
     const contenders: ScenarioOutcome[] = []
     for (const family of room.families) {
       const familyAssignments = room.assignments[family.id] ?? {}
@@ -290,31 +302,44 @@ export function resolveRound(room: Room): void {
         .map(([mid]) => mid)
       if (memberIds.length === 0) continue
       const members = family.members.filter((m) => memberIds.includes(m.id))
-      // families that never picked take the first approach
-      const approachIndex = room.choices[family.id]?.[scenario.id] ?? 0
-      const approach = scenario.approaches[approachIndex] as ScenarioApproach
-      const skillTotal = members.reduce((sum, m) => sum + m.skills[approach.skill], 0)
+      // families that never picked take the first approach, not bought out
+      const choice = room.choices[family.id]?.[scenario.id] ?? { approachIndex: 0, boughtOut: false }
+      const approach = scenario.approaches[choice.approachIndex] as ScenarioApproach
+      const boughtOut = choice.boughtOut && !!approach.buyoutCost
+      if (boughtOut) family.gold -= approach.buyoutCost as number
+      const skillTotal = boughtOut
+        ? config.buyoutBonus
+        : members.reduce((sum, m) => sum + m.skills[approach.skill], 0)
       const roll = randomInt(1, 6)
       const total = skillTotal + roll
       contenders.push({
         scenarioId: scenario.id,
         familyId: family.id,
         memberIds,
-        approachIndex,
+        approachIndex: choice.approachIndex,
+        boughtOut,
         skillTotal,
         roll,
         total,
         success: total >= dc,
         influenceGained: 0,
+        goldGained: 0,
       })
     }
-    // …and the highest passing total takes the Influence; ties all score
+    // …and the highest passing total takes the prize (Influence, or gold for a
+    // gold-reward scenario); ties all score
     const best = Math.max(...contenders.filter((c) => c.success).map((c) => c.total))
     for (const contender of contenders) {
       if (contender.success && contender.total === best) {
-        contender.influenceGained = 1
         const family = room.families.find((f) => f.id === contender.familyId)
-        if (family) family.influence += 1
+        const reward = scenario.reward ?? { type: 'influence' as const }
+        if (reward.type === 'gold') {
+          contender.goldGained = reward.amount
+          if (family) family.gold += reward.amount
+        } else {
+          contender.influenceGained = 1
+          if (family) family.influence += 1
+        }
       }
       outcomes.push(contender)
     }
@@ -358,5 +383,6 @@ export function buildView(room: Room, playerId: string | null): GameView {
     resultHistory: room.phase === 'finished' ? room.resultHistory : [],
     winnerFamilyIds: room.winnerFamilyIds,
     faceOutcomes: getContent().faceOutcomes,
+    buyoutBonus: getConfig().buyoutBonus,
   }
 }

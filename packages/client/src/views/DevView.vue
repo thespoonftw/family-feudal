@@ -6,6 +6,7 @@ import type {
   AppearanceHairColor,
   AppearanceHeadStyle,
   AppearanceSkinTone,
+  ApproachDesign,
   DevRoomDetail,
   DevRoomSummary,
   FaceOutcomeDesign,
@@ -26,6 +27,9 @@ import {
   APPEARANCE_HAIR_COLORS,
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
+  BUYOUT_COST_BOUNDS,
+  GOLD_REWARD_BOUNDS,
+  GOLD_STEP,
   MEMBER_SKILL_BOUNDS,
   SCENARIO_LOCATION_LABELS,
   SKILL_LABELS,
@@ -48,6 +52,7 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
   { key: 'scenariosPerRound', label: 'Scenarios per round', hint: 'Public scenarios on the map (1 is always at the capital); each family also gets a home scenario' },
   { key: 'checkDC', label: 'Check DC', hint: 'Every check is skill + d6 vs this; the highest passing total at a scenario takes the Influence, ties share' },
   { key: 'maxPlayers', label: 'Max players per room', hint: 'Limited by the number of family presets' },
+  { key: 'buyoutBonus', label: 'Buyout bonus', hint: 'Flat total used instead of a skill roll when a family pays gold to buy out an approach (still + d6 vs the DC)' },
 ]
 
 const configData = ref<ConfigResponse | null>(null)
@@ -140,7 +145,32 @@ function addScenario() {
       { label: 'Find another way', skill: 'cunning', successMessage: 'Success!', failureMessage: 'It comes to nothing.' },
     ],
     location: 'general',
+    reward: { type: 'influence' },
   })
+}
+
+function rewardType(s: ScenarioDesign): 'influence' | 'gold' {
+  return s.reward?.type === 'gold' ? 'gold' : 'influence'
+}
+
+function setRewardType(s: ScenarioDesign, type: 'influence' | 'gold') {
+  s.reward = type === 'gold' ? { type: 'gold', amount: s.reward?.type === 'gold' ? s.reward.amount : 20 } : { type: 'influence' }
+}
+
+function goldRewardAmount(s: ScenarioDesign): number {
+  return s.reward?.type === 'gold' ? s.reward.amount : 0
+}
+
+function setGoldRewardAmount(s: ScenarioDesign, amount: number) {
+  s.reward = { type: 'gold', amount }
+}
+
+function toggleBuyout(a: ApproachDesign, enabled: boolean) {
+  if (enabled) {
+    a.buyoutCost = 20
+  } else {
+    delete a.buyoutCost
+  }
 }
 
 function removeScenario(index: number) {
@@ -401,12 +431,14 @@ onUnmounted(() => {
       <h2>Scenarios</h2>
       <p class="dim">
         Every scenario offers 2–3 approaches; checks roll skill + d6 against the Check DC,
-        and when several houses attend, the highest passing total takes the 1 Influence
-        (ties share). Players see the approach labels but never the skill behind them —
-        the wording is the only clue, so write labels that hint at the skill. Use
-        <code>{town}</code> for the town name. Each approach also has its own success and
-        failure message, shown on the results screen next to that family's outcome.
-        Applies to rounds planned after saving.
+        and when several houses attend, the highest passing total takes the reward
+        (ties share) — 1 Influence, or gold if designed that way. Players see the approach
+        labels but never the skill behind them — the wording is the only clue, so write
+        labels that hint at the skill. Use <code>{town}</code> for the town name. Each
+        approach also has its own success and failure message, shown on the results screen
+        next to that family's outcome. An approach can also be given a buyout cost, letting
+        players pay gold to skip the roll for the "Buyout bonus" total (Settings tab) + d6
+        instead of their skill. Applies to rounds planned after saving.
       </p>
       <div
         v-for="(s, i) in contentData.content.scenarios"
@@ -420,6 +452,25 @@ onUnmounted(() => {
             {{ SCENARIO_LOCATION_LABELS[loc] }}
           </option>
         </select>
+        <select
+          :value="rewardType(s)"
+          title="What success at this scenario pays out"
+          @change="setRewardType(s, ($event.target as HTMLSelectElement).value as 'influence' | 'gold')"
+        >
+          <option value="influence">Influence</option>
+          <option value="gold">Gold</option>
+        </select>
+        <input
+          v-if="rewardType(s) === 'gold'"
+          type="number"
+          class="gold-amount"
+          :min="GOLD_REWARD_BOUNDS[0]"
+          :max="GOLD_REWARD_BOUNDS[1]"
+          :step="GOLD_STEP"
+          :value="goldRewardAmount(s)"
+          title="Gold reward amount"
+          @change="setGoldRewardAmount(s, Number(($event.target as HTMLInputElement).value))"
+        />
         <button class="small secondary" title="Remove scenario" @click="removeScenario(i)">✕</button>
         <input
           v-model="s.description"
@@ -462,6 +513,24 @@ onUnmounted(() => {
               maxlength="200"
               class="approach-message failure"
               placeholder="Failure message (shown on the results screen)"
+            />
+            <label class="buyout-toggle">
+              <input
+                type="checkbox"
+                :checked="a.buyoutCost !== undefined"
+                @change="toggleBuyout(a, ($event.target as HTMLInputElement).checked)"
+              />
+              Allow paying to skip the roll
+            </label>
+            <input
+              v-if="a.buyoutCost !== undefined"
+              v-model.number="a.buyoutCost"
+              type="number"
+              class="gold-amount"
+              :min="BUYOUT_COST_BOUNDS[0]"
+              :max="BUYOUT_COST_BOUNDS[1]"
+              :step="GOLD_STEP"
+              title="Gold cost to buy out this approach"
             />
           </div>
           <button
@@ -1033,7 +1102,7 @@ table.faces select {
 /* scenario editor */
 .scenario-row {
   display: grid;
-  grid-template-columns: 3.2em 1fr auto auto;
+  grid-template-columns: 3.2em 1fr auto auto auto auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding: 0.55rem 0;
@@ -1082,13 +1151,30 @@ table.faces select {
   color: var(--failure);
 }
 
+.approach-edit .buyout-toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.approach-edit .buyout-toggle input {
+  width: auto;
+}
+
+.gold-amount {
+  width: 4.5em;
+}
+
 .scenario-row .approaches > button {
   align-self: flex-start;
 }
 
 @media (max-width: 800px) {
   .scenario-row {
-    grid-template-columns: 3.2em 1fr auto;
+    grid-template-columns: 3.2em 1fr auto auto;
   }
 }
 

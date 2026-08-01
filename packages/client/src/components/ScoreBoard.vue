@@ -29,6 +29,7 @@ function playerName(family: Family): string {
           {{ family.name }}
           <small>{{ playerName(family) }}</small>
         </span>
+        <span v-if="family.gold > 0" class="gold">💰{{ family.gold }}</span>
         <span class="pts">{{ family.influence }}</span>
       </li>
     </ol>
@@ -84,5 +85,11 @@ li.winner {
   font-weight: bold;
   color: var(--gold-soft);
   font-size: 1.1rem;
+}
+
+.gold {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 </style>

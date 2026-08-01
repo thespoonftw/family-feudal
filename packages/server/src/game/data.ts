@@ -190,11 +190,11 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     { label: 'Find the source', skill: 'wit', successMessage: 'The tainted well is found and sealed before the sickness can spread further.', failureMessage: 'The source stays hidden, and the sickness spreads through another street.' },
     { label: 'Calm the terrified town', skill: 'charm', successMessage: 'Word spreads that all is in hand, and the panic in the streets subsides.', failureMessage: 'The reassurances ring hollow, and the terrified town does not calm.' },
   ] },
-  { emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. The reward for its return is generous.', location: 'general', approaches: [
+  { emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. The reward for its return is generous.', location: 'general', reward: { type: 'gold', amount: 30 }, approaches: [
     { label: 'Follow the clues', skill: 'wit', successMessage: 'The trail leads straight to the relic, tucked away exactly where reason said it would be.', failureMessage: 'The clues lead in circles, and the relic remains lost.' },
-    { label: 'Shake down the fences', skill: 'cunning', successMessage: 'A frightened fence gives up the relic without much persuading at all.', failureMessage: 'The fences close ranks, and not one of them talks.' },
+    { label: 'Shake down the fences', skill: 'cunning', successMessage: 'A frightened fence gives up the relic without much persuading at all.', failureMessage: 'The fences close ranks, and not one of them talks.', buyoutCost: 30 },
   ] },
-  { emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats over a fortune in cargo.', location: 'general', approaches: [
+  { emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats over a fortune in cargo.', location: 'general', reward: { type: 'gold', amount: 20 }, approaches: [
     { label: 'Broker a settlement', skill: 'charm', successMessage: 'Both sides shake hands, more or less satisfied, and the cargo finally moves.', failureMessage: 'Neither merchant will budge, and the settlement talks collapse.' },
     { label: 'Quietly rig the ledgers', skill: 'cunning', successMessage: 'The numbers are quietly adjusted, and the dispute resolves itself overnight.', failureMessage: 'The tampering is noticed almost immediately, and the dispute only worsens.' },
   ] },
@@ -208,7 +208,7 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     { label: 'Judge the contests fairly', skill: 'wit', successMessage: 'Every ruling is sound, and the town trusts the judgment completely.', failureMessage: 'A disputed ruling sours the contests, and the town grumbles for days.' },
   ] },
   { emoji: '🕯️', title: 'Whispers of Treason', description: 'A plot brews in the back rooms of {town}.', location: 'general', approaches: [
-    { label: 'Turn their spy', skill: 'cunning', successMessage: 'The spy switches sides quietly, and the plot is laid bare from within.', failureMessage: 'The spy plays along just long enough to vanish with the plot intact.' },
+    { label: 'Turn their spy', skill: 'cunning', successMessage: 'The spy switches sides quietly, and the plot is laid bare from within.', failureMessage: 'The spy plays along just long enough to vanish with the plot intact.', buyoutCost: 20 },
     { label: 'Kick down the door', skill: 'might', successMessage: 'The plotters are caught mid-scheme, with nowhere left to run.', failureMessage: 'The room is empty by the time the door gives way — someone was warned.' },
   ] },
   // Capital only
@@ -219,7 +219,7 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   ] },
   { emoji: '🏰', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', location: 'capital', approaches: [
     { label: 'Petition the crown', skill: 'wit', successMessage: "The petition is heard in full, and the crown's favour is granted.", failureMessage: "The petition is dismissed before it's even finished being read." },
-    { label: 'Bribe the chamberlain', skill: 'cunning', successMessage: 'A quiet exchange in the antechamber, and the audience goes exactly as planned.', failureMessage: 'The chamberlain pockets the bribe and does nothing whatsoever in return.' },
+    { label: 'Bribe the chamberlain', skill: 'cunning', successMessage: 'A quiet exchange in the antechamber, and the audience goes exactly as planned.', failureMessage: 'The chamberlain pockets the bribe and does nothing whatsoever in return.', buyoutCost: 20 },
   ] },
   { emoji: '🥂', title: "Queen's Gala", description: 'The Queen hosts a resplendent gala at {town}.', location: 'capital', approaches: [
     { label: 'Charm the court', skill: 'charm', successMessage: 'The court is thoroughly charmed, and word of it reaches the Queen herself.', failureMessage: 'The court remains politely, resolutely unimpressed.' },
@@ -234,9 +234,9 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     { label: 'Host with flair', skill: 'charm', successMessage: 'The household still talks about the feast weeks later.', failureMessage: 'The feast is passable at best, and the household says little about it.' },
     { label: 'Seat the rivals apart', skill: 'wit', successMessage: 'Careful seating keeps the peace, and the evening passes without incident.', failureMessage: 'The seating plan fails, and old rivals end up trading words across the table.' },
   ] },
-  { emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray — and the tax collector is due.', location: 'home', approaches: [
+  { emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray — and the tax collector is due.', location: 'home', reward: { type: 'gold', amount: 20 }, approaches: [
     { label: 'Balance the books', skill: 'wit', successMessage: 'Every column adds up, and the tax collector finds nothing to complain about.', failureMessage: 'The numbers refuse to balance, no matter how many times they are checked.' },
-    { label: 'Cook the books', skill: 'cunning', successMessage: 'The figures are quietly rewritten, and the collector is none the wiser.', failureMessage: "The forgery is clumsy, and the collector's eyebrow stays raised the whole visit." },
+    { label: 'Cook the books', skill: 'cunning', successMessage: 'The figures are quietly rewritten, and the collector is none the wiser.', failureMessage: "The forgery is clumsy, and the collector's eyebrow stays raised the whole visit.", buyoutCost: 20 },
   ] },
   { emoji: '🪨', title: 'Tenant Dispute', description: 'Two tenant farmers at {town} quarrel over a boundary stone.', location: 'home', approaches: [
     { label: 'Hear both farmers out', skill: 'charm', successMessage: 'Both farmers leave satisfied, and the boundary stone is forgotten.', failureMessage: 'Neither farmer feels heard, and the quarrel continues as loud as ever.' },

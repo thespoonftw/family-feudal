@@ -27,7 +27,23 @@ export interface Family {
   homeTownId: string
   members: FamilyMember[]
   influence: number
+  /** spendable gold, earned from gold-reward scenarios and spent buying out approach rolls */
+  gold: number
 }
+
+// ---------- Gold ----------
+
+/** gold amounts are always multiples of this */
+export const GOLD_STEP = 10
+
+/** inclusive bounds for a scenario's gold reward */
+export const GOLD_REWARD_BOUNDS: [number, number] = [10, 100]
+
+/** inclusive bounds for an approach's buyout cost */
+export const BUYOUT_COST_BOUNDS: [number, number] = [10, 50]
+
+/** what a scenario pays out on success — 1 Influence unless designed to pay gold instead */
+export type ScenarioReward = { type: 'influence' } | { type: 'gold'; amount: number }
 
 export interface Town {
   id: string
@@ -49,6 +65,8 @@ export interface ScenarioApproach {
   successMessage: string
   /** flavour text shown on the results screen when this approach fails the check */
   failureMessage: string
+  /** if set, gold cost to skip the skill roll — the check instead uses the buyout bonus */
+  buyoutCost?: number
 }
 
 export interface Scenario {
@@ -62,6 +80,8 @@ export interface Scenario {
   approaches: ScenarioApproach[]
   /** set when this is a home scenario belonging to one family */
   homeFamilyId?: string
+  /** what success at this scenario pays out — defaults to 1 Influence when absent */
+  reward?: ScenarioReward
 }
 
 export interface Player {
@@ -76,8 +96,16 @@ export interface Player {
 /** memberId -> scenarioId (members absent from the map stay idle at home) */
 export type Assignments = Record<string, string>
 
-/** scenarioId -> index into that scenario's approaches (unchosen assignments default to 0) */
-export type ApproachChoices = Record<string, number>
+/** a family's decision at one scenario during the approach phase */
+export interface ApproachChoice {
+  /** index into that scenario's approaches */
+  approachIndex: number
+  /** paid gold to skip the skill roll — the check uses the buyout bonus instead */
+  boughtOut: boolean
+}
+
+/** scenarioId -> choice (unchosen assignments default to approach 0, not bought out) */
+export type ApproachChoices = Record<string, ApproachChoice>
 
 export interface ScenarioOutcome {
   scenarioId: string
@@ -85,13 +113,17 @@ export interface ScenarioOutcome {
   memberIds: string[]
   /** which of the scenario's approaches the family took */
   approachIndex: number
+  /** true if gold was paid to skip the skill roll (skillTotal is the buyout bonus, not a skill sum) */
+  boughtOut: boolean
   skillTotal: number
   roll: number
   total: number
   /** met the DC — but a rival with a higher total can still take the prize */
   success: boolean
-  /** 1 for the highest successful total(s) at the scenario, else 0 */
+  /** 1 for the highest successful total(s) at the scenario, else 0 — mutually exclusive with goldGained */
   influenceGained: number
+  /** gold gained if this was the highest passing total at a gold-reward scenario */
+  goldGained: number
 }
 
 export interface RoundResult {
@@ -126,6 +158,8 @@ export interface GameView {
   winnerFamilyIds: string[] | null
   /** per-face success/failure portrait overrides, for the resolution screen */
   faceOutcomes: FaceOutcomeMap
+  /** flat total used instead of a skill roll when a family buys out an approach */
+  buyoutBonus: number
 }
 
 // ---------- Global game configuration (dev panel) ----------
@@ -140,6 +174,8 @@ export interface GameConfig {
   checkDC: number
   /** maximum players per room */
   maxPlayers: number
+  /** flat total used instead of a skill roll when a family pays to buy out an approach */
+  buyoutBonus: number
 }
 
 // ---------- Editable game content (dev panel) ----------
@@ -343,9 +379,11 @@ export interface ApproachDesign {
   successMessage: string
   /** flavour text shown on the results screen when this approach fails the check */
   failureMessage: string
+  /** if set, gold cost to skip the skill roll — the check instead uses the buyout bonus */
+  buyoutCost?: number
 }
 
-/** a scenario template; every scenario rewards 1 Influence on success */
+/** a scenario template; rewards 1 Influence on success unless designed to pay gold instead */
 export interface ScenarioDesign {
   /** flavour emoji shown on the map — should hint at the story, not the skills */
   emoji: string
@@ -355,6 +393,8 @@ export interface ScenarioDesign {
   /** 2–3 approaches players can pick between */
   approaches: ApproachDesign[]
   location: ScenarioLocation
+  /** what success pays out — defaults to 1 Influence when absent */
+  reward?: ScenarioReward
 }
 
 // ---------- Face outcome overrides (dev panel) ----------

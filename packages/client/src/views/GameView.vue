@@ -230,12 +230,30 @@ const yourDeployments = computed<{ scenario: Scenario; member: FamilyMember }[]>
 })
 
 function chosenIndex(scenarioId: string): number | null {
-  return view.value?.yourChoices[scenarioId] ?? null
+  return view.value?.yourChoices[scenarioId]?.approachIndex ?? null
+}
+
+function chosenBoughtOut(scenarioId: string): boolean {
+  return view.value?.yourChoices[scenarioId]?.boughtOut ?? false
 }
 
 const allChosen = computed(() =>
   yourDeployments.value.every((d) => chosenIndex(d.scenario.id) !== null),
 )
+
+/** gold committed to buyouts already picked this round, not yet deducted until resolution */
+const pendingGoldSpend = computed(() => {
+  if (!view.value) return 0
+  let total = 0
+  for (const d of yourDeployments.value) {
+    const choice = view.value.yourChoices[d.scenario.id]
+    if (!choice?.boughtOut) continue
+    total += d.scenario.approaches[choice.approachIndex]?.buyoutCost ?? 0
+  }
+  return total
+})
+
+const remainingGold = computed(() => (game.yourFamily?.gold ?? 0) - pendingGoldSpend.value)
 
 /** decisions are made one card at a time; past the last card is the summary */
 const choiceIndex = ref(0)
@@ -299,9 +317,9 @@ watch(
   { immediate: true },
 )
 
-async function pickApproach(scenarioId: string, index: number) {
+async function pickApproach(scenarioId: string, index: number, boughtOut = false) {
   if (!view.value) return
-  const next = { ...view.value.yourChoices, [scenarioId]: index }
+  const next = { ...view.value.yourChoices, [scenarioId]: { approachIndex: index, boughtOut } }
   const err = await game.choose(next)
   actionError.value = err ?? ''
   if (err) return
@@ -318,7 +336,8 @@ function chosenLabel(scenarioId: string): string {
   const index = chosenIndex(scenarioId)
   if (index === null) return '—'
   const scenario = view.value?.scenarios.find((s) => s.id === scenarioId)
-  return scenario?.approaches[index]?.label ?? '—'
+  const label = scenario?.approaches[index]?.label ?? '—'
+  return chosenBoughtOut(scenarioId) ? `${label} (paid)` : label
 }
 
 async function onNextRound() {
@@ -382,10 +401,11 @@ function outcomeMessage(o: ScenarioOutcome): string {
 
 /** won the scenario / passed but beaten by a rival / failed the check outright */
 function verdictClass(o: ScenarioOutcome): string {
-  return o.influenceGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
+  return o.influenceGained > 0 || o.goldGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
 }
 
 function verdictText(o: ScenarioOutcome): string {
+  if (o.goldGained > 0) return `Success! +${o.goldGained}g`
   if (o.influenceGained > 0) return `Success! +${o.influenceGained}`
   if (o.success) return 'Outdone!'
   return 'Failure'
@@ -589,6 +609,7 @@ const winnerNames = computed(() => {
             <p class="progress hint">
               Round {{ view.round }} · decision {{ choiceIndex + 1 }} of
               {{ yourDeployments.length }}
+              <span class="gold-pill">💰 {{ remainingGold }}g</span>
             </p>
             <h3>{{ currentDeployment.scenario.emoji }} {{ currentDeployment.scenario.title }}</h3>
             <p class="hint">
@@ -624,21 +645,33 @@ const winnerNames = computed(() => {
               </span>
             </p>
             <div class="approach-options">
-              <button
-                v-for="(a, i) in currentDeployment.scenario.approaches"
-                :key="i"
-                class="approach-btn"
-                :class="{ secondary: chosenIndex(currentDeployment.scenario.id) !== i }"
-                @click="pickApproach(currentDeployment.scenario.id, i)"
-              >
-                {{ a.label }}
-              </button>
+              <div v-for="(a, i) in currentDeployment.scenario.approaches" :key="i" class="approach-option">
+                <button
+                  class="approach-btn"
+                  :class="{ secondary: !(chosenIndex(currentDeployment.scenario.id) === i && !chosenBoughtOut(currentDeployment.scenario.id)) }"
+                  @click="pickApproach(currentDeployment.scenario.id, i, false)"
+                >
+                  {{ a.label }}
+                </button>
+                <button
+                  v-if="a.buyoutCost"
+                  class="approach-btn buyout-btn"
+                  :class="{ secondary: !(chosenIndex(currentDeployment.scenario.id) === i && chosenBoughtOut(currentDeployment.scenario.id)) }"
+                  :disabled="remainingGold < a.buyoutCost && !(chosenIndex(currentDeployment.scenario.id) === i && chosenBoughtOut(currentDeployment.scenario.id))"
+                  @click="pickApproach(currentDeployment.scenario.id, i, true)"
+                >
+                  💰 Pay {{ a.buyoutCost }}g — guarantee +{{ view.buyoutBonus }}
+                </button>
+              </div>
             </div>
           </div>
 
           <!-- all decided (or nothing deployed): summary -->
           <div v-else key="summary" class="card choice-card">
             <h3>{{ yourDeployments.length > 0 ? 'The plans are laid' : 'A quiet round' }}</h3>
+            <p v-if="yourDeployments.length > 0" class="hint">
+              <span class="gold-pill">💰 {{ remainingGold }}g</span>
+            </p>
             <p v-if="yourDeployments.length === 0" class="hint">
               You sent no one out this round. The other houses are still deciding…
             </p>
@@ -686,14 +719,16 @@ const winnerNames = computed(() => {
                   :size="96"
                 />
                 <span class="verdict">{{ verdictText(o) }}</span>
-                <span class="math">{{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}</span>
+                <span class="math">
+                  {{ o.boughtOut ? `💰${o.skillTotal}` : o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}
+                </span>
               </div>
               <div class="outcome-body">
                 <span class="who">
                   <strong>{{ outcomeMemberNames(o) }}</strong>
                   <small>
                     {{ outcomeScenario(o)?.emoji }} {{ outcomeScenario(o)?.title }} —
-                    “{{ approachLabel(o) }}”
+                    “{{ approachLabel(o) }}”{{ o.boughtOut ? ' (paid)' : '' }}
                   </small>
                 </span>
                 <p v-if="outcomeMessage(o)" class="outcome-message">{{ outcomeMessage(o) }}</p>
@@ -1144,16 +1179,43 @@ button.small {
   color: var(--text-dim);
 }
 
+.gold-pill {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--gold);
+  color: var(--gold-soft);
+  font-weight: bold;
+  white-space: nowrap;
+}
+
 .approach-options {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.7rem;
   margin-top: 0.3rem;
+}
+
+.approach-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .approach-btn {
   width: 100%;
   text-align: left;
+}
+
+.buyout-btn {
+  font-size: 0.9em;
+  border-color: var(--gold);
+}
+
+.buyout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .summary-row {

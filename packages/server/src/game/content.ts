@@ -15,6 +15,7 @@ import type {
   MemberDesign,
   ScenarioDesign,
   ScenarioLocation,
+  ScenarioReward,
   SkillKey,
   Town,
 } from '@family-feudal/shared'
@@ -25,6 +26,9 @@ import {
   APPEARANCE_HAIR_COLORS,
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
+  BUYOUT_COST_BOUNDS,
+  GOLD_REWARD_BOUNDS,
+  GOLD_STEP,
   MEMBER_SKILL_BOUNDS,
   MEMBERS_PER_HOUSE,
   SKILLS,
@@ -167,6 +171,22 @@ function sanitizeHouse(raw: unknown, index: number): HouseDesign | string {
   return { name, color: color.toLowerCase(), cityName, members }
 }
 
+/** validates a gold amount, rounding to the nearest step; undefined/null input is valid and returns undefined */
+function sanitizeGoldAmount(
+  raw: unknown,
+  bounds: [number, number],
+  where: string,
+): number | undefined | string {
+  if (raw === undefined || raw === null) return undefined
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return `${where}: gold amount must be a number`
+  const [min, max] = bounds
+  const rounded = Math.round(raw / GOLD_STEP) * GOLD_STEP
+  if (rounded < min || rounded > max) {
+    return `${where}: gold amount must be ${min}–${max}, in multiples of ${GOLD_STEP}`
+  }
+  return rounded
+}
+
 function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): ApproachDesign | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const where = `${scenarioLabel}, approach ${index + 1}`
@@ -178,8 +198,29 @@ function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): A
   if (!successMessage) return `${where}: success message must be 1–200 characters`
   const failureMessage = cleanString(obj['failureMessage'], 200)
   if (!failureMessage) return `${where}: failure message must be 1–200 characters`
+  const buyoutCost = sanitizeGoldAmount(obj['buyoutCost'], BUYOUT_COST_BOUNDS, `${where} buyout cost`)
+  if (typeof buyoutCost === 'string') return buyoutCost
   // a legacy per-approach `difficulty` is simply ignored (checks now roll against the DC)
-  return { label, skill: skill as SkillKey, successMessage, failureMessage }
+  return {
+    label,
+    skill: skill as SkillKey,
+    successMessage,
+    failureMessage,
+    ...(buyoutCost !== undefined ? { buyoutCost } : {}),
+  }
+}
+
+function sanitizeReward(raw: unknown, where: string): ScenarioReward | string {
+  const obj = (raw ?? {}) as Record<string, unknown>
+  const type = obj['type']
+  if (type === undefined || type === 'influence') return { type: 'influence' }
+  if (type === 'gold') {
+    const amount = sanitizeGoldAmount(obj['amount'], GOLD_REWARD_BOUNDS, where)
+    if (typeof amount === 'string') return amount
+    if (amount === undefined) return `${where}: gold amount is required`
+    return { type: 'gold', amount }
+  }
+  return `${where}: unknown reward type`
 }
 
 function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string {
@@ -203,12 +244,15 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
     if (typeof result === 'string') return result
     cleanApproaches.push(result)
   }
+  const reward = sanitizeReward(obj['reward'], `${label} reward`)
+  if (typeof reward === 'string') return reward
   return {
     emoji,
     title,
     description,
     approaches: cleanApproaches,
     location: location as ScenarioLocation,
+    reward,
   }
 }
 
