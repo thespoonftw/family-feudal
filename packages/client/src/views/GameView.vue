@@ -120,7 +120,38 @@ const MAIN_GAP_REM = 0.5
 const MAIN_PADDING_REM = 0.5 * 2
 const LIST_GAP_REM = 0.35
 
-function recalcUiScale() {
+/** must track `.agent`'s and `.agents-bar`'s authored horizontal padding/gap below */
+const AGENT_PADDING_X_REM = 0.2 * 2
+const AGENTS_BAR_GAP_REM = 0.5
+const AGENTS_BAR_PADDING_X_REM = 0.4 * 2
+/** the narrowest a scenario card's text column can get before it's unreadable */
+const MIN_TEXT_COLUMN_PX = 80
+
+/** on a tall, narrow phone the height budget alone would zoom in far enough to overflow
+ *  the (comparatively tight) width — cap zoom so the fixed-width avatar row (which can't
+ *  shrink, unlike scenario text) and a legible card text column both still fit horizontally.
+ *  agents-bar stretches to the same true (un-zoomed) width as the rest of the screen, so its
+ *  offsetWidth doubles as that width budget regardless of the currently-applied zoom */
+function widthCeiling(rootPx: number): number {
+  const bar = agentsBarEl.value
+  const trueWidth = bar?.offsetWidth ?? 0
+  if (!bar || !(trueWidth > 0)) return Infinity
+  const memberCount = bar.children.length || 1
+
+  const agentsRowNatural =
+    memberCount * (AVATAR_SIZE + AGENT_PADDING_X_REM * rootPx) +
+    (memberCount - 1) * AGENTS_BAR_GAP_REM * rootPx +
+    AGENTS_BAR_PADDING_X_REM * rootPx
+  const slotRowNatural = AVATAR_SIZE + MIN_TEXT_COLUMN_PX
+
+  return Math.min(trueWidth / agentsRowNatural, trueWidth / slotRowNatural)
+}
+
+/** re-measures for a few frames after applying a new scale, since text reflow at the new
+ *  size (more/fewer wrapped lines) can shift the natural card height the first pass assumed */
+const MAX_RECALC_PASSES = 4
+
+function recalcUiScale(pass = 0) {
   const game = gameEl.value
   const header = headerEl.value
   const list = scenarioListEl.value
@@ -140,8 +171,12 @@ function recalcUiScale() {
     (TARGET_VISIBLE_CARDS - 1) * LIST_GAP_REM * rootPx
 
   if (!(naturalTotal > 0) || !(game.clientHeight > 0)) return
-  const next = game.clientHeight / naturalTotal
-  uiScale.value = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, next))
+  const heightTarget = game.clientHeight / naturalTotal
+  const next = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, Math.min(heightTarget, widthCeiling(rootPx))))
+
+  const changed = Math.abs(next - uiScale.value) > 0.01
+  uiScale.value = next
+  if (changed && pass < MAX_RECALC_PASSES) requestAnimationFrame(() => recalcUiScale(pass + 1))
 }
 
 let uiScaleObserver: ResizeObserver | null = null
