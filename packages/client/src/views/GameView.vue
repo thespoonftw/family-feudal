@@ -19,6 +19,13 @@ const game = useGameStore()
 const actionError = ref('')
 const menuOpen = ref(false)
 
+const DEBUG_KEY = 'family-feudal-debug'
+const debugMode = ref(localStorage.getItem(DEBUG_KEY) === '1')
+function toggleDebug() {
+  debugMode.value = !debugMode.value
+  localStorage.setItem(DEBUG_KEY, debugMode.value ? '1' : '0')
+}
+
 const SKILL_ICONS: Record<SkillKey, string> = {
   might: '⚔️',
   charm: '🌹',
@@ -97,6 +104,9 @@ const planningEl = ref<HTMLElement | null>(null)
 const uiScale = ref(1)
 const headerZoom = computed(() => (view.value?.phase === 'planning' ? uiScale.value : 1))
 
+/** raw inputs behind the last uiScale calculation, for the debug overlay */
+const debugMetrics = ref({ height: 0, width: 0 })
+
 const UI_SCALE_MIN = 0.6
 const UI_SCALE_MAX = 1.5
 
@@ -118,6 +128,7 @@ function recalcUiScale() {
   const rawScale = heightScale > 1 ? Math.min(heightScale, widthScale) : heightScale
 
   uiScale.value = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, rawScale))
+  debugMetrics.value = { height: game.clientHeight, width: game.clientWidth }
 }
 
 let uiScaleObserver: ResizeObserver | null = null
@@ -427,10 +438,17 @@ const winnerNames = computed(() => {
             ✕
           </button>
           <div class="menu-title">Family Feudal</div>
+          <button class="secondary small" @click="toggleDebug">
+            Debug info: {{ debugMode ? 'On' : 'Off' }}
+          </button>
           <button class="secondary small" @click="onLeave">Leave game</button>
         </div>
       </div>
     </header>
+
+    <div v-if="debugMode" class="debug-overlay">
+      zoom {{ uiScale.toFixed(2) }} · {{ Math.round(debugMetrics.width) }}×{{ Math.round(debugMetrics.height) }}
+    </div>
 
     <p v-if="actionError" class="error bar">{{ actionError }}</p>
 
@@ -794,6 +812,21 @@ header {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
+}
+
+.debug-overlay {
+  position: fixed;
+  top: 0.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: none;
+  background: rgba(10, 7, 3, 0.75);
+  color: #fff;
+  font-size: 0.7rem;
+  font-family: monospace;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
 }
 
 .menu-title {
