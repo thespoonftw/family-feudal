@@ -10,6 +10,7 @@ import type {
   FaceOutcomeDesign,
   FaceOutcomeMap,
   GameContent,
+  GoldTier,
   HouseDesign,
   MemberAppearance,
   MemberDesign,
@@ -26,8 +27,6 @@ import {
   APPEARANCE_HAIR_COLORS,
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
-  BUYOUT_COST_BOUNDS,
-  GOLD_STEP,
   MEMBER_SKILL_BOUNDS,
   MEMBERS_PER_HOUSE,
   REWARD_TIERS,
@@ -171,25 +170,15 @@ function sanitizeHouse(raw: unknown, index: number): HouseDesign | string {
   return { name, color: color.toLowerCase(), cityName, members }
 }
 
-/** validates a gold amount, rounding to the nearest step; undefined/null input is valid and returns undefined */
-function sanitizeGoldAmount(
-  raw: unknown,
-  bounds: [number, number],
-  where: string,
-): number | undefined | string {
-  if (raw === undefined || raw === null) return undefined
-  if (typeof raw !== 'number' || !Number.isFinite(raw)) return `${where}: gold amount must be a number`
-  const [min, max] = bounds
-  const rounded = Math.round(raw / GOLD_STEP) * GOLD_STEP
-  if (rounded < min || rounded > max) {
-    return `${where}: gold amount must be ${min}–${max}, in multiples of ${GOLD_STEP}`
-  }
-  return rounded
-}
-
 /** parses a reward/consequence tier value, or null if not one of the known tiers */
 function parseTier(raw: unknown): RewardTier | null {
   return typeof raw === 'string' && (REWARD_TIERS as readonly string[]).includes(raw) ? (raw as RewardTier) : null
+}
+
+/** parses a buyout tier value (small/medium/large only — 'none' isn't a valid buyout), or null */
+function parseGoldTier(raw: unknown): GoldTier | null {
+  const tier = parseTier(raw)
+  return tier && tier !== 'none' ? tier : null
 }
 
 function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): ApproachDesign | string {
@@ -210,12 +199,12 @@ function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): A
   const failureGold = parseTier(obj['failureGold'])
   if (!failureGold) return `${where}: unknown failure gold tier`
   const failureInjury = obj['failureInjury'] === true
-  const buyoutCost = sanitizeGoldAmount(obj['buyoutCost'], BUYOUT_COST_BOUNDS, `${where} buyout cost`)
-  if (typeof buyoutCost === 'string') return buyoutCost
   const tiers = { successInfluence, successGold, failureInfluence, failureGold, failureInjury }
   // a buyout approach stands alone — no skill behind it, just the flat buyout bonus
-  if (buyoutCost !== undefined) {
-    return { label, successMessage, failureMessage, buyoutCost, ...tiers }
+  if (obj['buyoutTier'] !== undefined) {
+    const buyoutTier = parseGoldTier(obj['buyoutTier'])
+    if (!buyoutTier) return `${where}: unknown buyout tier`
+    return { label, successMessage, failureMessage, buyoutTier, ...tiers }
   }
   const skill = obj['skill']
   if (!SKILLS.includes(skill as SkillKey)) return `${where}: unknown skill`
@@ -355,6 +344,17 @@ function tierFromGoldAmount(amount: unknown): RewardTier {
   return 'large'
 }
 
+/** migration helper: upgrade an approach's flat numeric `buyoutCost` to a `buyoutTier`,
+ *  bucketed the same way as legacy reward gold. Already-tiered (or non-buyout) approaches
+ *  pass through untouched. */
+function migrateApproachBuyout(approach: Record<string, unknown>): Record<string, unknown> {
+  if (typeof approach['buyoutTier'] === 'string') return approach
+  if (typeof approach['buyoutCost'] !== 'number') return approach
+  const { buyoutCost, ...rest } = approach
+  const tier = tierFromGoldAmount(buyoutCost)
+  return { ...rest, buyoutTier: tier === 'none' ? 'small' : tier }
+}
+
 /**
  * migration helper: derive an approach's success tiers from the scenario's old
  * `rewards`/`reward` (whichever this approach's legacy `rewardIndex` pointed at, default
@@ -390,7 +390,8 @@ function tiersFromLegacyReward(rewards: unknown[], rewardIndexRaw: unknown) {
  * `rewards`/`reward` list, named per approach by `rewardIndex`, becomes per-approach
  * success/failure Influence+gold tiers plus an injury flag — see
  * {@link tiersFromLegacyReward}; approaches already carrying valid tiers pass through
- * untouched).
+ * untouched), and the pre-buyout-tier format (an approach's flat numeric `buyoutCost`
+ * becomes a `buyoutTier`, bucketed via {@link migrateApproachBuyout}).
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
@@ -421,11 +422,11 @@ function migrateContent(raw: unknown): unknown {
       ...sc,
       rewards: undefined,
       approaches: sc['approaches'].map((a) => {
-        const approach = (a ?? {}) as Record<string, unknown>
-        // a buyout approach (persisted with a buyoutCost) has no skill to remap — the
+        const approach = migrateApproachBuyout((a ?? {}) as Record<string, unknown>)
+        // a buyout approach (persisted with a buyoutTier) has no skill to remap — the
         // old {approachIndex, boughtOut} choice shape used to bolt a buyout onto a
         // skill approach, but a buyout approach now stands alone
-        const hasBuyout = typeof approach['buyoutCost'] === 'number'
+        const hasBuyout = typeof approach['buyoutTier'] === 'string'
         const alreadyTiered = (REWARD_TIERS as readonly string[]).includes(approach['successInfluence'] as string)
         return {
           ...approach,

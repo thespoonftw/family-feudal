@@ -27,8 +27,7 @@ import {
   APPEARANCE_HAIR_COLORS,
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
-  BUYOUT_COST_BOUNDS,
-  GOLD_STEP,
+  GOLD_TIERS,
   MEMBER_SKILL_BOUNDS,
   REWARD_TIER_LABELS,
   REWARD_TIERS,
@@ -55,6 +54,12 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
   { key: 'maxPlayers', label: 'Max players per room', hint: 'Limited by the number of family presets' },
   { key: 'buyoutBonus', label: 'Buyout bonus', hint: 'Flat total used instead of a skill roll when a family pays gold to buy out an approach (still + d6 vs the DC)' },
   { key: 'startingGold', label: 'Starting gold', hint: 'Gold every family has at the start of the game' },
+  { key: 'goldSmallMin', label: 'Small gold — min', hint: 'Lower bound of gold rolled for a Small tier (rewards, consequences, and gold buyouts)' },
+  { key: 'goldSmallMax', label: 'Small gold — max', hint: 'Upper bound of gold rolled for a Small tier' },
+  { key: 'goldMediumMin', label: 'Medium gold — min', hint: 'Lower bound of gold rolled for a Medium tier' },
+  { key: 'goldMediumMax', label: 'Medium gold — max', hint: 'Upper bound of gold rolled for a Medium tier' },
+  { key: 'goldLargeMin', label: 'Large gold — min', hint: 'Lower bound of gold rolled for a Large tier' },
+  { key: 'goldLargeMax', label: 'Large gold — max', hint: 'Upper bound of gold rolled for a Large tier' },
 ]
 
 const configData = ref<ConfigResponse | null>(null)
@@ -162,15 +167,15 @@ function addScenario() {
 /** a buyout approach has no skill — it stands as its own choice, paying gold for a flat
  *  bonus instead of rolling a skill */
 function approachKind(a: ApproachDesign): 'skill' | 'buyout' {
-  return a.buyoutCost !== undefined ? 'buyout' : 'skill'
+  return a.buyoutTier !== undefined ? 'buyout' : 'skill'
 }
 
 function setApproachKind(a: ApproachDesign, kind: 'skill' | 'buyout') {
   if (kind === 'buyout') {
     delete a.skill
-    if (a.buyoutCost === undefined) a.buyoutCost = 20
+    if (a.buyoutTier === undefined) a.buyoutTier = 'small'
   } else {
-    delete a.buyoutCost
+    delete a.buyoutTier
     if (a.skill === undefined) a.skill = 'might'
   }
 }
@@ -438,8 +443,8 @@ onUnmounted(() => {
         Every scenario offers 2–4 approaches; checks roll skill + d6 against the Check DC,
         and when several houses attend, the highest passing total takes the prize (ties
         share). Each approach sets its own success reward and failure consequence — an
-        Influence tier and a gold tier for each (gold is rolled within the tier's range:
-        Small 10-30, Medium 30-60, Large 70-100; Influence is a flat 1/2/3). On success the
+        Influence tier and a gold tier for each (gold is rolled within the tier's range,
+        set per tier in the Settings tab; Influence is a flat 1/2/3). On success the
         winner gains those tiers; on an outright failed check, the family loses them
         instead (can go below 0) — a failure can also be flagged to injure the attending
         character (stored only, no effect yet). Players see the approach labels but never
@@ -447,8 +452,9 @@ onUnmounted(() => {
         the skill. Use <code>{town}</code> for the town name and <code>{actor}</code> for
         the attending character's name in success/failure messages. An approach can
         instead be a gold buyout — a standalone option with no hidden skill, shown to
-        players as its own choice, that pays gold for the "Buyout bonus" total (Settings
-        tab) + d6 instead of a skill. Applies to rounds planned after saving.
+        players as its own choice, that pays a gold tier (rolled once per round, same
+        ranges as above) for the "Buyout bonus" total (Settings tab) + d6 instead of a
+        skill. Applies to rounds planned after saving.
       </p>
       <div
         v-for="(s, i) in contentData.content.scenarios"
@@ -492,16 +498,13 @@ onUnmounted(() => {
                 {{ SKILL_LABELS[skill] }}
               </option>
             </select>
-            <input
+            <select
               v-else
-              v-model.number="a.buyoutCost"
-              type="number"
-              class="gold-amount"
-              :min="BUYOUT_COST_BOUNDS[0]"
-              :max="BUYOUT_COST_BOUNDS[1]"
-              :step="GOLD_STEP"
-              title="Gold cost to buy out this approach"
-            />
+              v-model="a.buyoutTier"
+              title="Gold cost tier to buy out this approach"
+            >
+              <option v-for="t in GOLD_TIERS" :key="t" :value="t">{{ REWARD_TIER_LABELS[t] }}</option>
+            </select>
             <button
               class="small secondary"
               title="Remove approach"

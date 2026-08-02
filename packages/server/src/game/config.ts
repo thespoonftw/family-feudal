@@ -9,6 +9,12 @@ export const DEFAULT_CONFIG: GameConfig = {
   maxPlayers: CITY_SLOTS.length,
   buyoutBonus: 4,
   startingGold: 50,
+  goldSmallMin: 10,
+  goldSmallMax: 30,
+  goldMediumMin: 30,
+  goldMediumMax: 60,
+  goldLargeMin: 70,
+  goldLargeMax: 100,
 }
 
 /** inclusive [min, max] bounds per field, used for clamping dev edits */
@@ -19,6 +25,12 @@ export const CONFIG_BOUNDS: Record<keyof GameConfig, [number, number]> = {
   maxPlayers: [1, CITY_SLOTS.length],
   buyoutBonus: [0, 10],
   startingGold: [0, 200],
+  goldSmallMin: [0, 300],
+  goldSmallMax: [0, 300],
+  goldMediumMin: [0, 300],
+  goldMediumMax: [0, 300],
+  goldLargeMin: [0, 300],
+  goldLargeMax: [0, 300],
 }
 
 // Persisted so settings survive restarts/deploys. Resolved against the server process

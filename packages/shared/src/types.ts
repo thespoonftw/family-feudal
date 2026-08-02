@@ -36,14 +36,15 @@ export interface Family {
 /** gold amounts are always multiples of this */
 export const GOLD_STEP = 10
 
-/** inclusive bounds for an approach's buyout cost */
-export const BUYOUT_COST_BOUNDS: [number, number] = [10, 50]
-
 // ---------- Reward/consequence tiers ----------
 
 /** a coarse tier picked per approach for its success reward or failure consequence */
 export const REWARD_TIERS = ['none', 'small', 'medium', 'large'] as const
 export type RewardTier = (typeof REWARD_TIERS)[number]
+
+/** a gold-bearing tier — same as RewardTier but excludes 'none', used for buyout costs */
+export type GoldTier = Exclude<RewardTier, 'none'>
+export const GOLD_TIERS: readonly GoldTier[] = ['small', 'medium', 'large']
 
 export const REWARD_TIER_LABELS: Record<RewardTier, string> = {
   none: 'None',
@@ -60,11 +61,13 @@ export const INFLUENCE_TIER_VALUES: Record<RewardTier, number> = {
   large: 3,
 }
 
-/** inclusive gold bounds rolled for each non-none tier, granted (success) or lost (failure) */
-export const GOLD_TIER_BOUNDS: Record<Exclude<RewardTier, 'none'>, [number, number]> = {
-  small: [10, 30],
-  medium: [30, 60],
-  large: [70, 100],
+/** derives each gold tier's inclusive roll bounds from the dev-configurable ranges */
+export function goldTierBounds(config: GameConfig): Record<GoldTier, [number, number]> {
+  return {
+    small: [config.goldSmallMin, config.goldSmallMax],
+    medium: [config.goldMediumMin, config.goldMediumMax],
+    large: [config.goldLargeMin, config.goldLargeMax],
+  }
 }
 
 export interface Town {
@@ -80,7 +83,9 @@ export interface Town {
 
 /** one way of tackling a scenario — the label is public, the skill behind it is not.
  *  Either `skill` is set (a normal roll) or `buyoutCost` is set (a standalone approach
- *  that pays gold for a flat bonus instead of a skill roll) — never both. */
+ *  that pays gold for a flat bonus instead of a skill roll) — never both. `buyoutCost`
+ *  here is the actual gold amount, rolled once from the design's buyout tier when the
+ *  scenario is instantiated for a round. */
 export interface ScenarioApproach {
   /** short verb phrase shown to players when choosing, e.g. "Storm the gates" */
   label: string
@@ -205,6 +210,15 @@ export interface GameConfig {
   buyoutBonus: number
   /** gold every family starts the game with */
   startingGold: number
+  /** inclusive gold range rolled for a Small tier (rewards, consequences, and buyouts) */
+  goldSmallMin: number
+  goldSmallMax: number
+  /** inclusive gold range rolled for a Medium tier */
+  goldMediumMin: number
+  goldMediumMax: number
+  /** inclusive gold range rolled for a Large tier */
+  goldLargeMin: number
+  goldLargeMax: number
 }
 
 // ---------- Editable game content (dev panel) ----------
@@ -399,7 +413,7 @@ export interface HouseDesign {
 }
 
 /** one designed way of tackling a scenario. Either `skill` is set (a normal roll) or
- *  `buyoutCost` is set (a standalone approach that pays gold for a flat bonus instead
+ *  `buyoutTier` is set (a standalone approach that pays gold for a flat bonus instead
  *  of a skill roll) — never both. */
 export interface ApproachDesign {
   /** short verb phrase shown to players when choosing, e.g. "Storm the gates" */
@@ -410,8 +424,9 @@ export interface ApproachDesign {
   successMessage: string
   /** flavour text shown on the results screen when this approach fails the check. {actor} is replaced with the attending member's name */
   failureMessage: string
-  /** if set, this approach pays gold for a flat bonus instead of rolling a skill */
-  buyoutCost?: number
+  /** if set, this approach pays gold for a flat bonus instead of rolling a skill — the
+   *  actual cost is rolled from this tier's range once per scenario instantiation */
+  buyoutTier?: GoldTier
   /** Influence tier granted to the winner(s) of this approach on success */
   successInfluence: RewardTier
   /** gold tier granted to the winner(s) of this approach on success (rolled within the tier's band) */

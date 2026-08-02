@@ -6,6 +6,7 @@ import type {
   FamilyMember,
   GamePhase,
   GameView,
+  GoldTier,
   Player,
   RewardTier,
   RoundResult,
@@ -16,7 +17,7 @@ import type {
   SkillKey,
   Town,
 } from '@family-feudal/shared'
-import { GOLD_STEP, GOLD_TIER_BOUNDS, INFLUENCE_TIER_VALUES } from '@family-feudal/shared'
+import { GOLD_STEP, goldTierBounds, INFLUENCE_TIER_VALUES } from '@family-feudal/shared'
 import { CAPITAL_ID } from './data.js'
 import { buildPresets, buildTowns, getContent, type FamilyPreset } from './content.js'
 import { getConfig } from './config.js'
@@ -47,10 +48,10 @@ function randomInt(min: number, max: number): number {
 }
 
 /** Roll a random gold amount within a reward tier's band, rounded to the nearest GOLD_STEP. */
-function rollGoldTier(tier: RewardTier): number {
+function rollGoldTier(tier: RewardTier, bounds: Record<GoldTier, [number, number]>): number {
   if (tier === 'none') return 0
-  const [min, max] = GOLD_TIER_BOUNDS[tier]
-  const amount = randomInt(min, max)
+  const [min, max] = bounds[tier]
+  const amount = randomInt(Math.min(min, max), Math.max(min, max))
   return Math.round(amount / GOLD_STEP) * GOLD_STEP
 }
 
@@ -164,10 +165,11 @@ function pickScenarios(room: Room): Scenario[] {
   const scenarios: Scenario[] = []
   // designs are read afresh each round, so scenario edits reach the next planning phase
   const designs = getContent().scenarios
+  const bounds = goldTierBounds(getConfig())
 
   // one capital scenario per round (content validation guarantees at least one)
   const capital = shuffle(designs.filter((d) => d.location === 'capital'))[0] as ScenarioDesign
-  scenarios.push(instantiate(capital, CAPITAL_ID, room.towns))
+  scenarios.push(instantiate(capital, CAPITAL_ID, room.towns, bounds))
 
   // remaining scenarios at distinct non-capital, non-home towns on this game's map
   const homeTowns = new Set(room.families.map((f) => f.homeTownId))
@@ -179,14 +181,14 @@ function pickScenarios(room: Room): Scenario[] {
   for (let i = 0; i < count; i++) {
     const design = general[i] as ScenarioDesign
     const town = eligibleTowns[i] as Town
-    scenarios.push(instantiate(design, town.id, room.towns))
+    scenarios.push(instantiate(design, town.id, room.towns, bounds))
   }
 
   // one home scenario per family, at its home town
   const homeDesigns = designs.filter((d) => d.location === 'home')
   for (const family of room.families) {
     const design = shuffle(homeDesigns)[0] as ScenarioDesign
-    const scenario = instantiate(design, family.homeTownId, room.towns)
+    const scenario = instantiate(design, family.homeTownId, room.towns, bounds)
     scenario.homeFamilyId = family.id
     scenarios.push(scenario)
   }
@@ -194,7 +196,12 @@ function pickScenarios(room: Room): Scenario[] {
   return scenarios
 }
 
-function instantiate(design: ScenarioDesign, townId: string, towns: Town[]): Scenario {
+function instantiate(
+  design: ScenarioDesign,
+  townId: string,
+  towns: Town[],
+  goldBounds: Record<GoldTier, [number, number]>,
+): Scenario {
   const town = towns.find((t) => t.id === townId)
   return {
     id: randomUUID(),
@@ -202,7 +209,13 @@ function instantiate(design: ScenarioDesign, townId: string, towns: Town[]): Sce
     title: design.title,
     description: design.description.replace('{town}', town?.name ?? 'the realm'),
     townId,
-    approaches: design.approaches.map((a) => ({ ...a })),
+    // a buyout approach's design-time tier is rolled into an actual, fixed gold cost once
+    // per instantiation — it must stay deterministic for the rest of the round, unlike
+    // reward/consequence gold which is rolled fresh at resolution
+    approaches: design.approaches.map((a) => {
+      const { buyoutTier, ...rest } = a
+      return buyoutTier ? { ...rest, buyoutCost: rollGoldTier(buyoutTier, goldBounds) } : { ...rest }
+    }),
   }
 }
 
@@ -297,6 +310,7 @@ export function setChoices(
 export function resolveRound(room: Room): void {
   const config = getConfig()
   const dc = config.checkDC
+  const bounds = goldTierBounds(config)
   const outcomes: ScenarioOutcome[] = []
   for (const scenario of room.scenarios) {
     // every attending family rolls skill + d6 against the DC (or pays gold to buy out
@@ -343,7 +357,7 @@ export function resolveRound(room: Room): void {
       const chosenApproach = scenario.approaches[contender.approachIndex] as ScenarioApproach
       if (contender.success && contender.total === best) {
         const influenceGained = INFLUENCE_TIER_VALUES[chosenApproach.successInfluence]
-        const goldGained = rollGoldTier(chosenApproach.successGold)
+        const goldGained = rollGoldTier(chosenApproach.successGold, bounds)
         contender.influenceGained = influenceGained
         contender.goldGained = goldGained
         if (family) {
@@ -352,7 +366,7 @@ export function resolveRound(room: Room): void {
         }
       } else if (!contender.success) {
         const influenceLost = INFLUENCE_TIER_VALUES[chosenApproach.failureInfluence]
-        const goldLost = rollGoldTier(chosenApproach.failureGold)
+        const goldLost = rollGoldTier(chosenApproach.failureGold, bounds)
         contender.influenceGained = -influenceLost
         contender.goldGained = -goldLost
         contender.injured = chosenApproach.failureInjury
