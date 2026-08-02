@@ -36,16 +36,35 @@ export interface Family {
 /** gold amounts are always multiples of this */
 export const GOLD_STEP = 10
 
-/** inclusive bounds for a scenario's gold reward */
-export const GOLD_REWARD_BOUNDS: [number, number] = [10, 100]
-
 /** inclusive bounds for an approach's buyout cost */
 export const BUYOUT_COST_BOUNDS: [number, number] = [10, 50]
 
-/** what a scenario pays out on success — Influence, gold, or both. At least one must be set. */
-export interface ScenarioReward {
-  influence: boolean
-  gold?: number
+// ---------- Reward/consequence tiers ----------
+
+/** a coarse tier picked per approach for its success reward or failure consequence */
+export const REWARD_TIERS = ['none', 'small', 'medium', 'large'] as const
+export type RewardTier = (typeof REWARD_TIERS)[number]
+
+export const REWARD_TIER_LABELS: Record<RewardTier, string> = {
+  none: 'None',
+  small: 'Small',
+  medium: 'Medium',
+  large: 'Large',
+}
+
+/** Influence granted (success) or lost (failure) for each tier */
+export const INFLUENCE_TIER_VALUES: Record<RewardTier, number> = {
+  none: 0,
+  small: 1,
+  medium: 2,
+  large: 3,
+}
+
+/** inclusive gold bounds rolled for each non-none tier, granted (success) or lost (failure) */
+export const GOLD_TIER_BOUNDS: Record<Exclude<RewardTier, 'none'>, [number, number]> = {
+  small: [10, 30],
+  medium: [30, 60],
+  large: [70, 100],
 }
 
 export interface Town {
@@ -72,8 +91,16 @@ export interface ScenarioApproach {
   failureMessage: string
   /** if set, this approach pays gold for a flat bonus instead of rolling a skill */
   buyoutCost?: number
-  /** index into the scenario's `rewards` list this approach pays out on success — defaults to 0 */
-  rewardIndex?: number
+  /** Influence tier granted to the winner(s) of this approach on success */
+  successInfluence: RewardTier
+  /** gold tier granted to the winner(s) of this approach on success (rolled within the tier's band) */
+  successGold: RewardTier
+  /** Influence tier lost by a family whose check on this approach fails */
+  failureInfluence: RewardTier
+  /** gold tier lost by a family whose check on this approach fails (rolled within the tier's band) */
+  failureGold: RewardTier
+  /** whether failing this approach's check also injures the attending member — stored only, no effect yet */
+  failureInjury: boolean
 }
 
 export interface Scenario {
@@ -87,9 +114,6 @@ export interface Scenario {
   approaches: ScenarioApproach[]
   /** set when this is a home scenario belonging to one family */
   homeFamilyId?: string
-  /** the possible payouts on success; each approach names one by `rewardIndex` (default 0)
-   *  — defaults to a single Influence-only reward when absent */
-  rewards?: ScenarioReward[]
 }
 
 export interface Player {
@@ -120,10 +144,13 @@ export interface ScenarioOutcome {
   total: number
   /** met the DC — but a rival with a higher total can still take the prize */
   success: boolean
-  /** 1 for the highest successful total(s) at the scenario, else 0 */
+  /** positive for the highest successful total(s) at the scenario (the approach's success tier);
+   *  negative if the check failed outright (the approach's failure tier); 0 if passed but outdone */
   influenceGained: number
-  /** gold gained if this was the highest passing total at a gold-reward scenario — can be nonzero alongside influenceGained */
+  /** gold gained/lost alongside influenceGained, same sign convention */
   goldGained: number
+  /** true if the check failed outright and the chosen approach's failure tier flags an injury */
+  injured: boolean
 }
 
 export interface RoundResult {
@@ -385,11 +412,19 @@ export interface ApproachDesign {
   failureMessage: string
   /** if set, this approach pays gold for a flat bonus instead of rolling a skill */
   buyoutCost?: number
-  /** index into the scenario's `rewards` list this approach pays out on success — defaults to 0 */
-  rewardIndex?: number
+  /** Influence tier granted to the winner(s) of this approach on success */
+  successInfluence: RewardTier
+  /** gold tier granted to the winner(s) of this approach on success (rolled within the tier's band) */
+  successGold: RewardTier
+  /** Influence tier lost by a family whose check on this approach fails */
+  failureInfluence: RewardTier
+  /** gold tier lost by a family whose check on this approach fails (rolled within the tier's band) */
+  failureGold: RewardTier
+  /** whether failing this approach's check also injures the attending member — stored only, no effect yet */
+  failureInjury: boolean
 }
 
-/** a scenario template; rewards 1 Influence on success unless designed to pay gold instead */
+/** a scenario template; each approach carries its own success reward and failure consequence tiers */
 export interface ScenarioDesign {
   /** flavour emoji shown on the map — should hint at the story, not the skills */
   emoji: string
@@ -399,9 +434,6 @@ export interface ScenarioDesign {
   /** 2–3 approaches players can pick between */
   approaches: ApproachDesign[]
   location: ScenarioLocation
-  /** the possible payouts on success; each approach names one by `rewardIndex` (default 0)
-   *  — defaults to a single Influence-only reward when absent */
-  rewards?: ScenarioReward[]
 }
 
 // ---------- Face outcome overrides (dev panel) ----------

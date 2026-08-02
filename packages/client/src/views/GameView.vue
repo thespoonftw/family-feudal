@@ -409,11 +409,17 @@ function verdictText(o: ScenarioOutcome): string {
   return 'Failure'
 }
 
-/** what was actually won at this scenario, shown under the flavour text */
+/** true if the consequence line reflects a loss (failed check with a negative tier) */
+function rewardIsLoss(o: ScenarioOutcome): boolean {
+  return o.influenceGained < 0 || o.goldGained < 0
+}
+
+/** what was actually won or lost at this scenario, shown under the flavour text */
 function rewardText(o: ScenarioOutcome): string {
   const parts: string[] = []
-  if (o.influenceGained > 0) parts.push(`+${o.influenceGained} influence`)
-  if (o.goldGained > 0) parts.push(`+${o.goldGained}g`)
+  if (o.influenceGained !== 0) parts.push(`${o.influenceGained > 0 ? '+' : ''}${o.influenceGained} influence`)
+  if (o.goldGained !== 0) parts.push(`${o.goldGained > 0 ? '+' : ''}${o.goldGained}g`)
+  if (o.injured) parts.push('Injured!')
   return parts.join(' ')
 }
 
@@ -743,7 +749,7 @@ const winnerNames = computed(() => {
                     <template v-else>{{ part.text }}</template>
                   </template>
                 </p>
-                <p v-if="rewardText(o)" class="reward-line">{{ rewardText(o) }}</p>
+                <p v-if="rewardText(o)" class="reward-line" :class="{ loss: rewardIsLoss(o) }">{{ rewardText(o) }}</p>
               </div>
             </div>
           </div>
@@ -1372,6 +1378,10 @@ button.small {
   color: var(--success);
   font-size: 0.8rem;
   font-weight: bold;
+}
+
+.mini-outcome .reward-line.loss {
+  color: var(--failure);
 }
 
 .mini-outcome .who small {

@@ -7,6 +7,7 @@ import type {
   GamePhase,
   GameView,
   Player,
+  RewardTier,
   RoundResult,
   Scenario,
   ScenarioApproach,
@@ -15,6 +16,7 @@ import type {
   SkillKey,
   Town,
 } from '@family-feudal/shared'
+import { GOLD_STEP, GOLD_TIER_BOUNDS, INFLUENCE_TIER_VALUES } from '@family-feudal/shared'
 import { CAPITAL_ID } from './data.js'
 import { buildPresets, buildTowns, getContent, type FamilyPreset } from './content.js'
 import { getConfig } from './config.js'
@@ -42,6 +44,14 @@ export interface Room {
 
 function randomInt(min: number, max: number): number {
   return min + Math.floor(Math.random() * (max - min + 1))
+}
+
+/** Roll a random gold amount within a reward tier's band, rounded to the nearest GOLD_STEP. */
+function rollGoldTier(tier: RewardTier): number {
+  if (tier === 'none') return 0
+  const [min, max] = GOLD_TIER_BOUNDS[tier]
+  const amount = randomInt(min, max)
+  return Math.round(amount / GOLD_STEP) * GOLD_STEP
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -193,7 +203,6 @@ function instantiate(design: ScenarioDesign, townId: string, towns: Town[]): Sce
     description: design.description.replace('{town}', town?.name ?? 'the realm'),
     townId,
     approaches: design.approaches.map((a) => ({ ...a })),
-    rewards: design.rewards?.length ? design.rewards.map((r) => ({ ...r })) : [{ influence: true }],
   }
 }
 
@@ -322,24 +331,34 @@ export function resolveRound(room: Room): void {
         success: total >= dc,
         influenceGained: 0,
         goldGained: 0,
+        injured: false,
       })
     }
-    // …and the highest passing total takes the prize (Influence and/or gold, as designed
-    // for this scenario); ties all score
+    // …and the highest passing total takes the prize (Influence and/or gold, per that
+    // approach's success tiers); ties all score. Anyone who fails outright instead pays
+    // that approach's failure consequence tiers (which may take them below 0).
     const best = Math.max(...contenders.filter((c) => c.success).map((c) => c.total))
     for (const contender of contenders) {
+      const family = room.families.find((f) => f.id === contender.familyId)
+      const chosenApproach = scenario.approaches[contender.approachIndex] as ScenarioApproach
       if (contender.success && contender.total === best) {
-        const family = room.families.find((f) => f.id === contender.familyId)
-        const chosenApproach = scenario.approaches[contender.approachIndex] as ScenarioApproach
-        const rewards = scenario.rewards ?? [{ influence: true }]
-        const reward = rewards[chosenApproach.rewardIndex ?? 0] ?? rewards[0] ?? { influence: true }
-        if (reward.influence) {
-          contender.influenceGained = 1
-          if (family) family.influence += 1
+        const influenceGained = INFLUENCE_TIER_VALUES[chosenApproach.successInfluence]
+        const goldGained = rollGoldTier(chosenApproach.successGold)
+        contender.influenceGained = influenceGained
+        contender.goldGained = goldGained
+        if (family) {
+          family.influence += influenceGained
+          family.gold += goldGained
         }
-        if (reward.gold) {
-          contender.goldGained = reward.gold
-          if (family) family.gold += reward.gold
+      } else if (!contender.success) {
+        const influenceLost = INFLUENCE_TIER_VALUES[chosenApproach.failureInfluence]
+        const goldLost = rollGoldTier(chosenApproach.failureGold)
+        contender.influenceGained = -influenceLost
+        contender.goldGained = -goldLost
+        contender.injured = chosenApproach.failureInjury
+        if (family) {
+          family.influence -= influenceLost
+          family.gold -= goldLost
         }
       }
       outcomes.push(contender)

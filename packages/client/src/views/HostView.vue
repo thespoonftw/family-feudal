@@ -110,6 +110,13 @@ function verdictText(o: ScenarioOutcome): string {
     return `Success! ${parts.join(' ')}`
   }
   if (o.success) return 'Outdone!'
+  if (o.influenceGained < 0 || o.goldGained < 0) {
+    const parts: string[] = []
+    if (o.influenceGained < 0) parts.push(`${o.influenceGained}`)
+    if (o.goldGained < 0) parts.push(`${o.goldGained}g`)
+    if (o.injured) parts.push('Injured!')
+    return `Failure ${parts.join(' ')}`
+  }
   return 'Failure'
 }
 

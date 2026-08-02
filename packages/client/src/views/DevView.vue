@@ -18,7 +18,6 @@ import type {
   Scenario,
   ScenarioDesign,
   ScenarioLocation,
-  ScenarioReward,
   SkillKey,
 } from '@family-feudal/shared'
 import {
@@ -29,9 +28,10 @@ import {
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
   BUYOUT_COST_BOUNDS,
-  GOLD_REWARD_BOUNDS,
   GOLD_STEP,
   MEMBER_SKILL_BOUNDS,
+  REWARD_TIER_LABELS,
+  REWARD_TIERS,
   SCENARIO_LOCATION_LABELS,
   SKILL_LABELS,
   SKILLS,
@@ -137,75 +137,26 @@ async function saveContent() {
   }
 }
 
+/** default success/failure tiers for a freshly-created approach: no consequence on failure */
+const DEFAULT_TIERS = {
+  successInfluence: 'small',
+  successGold: 'none',
+  failureInfluence: 'none',
+  failureGold: 'none',
+  failureInjury: false,
+} as const
+
 function addScenario() {
   contentData.value?.content.scenarios.push({
     emoji: '❔',
     title: 'New Scenario',
     description: 'Something is afoot at {town}.',
     approaches: [
-      { label: 'Meet it head-on', skill: 'might', successMessage: 'Success!', failureMessage: 'It comes to nothing.' },
-      { label: 'Find another way', skill: 'cunning', successMessage: 'Success!', failureMessage: 'It comes to nothing.' },
+      { label: 'Meet it head-on', skill: 'might', successMessage: 'Success!', failureMessage: 'It comes to nothing.', ...DEFAULT_TIERS },
+      { label: 'Find another way', skill: 'cunning', successMessage: 'Success!', failureMessage: 'It comes to nothing.', ...DEFAULT_TIERS },
     ],
     location: 'general',
-    rewards: [{ influence: true }],
   })
-}
-
-/** every scenario has at least one reward option; back-fills a fresh scenario in place */
-function rewards(s: ScenarioDesign): ScenarioReward[] {
-  if (!s.rewards || s.rewards.length === 0) s.rewards = [{ influence: true }]
-  return s.rewards
-}
-
-function rewardHasInfluence(r: ScenarioReward): boolean {
-  return r.influence !== false
-}
-
-function hasGoldReward(r: ScenarioReward): boolean {
-  return r.gold !== undefined
-}
-
-function toggleRewardInfluence(r: ScenarioReward, value: boolean) {
-  // a reward can't grant neither — turning influence off with no gold set forces gold on
-  if (!value && !hasGoldReward(r)) r.gold = 20
-  r.influence = value
-}
-
-function toggleGoldReward(r: ScenarioReward, value: boolean) {
-  if (value) {
-    r.gold = r.gold || 20
-  } else {
-    r.influence = true
-    delete r.gold
-  }
-}
-
-function setGoldRewardAmount(r: ScenarioReward, amount: number) {
-  r.gold = amount
-}
-
-function addReward(s: ScenarioDesign) {
-  if (rewards(s).length < 4) rewards(s).push({ influence: true })
-}
-
-function removeReward(s: ScenarioDesign, index: number) {
-  const list = rewards(s)
-  if (list.length <= 1) return
-  list.splice(index, 1)
-  // approaches pointing at the removed option fall back to the first; later options shift down
-  for (const a of s.approaches) {
-    const ri = a.rewardIndex ?? 0
-    if (ri === index) a.rewardIndex = 0
-    else if (ri > index) a.rewardIndex = ri - 1
-  }
-}
-
-/** compact "1: Influence +20g" label for a reward option's <select> entry */
-function rewardSummary(r: ScenarioReward, index: number): string {
-  const parts: string[] = []
-  if (r.influence !== false) parts.push('Influence')
-  if (r.gold !== undefined) parts.push(`+${r.gold}g`)
-  return `${index + 1}: ${parts.join(' ')}`
 }
 
 /** a buyout approach has no skill — it stands as its own choice, paying gold for a flat
@@ -235,6 +186,7 @@ function addApproach(s: ScenarioDesign) {
       skill: 'might',
       successMessage: 'Success!',
       failureMessage: 'It comes to nothing.',
+      ...DEFAULT_TIERS,
     })
   }
 }
@@ -484,24 +436,26 @@ onUnmounted(() => {
       <h2>Scenarios</h2>
       <p class="dim">
         Every scenario offers 2–4 approaches; checks roll skill + d6 against the Check DC,
-        and when several houses attend, the highest passing total takes the reward
-        (ties share). A scenario can offer several reward options below — Influence, gold,
-        or both, per option — and each approach picks which one it pays out on success
-        (defaults to the first). Players see the approach labels but never the skill behind
-        them — the wording is the only clue, so write labels that hint at the skill. Use
-        <code>{town}</code> for the town name and <code>{actor}</code> for the attending
-        character's name in success/failure messages. Each approach also has its own
-        success and failure message, shown on the results screen next to that family's
-        outcome. An approach can instead be a gold buyout — a standalone option with no
-        hidden skill, shown to players as its own choice, that pays gold for the "Buyout
-        bonus" total (Settings tab) + d6 instead of a skill. Applies to rounds planned
-        after saving.
+        and when several houses attend, the highest passing total takes the prize (ties
+        share). Each approach sets its own success reward and failure consequence — an
+        Influence tier and a gold tier for each (gold is rolled within the tier's range:
+        Small 10-30, Medium 30-60, Large 70-100; Influence is a flat 1/2/3). On success the
+        winner gains those tiers; on an outright failed check, the family loses them
+        instead (can go below 0) — a failure can also be flagged to injure the attending
+        character (stored only, no effect yet). Players see the approach labels but never
+        the skill behind them — the wording is the only clue, so write labels that hint at
+        the skill. Use <code>{town}</code> for the town name and <code>{actor}</code> for
+        the attending character's name in success/failure messages. An approach can
+        instead be a gold buyout — a standalone option with no hidden skill, shown to
+        players as its own choice, that pays gold for the "Buyout bonus" total (Settings
+        tab) + d6 instead of a skill. Applies to rounds planned after saving.
       </p>
       <div
         v-for="(s, i) in contentData.content.scenarios"
         :key="i"
         class="scenario-row"
       >
+        <span class="scenario-id" title="Scenario number">#{{ i + 1 }}</span>
         <input v-model="s.emoji" type="text" maxlength="8" class="emoji" title="Flavour emoji" />
         <input v-model="s.title" type="text" maxlength="60" class="title" placeholder="Title" />
         <select v-model="s.location" title="Where this scenario can appear">
@@ -517,49 +471,6 @@ onUnmounted(() => {
           class="description"
           placeholder="Description — {town} becomes the town name"
         />
-        <div class="rewards">
-          <div v-for="(r, ri) in rewards(s)" :key="ri" class="reward-edit">
-            <span class="reward-label">Reward {{ ri + 1 }}</span>
-            <label class="reward-toggle">
-              <input
-                type="checkbox"
-                :checked="rewardHasInfluence(r)"
-                @change="toggleRewardInfluence(r, ($event.target as HTMLInputElement).checked)"
-              />
-              Influence
-            </label>
-            <label class="reward-toggle">
-              <input
-                type="checkbox"
-                :checked="hasGoldReward(r)"
-                @change="toggleGoldReward(r, ($event.target as HTMLInputElement).checked)"
-              />
-              Gold
-            </label>
-            <input
-              v-if="hasGoldReward(r)"
-              type="number"
-              class="gold-amount"
-              :min="GOLD_REWARD_BOUNDS[0]"
-              :max="GOLD_REWARD_BOUNDS[1]"
-              :step="GOLD_STEP"
-              :value="r.gold"
-              title="Gold reward amount"
-              @change="setGoldRewardAmount(r, Number(($event.target as HTMLInputElement).value))"
-            />
-            <button
-              class="small secondary"
-              title="Remove reward option"
-              :disabled="rewards(s).length <= 1"
-              @click="removeReward(s, ri)"
-            >
-              ✕
-            </button>
-          </div>
-          <button v-if="rewards(s).length < 4" class="small secondary" @click="addReward(s)">
-            + reward option
-          </button>
-        </div>
         <div class="approaches">
           <div v-for="(a, j) in s.approaches" :key="j" class="approach-edit">
             <input
@@ -591,16 +502,6 @@ onUnmounted(() => {
               :step="GOLD_STEP"
               title="Gold cost to buy out this approach"
             />
-            <select
-              v-if="rewards(s).length > 1"
-              :value="a.rewardIndex ?? 0"
-              title="Which reward option this approach pays out on success"
-              @change="a.rewardIndex = Number(($event.target as HTMLSelectElement).value)"
-            >
-              <option v-for="(r, ri) in rewards(s)" :key="ri" :value="ri">
-                {{ rewardSummary(r, ri) }}
-              </option>
-            </select>
             <button
               class="small secondary"
               title="Remove approach"
@@ -609,20 +510,52 @@ onUnmounted(() => {
             >
               ✕
             </button>
-            <input
-              v-model="a.successMessage"
-              type="text"
-              maxlength="200"
-              class="approach-message success"
-              placeholder="Success message — {actor} becomes the character's name"
-            />
-            <input
-              v-model="a.failureMessage"
-              type="text"
-              maxlength="200"
-              class="approach-message failure"
-              placeholder="Failure message — {actor} becomes the character's name"
-            />
+            <div class="outcome-row success">
+              <input
+                v-model="a.successMessage"
+                type="text"
+                maxlength="200"
+                class="approach-message success"
+                placeholder="Success message — {actor} becomes the character's name"
+              />
+              <label class="tier-field">
+                Influence
+                <select v-model="a.successInfluence" title="Influence reward on success">
+                  <option v-for="t in REWARD_TIERS" :key="t" :value="t">{{ REWARD_TIER_LABELS[t] }}</option>
+                </select>
+              </label>
+              <label class="tier-field">
+                Gold
+                <select v-model="a.successGold" title="Gold reward on success">
+                  <option v-for="t in REWARD_TIERS" :key="t" :value="t">{{ REWARD_TIER_LABELS[t] }}</option>
+                </select>
+              </label>
+            </div>
+            <div class="outcome-row failure">
+              <input
+                v-model="a.failureMessage"
+                type="text"
+                maxlength="200"
+                class="approach-message failure"
+                placeholder="Failure message — {actor} becomes the character's name"
+              />
+              <label class="tier-field">
+                Influence
+                <select v-model="a.failureInfluence" title="Influence lost on failure">
+                  <option v-for="t in REWARD_TIERS" :key="t" :value="t">{{ REWARD_TIER_LABELS[t] }}</option>
+                </select>
+              </label>
+              <label class="tier-field">
+                Gold
+                <select v-model="a.failureGold" title="Gold lost on failure">
+                  <option v-for="t in REWARD_TIERS" :key="t" :value="t">{{ REWARD_TIER_LABELS[t] }}</option>
+                </select>
+              </label>
+              <label class="tier-field injury-field" title="Doesn't do anything yet">
+                <input type="checkbox" v-model="a.failureInjury" />
+                Injury
+              </label>
+            </div>
           </div>
           <button
             v-if="s.approaches.length < 4"
@@ -1193,11 +1126,17 @@ table.faces select {
 /* scenario editor */
 .scenario-row {
   display: grid;
-  grid-template-columns: 3.2em 1fr auto auto;
+  grid-template-columns: 2.4em 3.2em 1fr auto auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding: 0.55rem 0;
   border-bottom: 1px solid var(--border);
+}
+
+.scenario-id {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  text-align: right;
 }
 
 .scenario-row input.emoji {
@@ -1213,45 +1152,6 @@ table.faces select {
   font-size: 0.85rem;
 }
 
-.reward-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.3em;
-  font-size: 0.8rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
-.reward-toggle input {
-  width: auto;
-}
-
-.scenario-row .rewards {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding-left: 1.2rem;
-}
-
-.reward-edit {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding-bottom: 0.3rem;
-  border-bottom: 1px dashed var(--border);
-}
-
-.reward-edit .reward-label {
-  font-size: 0.8rem;
-  color: var(--text-dim);
-  min-width: 5em;
-}
-
-.scenario-row .rewards > button {
-  align-self: flex-start;
-}
-
 .scenario-row .approaches {
   grid-column: 1 / -1;
   display: flex;
@@ -1262,15 +1162,23 @@ table.faces select {
 
 .approach-edit {
   display: grid;
-  grid-template-columns: 1fr auto auto auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding-bottom: 0.4rem;
   border-bottom: 1px dashed var(--border);
 }
 
-.approach-edit .approach-message {
+.approach-edit .outcome-row {
   grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.approach-edit .approach-message {
+  flex: 1;
+  min-width: 0;
 }
 
 .approach-edit .approach-message.success {
@@ -1279,6 +1187,23 @@ table.faces select {
 
 .approach-edit .approach-message.failure {
   color: var(--failure);
+}
+
+.tier-field {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.tier-field select {
+  width: auto;
+}
+
+.tier-field.injury-field input {
+  width: auto;
 }
 
 .gold-amount {

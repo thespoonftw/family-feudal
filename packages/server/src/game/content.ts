@@ -13,9 +13,9 @@ import type {
   HouseDesign,
   MemberAppearance,
   MemberDesign,
+  RewardTier,
   ScenarioDesign,
   ScenarioLocation,
-  ScenarioReward,
   SkillKey,
   Town,
 } from '@family-feudal/shared'
@@ -27,10 +27,10 @@ import {
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
   BUYOUT_COST_BOUNDS,
-  GOLD_REWARD_BOUNDS,
   GOLD_STEP,
   MEMBER_SKILL_BOUNDS,
   MEMBERS_PER_HOUSE,
+  REWARD_TIERS,
   SKILLS,
 } from '@family-feudal/shared'
 import {
@@ -187,12 +187,12 @@ function sanitizeGoldAmount(
   return rounded
 }
 
-function sanitizeApproach(
-  raw: unknown,
-  scenarioLabel: string,
-  index: number,
-  rewardCount: number,
-): ApproachDesign | string {
+/** parses a reward/consequence tier value, or null if not one of the known tiers */
+function parseTier(raw: unknown): RewardTier | null {
+  return typeof raw === 'string' && (REWARD_TIERS as readonly string[]).includes(raw) ? (raw as RewardTier) : null
+}
+
+function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): ApproachDesign | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const where = `${scenarioLabel}, approach ${index + 1}`
   const label = cleanString(obj['label'], 60)
@@ -201,52 +201,26 @@ function sanitizeApproach(
   if (!successMessage) return `${where}: success message must be 1–200 characters`
   const failureMessage = cleanString(obj['failureMessage'], 200)
   if (!failureMessage) return `${where}: failure message must be 1–200 characters`
-  const rewardIndexRaw = obj['rewardIndex']
-  let rewardIndex: number | undefined
-  if (rewardIndexRaw !== undefined) {
-    if (
-      typeof rewardIndexRaw !== 'number' ||
-      !Number.isInteger(rewardIndexRaw) ||
-      rewardIndexRaw < 0 ||
-      rewardIndexRaw >= rewardCount
-    ) {
-      return `${where}: unknown reward option`
-    }
-    rewardIndex = rewardIndexRaw
-  }
+  const successInfluence = parseTier(obj['successInfluence'])
+  if (!successInfluence) return `${where}: unknown success influence tier`
+  const successGold = parseTier(obj['successGold'])
+  if (!successGold) return `${where}: unknown success gold tier`
+  const failureInfluence = parseTier(obj['failureInfluence'])
+  if (!failureInfluence) return `${where}: unknown failure influence tier`
+  const failureGold = parseTier(obj['failureGold'])
+  if (!failureGold) return `${where}: unknown failure gold tier`
+  const failureInjury = obj['failureInjury'] === true
   const buyoutCost = sanitizeGoldAmount(obj['buyoutCost'], BUYOUT_COST_BOUNDS, `${where} buyout cost`)
   if (typeof buyoutCost === 'string') return buyoutCost
+  const tiers = { successInfluence, successGold, failureInfluence, failureGold, failureInjury }
   // a buyout approach stands alone — no skill behind it, just the flat buyout bonus
   if (buyoutCost !== undefined) {
-    return { label, successMessage, failureMessage, buyoutCost, ...(rewardIndex !== undefined ? { rewardIndex } : {}) }
+    return { label, successMessage, failureMessage, buyoutCost, ...tiers }
   }
   const skill = obj['skill']
   if (!SKILLS.includes(skill as SkillKey)) return `${where}: unknown skill`
   // a legacy per-approach `difficulty` is simply ignored (checks now roll against the DC)
-  return { label, skill: skill as SkillKey, successMessage, failureMessage, ...(rewardIndex !== undefined ? { rewardIndex } : {}) }
-}
-
-function sanitizeReward(raw: unknown, where: string): ScenarioReward | string {
-  const obj = (raw ?? {}) as Record<string, unknown>
-  const influence = obj['influence'] !== false
-  const gold = sanitizeGoldAmount(obj['gold'], GOLD_REWARD_BOUNDS, where)
-  if (typeof gold === 'string') return gold
-  if (!influence && gold === undefined) return `${where}: must grant influence, gold, or both`
-  return gold === undefined ? { influence } : { influence, gold }
-}
-
-function sanitizeRewards(raw: unknown, label: string): ScenarioReward[] | string {
-  if (raw === undefined) return [{ influence: true }]
-  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 4) {
-    return `${label}: needs 1–4 reward options`
-  }
-  const clean: ScenarioReward[] = []
-  for (const [i, reward] of raw.entries()) {
-    const result = sanitizeReward(reward, `${label}, reward ${i + 1}`)
-    if (typeof result === 'string') return result
-    clean.push(result)
-  }
-  return clean
+  return { label, skill: skill as SkillKey, successMessage, failureMessage, ...tiers }
 }
 
 function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string {
@@ -260,26 +234,17 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
   if (!description) return `${label}: description must be 1–240 characters`
   const location = obj['location']
   if (!LOCATIONS.includes(location as ScenarioLocation)) return `${label}: unknown location`
-  const rewards = sanitizeRewards(obj['rewards'], label)
-  if (typeof rewards === 'string') return rewards
   const approaches = obj['approaches']
   if (!Array.isArray(approaches) || approaches.length < 2 || approaches.length > 4) {
     return `${label}: needs 2–4 approaches`
   }
   const cleanApproaches: ApproachDesign[] = []
   for (const [i, approach] of approaches.entries()) {
-    const result = sanitizeApproach(approach, label, i, rewards.length)
+    const result = sanitizeApproach(approach, label, i)
     if (typeof result === 'string') return result
     cleanApproaches.push(result)
   }
-  return {
-    emoji,
-    title,
-    description,
-    approaches: cleanApproaches,
-    location: location as ScenarioLocation,
-    rewards,
-  }
+  return { emoji, title, description, approaches: cleanApproaches, location: location as ScenarioLocation }
 }
 
 function sanitizeFaceOutcomes(raw: unknown): FaceOutcomeMap | string {
@@ -354,10 +319,10 @@ function pickMessage(value: unknown, fallback: string): string {
 
 /**
  * migration helper: upgrade a scenario's reward from the old mutually-exclusive
- * `{type: 'influence'}` / `{type: 'gold', amount}` shape to the current
- * `{influence, gold?}` shape. A gold-only legacy reward must NOT gain a free influence
- * grant it never had, so this runs before sanitizeReward's lenient `influence` default.
- * Already-current-shape (or absent) rewards pass through untouched.
+ * `{type: 'influence'}` / `{type: 'gold', amount}` shape to the once-current
+ * `{influence, gold?}` shape, ahead of {@link tiersFromLegacyReward}. A gold-only legacy
+ * reward must NOT gain a free influence grant it never had. Already-upgraded (or absent)
+ * rewards pass through untouched.
  */
 function migrateReward(raw: unknown): unknown {
   if (raw === undefined || raw === null) return raw
@@ -368,14 +333,44 @@ function migrateReward(raw: unknown): unknown {
 }
 
 /**
- * migration helper: upgrade a scenario's single `reward` field to the current `rewards`
- * list (each approach then names one by index — see {@link ApproachDesign.rewardIndex}).
- * A scenario already carrying a `rewards` array passes through untouched.
+ * migration helper: upgrade a scenario's single `reward` field to the once-current
+ * `rewards` list (each approach used to name one by index via a `rewardIndex`), ahead of
+ * {@link tiersFromLegacyReward}. A scenario already carrying a `rewards` array passes
+ * through untouched.
  */
-function migrateRewards(sc: Record<string, unknown>): unknown {
-  if (Array.isArray(sc['rewards'])) return sc['rewards']
-  if (sc['reward'] === undefined) return undefined
-  return [migrateReward(sc['reward'])]
+function migrateRewards(sc: Record<string, unknown>): unknown[] {
+  const list = Array.isArray(sc['rewards'])
+    ? sc['rewards']
+    : sc['reward'] !== undefined
+      ? [migrateReward(sc['reward'])]
+      : []
+  return list.length > 0 ? list : [{ influence: true }]
+}
+
+/** migration helper: bucket a legacy flat gold amount into the nearest new tier */
+function tierFromGoldAmount(amount: unknown): RewardTier {
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return 'none'
+  if (amount <= 30) return 'small'
+  if (amount <= 65) return 'medium'
+  return 'large'
+}
+
+/**
+ * migration helper: derive an approach's success tiers from the scenario's old
+ * `rewards`/`reward` (whichever this approach's legacy `rewardIndex` pointed at, default
+ * 0). The old system granted a flat 1 Influence, so an `influence` grant maps to the
+ * 'small' tier; it never had failure consequences, so those default to 'none'/no injury.
+ */
+function tiersFromLegacyReward(rewards: unknown[], rewardIndexRaw: unknown) {
+  const idx = typeof rewardIndexRaw === 'number' ? rewardIndexRaw : 0
+  const reward = ((rewards[idx] ?? rewards[0] ?? { influence: true }) ?? {}) as Record<string, unknown>
+  return {
+    successInfluence: (reward['influence'] !== false ? 'small' : 'none') as RewardTier,
+    successGold: tierFromGoldAmount(reward['gold']),
+    failureInfluence: 'none' as RewardTier,
+    failureGold: 'none' as RewardTier,
+    failureInjury: false,
+  }
 }
 
 /**
@@ -391,11 +386,11 @@ function migrateRewards(sc: Record<string, unknown>): unknown {
  * colour that predates the curated preset lists — get that field backfilled from the same
  * generated defaults the stock roster uses, keyed off their house+member slot; fields
  * already valid are left alone), the pre-face-outcomes format (missing
- * `faceOutcomes` gets the default map), the pre-combined-reward format (a scenario's
- * old mutually-exclusive `{type: 'influence'}` / `{type: 'gold', amount}` reward becomes
- * `{influence, gold?}` — see {@link migrateReward}), and the pre-reward-list format (a
- * scenario's single `reward` becomes a one-element `rewards` list — see
- * {@link migrateRewards}).
+ * `faceOutcomes` gets the default map), and the pre-reward-tier format (a scenario-level
+ * `rewards`/`reward` list, named per approach by `rewardIndex`, becomes per-approach
+ * success/failure Influence+gold tiers plus an injury flag — see
+ * {@link tiersFromLegacyReward}; approaches already carrying valid tiers pass through
+ * untouched).
  */
 function migrateContent(raw: unknown): unknown {
   const obj = raw as Record<string, unknown> | null
@@ -405,34 +400,39 @@ function migrateContent(raw: unknown): unknown {
     if (!Array.isArray(sc['approaches'])) {
       if (sc['skill'] === undefined) return sc
       const skill = remapSkill(sc['skill'])
+      const tiers = tiersFromLegacyReward(migrateRewards(sc), undefined)
       return {
         emoji: sc['emoji'],
         title: sc['title'],
         description: sc['description'],
         location: sc['location'],
         approaches: [
-          { label: 'See it done', skill, successMessage: FALLBACK_SUCCESS_MESSAGE, failureMessage: FALLBACK_FAILURE_MESSAGE },
-          { label: 'Find another way', skill: skill === 'cunning' ? 'charm' : 'cunning', successMessage: FALLBACK_SUCCESS_MESSAGE, failureMessage: FALLBACK_FAILURE_MESSAGE },
+          { label: 'See it done', skill, successMessage: FALLBACK_SUCCESS_MESSAGE, failureMessage: FALLBACK_FAILURE_MESSAGE, ...tiers },
+          { label: 'Find another way', skill: skill === 'cunning' ? 'charm' : 'cunning', successMessage: FALLBACK_SUCCESS_MESSAGE, failureMessage: FALLBACK_FAILURE_MESSAGE, ...tiers },
         ],
       }
     }
     // scenarios already in the approach-array shape may still carry retired skill
-    // keys (the game moved from 5 skills to 4) — remap each approach in place, and
-    // backfill any approach persisted before the success/failure message fields existed
+    // keys (the game moved from 5 skills to 4) — remap each approach in place, backfill
+    // any approach persisted before the success/failure message fields existed, and
+    // derive reward/consequence tiers for any approach that predates them
+    const legacyRewards = migrateRewards(sc)
     return {
       ...sc,
-      rewards: migrateRewards(sc),
+      rewards: undefined,
       approaches: sc['approaches'].map((a) => {
         const approach = (a ?? {}) as Record<string, unknown>
         // a buyout approach (persisted with a buyoutCost) has no skill to remap — the
         // old {approachIndex, boughtOut} choice shape used to bolt a buyout onto a
         // skill approach, but a buyout approach now stands alone
         const hasBuyout = typeof approach['buyoutCost'] === 'number'
+        const alreadyTiered = (REWARD_TIERS as readonly string[]).includes(approach['successInfluence'] as string)
         return {
           ...approach,
           ...(hasBuyout ? { skill: undefined } : { skill: remapSkill(approach['skill']) }),
           successMessage: pickMessage(approach['successMessage'], FALLBACK_SUCCESS_MESSAGE),
           failureMessage: pickMessage(approach['failureMessage'], FALLBACK_FAILURE_MESSAGE),
+          ...(alreadyTiered ? {} : tiersFromLegacyReward(legacyRewards, approach['rewardIndex'])),
         }
       }),
     }
