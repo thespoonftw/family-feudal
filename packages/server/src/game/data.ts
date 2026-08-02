@@ -170,32 +170,32 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   // General
   {
     emoji: '🐎', title: 'Bandit Raid', description: 'Bandits are terrorising the roads around {town}, and the merchants have put a bounty on their stolen loot.', location: 'general', approaches: [
-      { label: 'Ride them down', skill: 'might', successMessage: '{actor} rides them down, steel flashing until the bandits break and leave their plunder in the mud.', failureMessage: '{actor} loses the bandits before the line can hold, and the loot goes with them.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
+      { label: 'Ride them down', skill: 'might', successMessage: '{actor} rides them down, steel flashing until the bandits break and leave their plunder in the mud.', failureMessage: '{actor} presses the charge too hard and takes a blade across the arm before the bandits vanish with the loot.', successInfluence: 'none', successGold: 'medium', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Infiltrate their camp', skill: 'cunning', successMessage: '{actor} lays a false trail, leading the bandits away from their own hoard.', failureMessage: "{actor}'s disguise slips at the worst moment, and the camp turns hostile.", successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
     ],
   },
   {
     emoji: '🏇', title: 'Jousting Tournament', description: 'A grand tourney is held at {town}, and every eye in the realm turns to watch.', location: 'general', approaches: [
-      { label: 'Enter the lists', skill: 'might', successMessage: "{actor}'s lance meets shield with a crack the crowd will talk about for years.", failureMessage: '{actor} stumbles at the tilt, sending both horse and rider sprawling in the mud.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
+      { label: 'Enter the lists', skill: 'might', successMessage: "{actor}'s lance meets shield with a crack the crowd will talk about for years.", failureMessage: '{actor} stumbles at the tilt, sending both horse and rider sprawling in the mud — a bruising fall to end the day on.', successInfluence: 'medium', successGold: 'none', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Dazzle the royal box', skill: 'charm', successMessage: 'Every bow and wave from {actor} lands just right, and the royal box cannot look away.', failureMessage: '{actor} performs valiantly, but the royal box yawns through it, unmoved.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   {
     emoji: '🏴', title: 'Border Skirmish', description: 'Raiders from beyond the realm probe the defences of {town}.', location: 'general', approaches: [
-      { label: 'Hold the wall', skill: 'might', successMessage: "{actor} holds the line through every charge, and the raiders break off at dusk.", failureMessage: "{actor}'s line gives ground, and the raiders press deeper before turning back.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
+      { label: 'Hold the wall', skill: 'might', successMessage: "{actor} holds the line through every charge, and the raiders break off at dusk.", failureMessage: "{actor}'s line gives ground under the charge, and a raider's blade finds its mark before they turn back.", successInfluence: 'medium', successGold: 'none', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Sabotage their supplies', skill: 'cunning', successMessage: '{actor} sets wagons of raider provisions ablaze, and the raid loses its teeth.', failureMessage: '{actor} is spotted before the powder catches, and the raid presses on.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   {
     emoji: '🐗', title: 'Beast Hunt', description: 'A monstrous beast stalks the woods near {town}. None dare go out after dark.', location: 'general', approaches: [
-      { label: 'Face it head-on', skill: 'might', successMessage: "{actor}'s blow lands true, and the woods breathe easy again.", failureMessage: '{actor} finds the beast is too much, and limps home empty-handed.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
+      { label: 'Face it head-on', skill: 'might', successMessage: "{actor}'s blow lands true, and the woods breathe easy again.", failureMessage: '{actor} finds the beast is too much, and limps home bloodied and empty-handed.', successInfluence: 'medium', successGold: 'none', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Study its habits and lay a trap', skill: 'wit', successMessage: "{actor}'s trap springs true, and the beast is taken without a single blow struck.", failureMessage: "{actor}'s trap goes unsprung — the beast is wilier than expected.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   {
     emoji: '🎭', title: 'Masquerade Ball', description: 'The nobility of {town} hosts a dazzling masquerade.', location: 'general', approaches: [
       { label: 'Be the talk of the ball', skill: 'charm', successMessage: 'Every mask turns to watch {actor}, and the night belongs to them.', failureMessage: "{actor}'s performance falls flat behind the mask, and the room moves on.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
-      { label: 'Trade whispers behind masks', skill: 'cunning', successMessage: '{actor} trades a dozen secrets before the unmasking, all of them useful.', failureMessage: "{actor}'s whispers lead nowhere, and no secret worth keeping is found.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
+      { label: 'Trade whispers behind masks', skill: 'cunning', successMessage: '{actor} trades a dozen secrets before the unmasking, all of them useful.', failureMessage: '{actor} trades one whisper too many, and by morning it is their own secret being repeated across the ballroom.', successInfluence: 'medium', successGold: 'none', failureInfluence: 'small', failureGold: 'none', failureInjury: false },
     ],
   },
   {
@@ -206,35 +206,35 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   },
   {
     emoji: '📚', title: "Scholars' Symposium", description: 'Learned minds gather in {town} to debate the great questions.', location: 'general', approaches: [
-      { label: 'Win the great debate', skill: 'wit', successMessage: 'The hall falls silent, then erupts — {actor} has won the debate outright.', failureMessage: "{actor}'s argument crumbles under questioning, and the hall is unconvinced.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
+      { label: 'Win the great debate', skill: 'wit', successMessage: 'The hall falls silent, then erupts — {actor} has won the debate outright.', failureMessage: "{actor}'s argument crumbles under questioning, and the hall's laughter follows them out the door.", successInfluence: 'medium', successGold: 'none', failureInfluence: 'small', failureGold: 'none', failureInjury: false },
       { label: 'Keep the rival schools civil', skill: 'charm', successMessage: '{actor} soothes tempers before ink meets parchment, and the symposium survives.', failureMessage: "{actor}'s efforts fail — the rival schools come to blows anyway.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   {
     emoji: '🐀', title: 'Plague Outbreak', description: 'Sickness spreads through {town}. The gates may soon be barred.', location: 'general', approaches: [
-      { label: 'Find the source', skill: 'wit', successMessage: '{actor} finds the tainted well and seals it before the sickness can spread further.', failureMessage: 'The source stays hidden from {actor}, and the sickness spreads through another street.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
+      { label: 'Find the source', skill: 'wit', successMessage: '{actor} finds the tainted well and seals it before the sickness can spread further.', failureMessage: 'The source stays hidden from {actor}, who comes down with a fever of their own for the trouble.', successInfluence: 'medium', successGold: 'none', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Calm the terrified town', skill: 'charm', successMessage: 'Word spreads from {actor} that all is in hand, and the panic in the streets subsides.', failureMessage: "{actor}'s reassurances ring hollow, and the terrified town does not calm.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   {
     emoji: '💎', title: 'Missing Heirloom', description: 'A precious relic has vanished in {town}. The reward for its return is generous.', location: 'general', approaches: [
       { label: 'Follow the clues', skill: 'wit', successMessage: '{actor} follows the trail straight to the relic, tucked away exactly where reason said it would be.', failureMessage: "{actor}'s clues lead in circles, and the relic remains lost.", successInfluence: 'small', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Shake down the fences', skill: 'cunning', successMessage: '{actor} shakes down a frightened fence, who gives up the relic without much persuading at all.', failureMessage: 'The fences close ranks against {actor}, and not one of them talks.', successInfluence: 'small', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Pay a ransom for its return', buyoutTier: 'small', successMessage: '{actor} pays a fat purse to loosen tongues, and the relic changes hands quietly before sundown.', failureMessage: "Word of {actor}'s offer spreads faster than the relic does, and someone else buys it first.", successInfluence: 'small', successGold: 'small', ...NO_CONSEQUENCE },
+      { label: 'Shake down the fences', skill: 'cunning', successMessage: '{actor} shakes down a frightened fence, who gives up the relic without much persuading at all.', failureMessage: 'The fences close ranks against {actor}, and send them off with a few new bruises for their trouble.', successInfluence: 'small', successGold: 'medium', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
+      { label: 'Pay a ransom for its return', buyoutTier: 'small', successMessage: '{actor} pays a fat purse to loosen tongues, and the relic changes hands quietly before sundown.', failureMessage: "Word of {actor}'s offer spreads faster than the relic does, and someone else buys it first.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   {
     emoji: '⚖️', title: 'Trade Dispute', description: 'Merchants of {town} are at each other’s throats over a fortune in cargo.', location: 'general', approaches: [
       { label: 'Broker a settlement', skill: 'charm', successMessage: '{actor} brings both sides to a handshake, more or less satisfied, and the cargo finally moves.', failureMessage: 'Neither merchant will budge for {actor}, and the settlement talks collapse.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Quietly rig the ledgers', skill: 'cunning', successMessage: '{actor} quietly adjusts the numbers, and the dispute resolves itself overnight.', failureMessage: "{actor}'s tampering is noticed almost immediately, and the dispute only worsens.", successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: "Buy out both merchants' claims outright", buyoutTier: 'small', successMessage: "{actor}'s coin settles what argument could not, and the cargo is theirs to sell on.", failureMessage: 'A third merchant swoops in with a better offer before {actor} can sign the deal.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
+      { label: 'Quietly rig the ledgers', skill: 'cunning', successMessage: '{actor} quietly adjusts the numbers, and the dispute resolves itself overnight.', failureMessage: "{actor}'s tampering is noticed almost immediately, and the fine for it comes straight from their own purse.", successInfluence: 'none', successGold: 'medium', failureInfluence: 'none', failureGold: 'small', failureInjury: false },
+      { label: "Buy out both merchants' claims outright", buyoutTier: 'small', successMessage: "{actor}'s coin settles what argument could not, and the cargo is theirs to sell on.", failureMessage: 'A third merchant swoops in with a better offer before {actor} can sign the deal.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   {
     emoji: '🕊️', title: 'Peace Talks', description: 'Feuding lords meet at {town} under a banner of truce.', location: 'general', approaches: [
       { label: 'Draft the truce', skill: 'wit', successMessage: "{actor}'s wording holds up to every objection, and both lords sign without complaint.", failureMessage: "A single clause in {actor}'s truce unravels the whole thing, and the lords storm off.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
       { label: 'Soften hearts at the feast', skill: 'charm', successMessage: 'By the last course, {actor} has old grudges feeling a little less worth dying over.', failureMessage: 'The feast turns tense under {actor}, and old grudges resurface before dessert.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
-      { label: 'Blackmail both sides into peace', skill: 'cunning', successMessage: 'Neither lord dares risk what {actor} has learned about them, and peace holds — for now.', failureMessage: "{actor}'s leverage is discovered, and both lords turn their anger on the meddler instead.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
+      { label: 'Blackmail both sides into peace', skill: 'cunning', successMessage: 'Neither lord dares risk what {actor} has learned about them, and peace holds — for now.', failureMessage: "{actor}'s leverage is discovered, and both lords turn their anger — and their courts — on the meddler instead.", successInfluence: 'medium', successGold: 'none', failureInfluence: 'small', failureGold: 'none', failureInjury: false },
       { label: "Grease both lords' palms", buyoutTier: 'small', successMessage: '{actor} passes gold under the table, and both lords discover peace suits them after all.', failureMessage: "One lord pockets {actor}'s gold and walks anyway, insulted the other was paid more.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
@@ -247,15 +247,15 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   {
     emoji: '🕯️', title: 'Whispers of Treason', description: 'A plot brews in the back rooms of {town}.', location: 'general', approaches: [
       { label: 'Turn their spy', skill: 'cunning', successMessage: '{actor} turns the spy quietly, and the plot is laid bare from within.', failureMessage: 'The spy plays along just long enough to vanish with the plot intact, outwitting {actor}.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
-      { label: 'Kick down the door', skill: 'might', successMessage: '{actor} kicks down the door and catches the plotters mid-scheme, with nowhere left to run.', failureMessage: 'The room is empty by the time {actor} breaks the door — someone was warned.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
+      { label: 'Kick down the door', skill: 'might', successMessage: '{actor} kicks down the door and catches the plotters mid-scheme, with nowhere left to run.', failureMessage: 'The room is empty by the time {actor} breaks the door, and the splintered frame leaves a nasty gash to show for it.', successInfluence: 'medium', successGold: 'none', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Pay the plotters to turn on each other', buyoutTier: 'small', successMessage: "{actor}'s gold proves a better argument than loyalty, and the plotters betray one another by morning.", failureMessage: "The plotters take {actor}'s coin, promise everything, and deliver nothing.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   {
     emoji: '💰', title: "Smugglers' Cache", description: 'Rumour says a smugglers’ cache lies hidden somewhere near {town}, still unclaimed.', location: 'general', approaches: [
       { label: "Track the smugglers' route", skill: 'wit', successMessage: '{actor} follows the trail of hoofprints and broken twigs straight to the cache.', failureMessage: 'The trail goes cold at a stream crossing, and {actor} loses the cache.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Muscle the truth out of a lookout', skill: 'might', successMessage: "{actor}'s firm hand and firmer glare loosen the lookout's tongue soon enough.", failureMessage: 'The lookout would rather take a beating from {actor} than talk, and says nothing.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Buy the map off a turncoat smuggler', buyoutTier: 'small', successMessage: 'The map {actor} bought is genuine, and the cache is exactly where it promises.', failureMessage: 'The "map" {actor} bought turns out to be an old bar tab sketched on the back — a costly joke.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
+      { label: 'Muscle the truth out of a lookout', skill: 'might', successMessage: "{actor}'s firm hand and firmer glare loosen the lookout's tongue soon enough.", failureMessage: 'The lookout gives as good as they get, and {actor} limps away with a beating of their own and no answers.', successInfluence: 'none', successGold: 'medium', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
+      { label: 'Buy the map off a turncoat smuggler', buyoutTier: 'small', successMessage: 'The map {actor} bought is genuine, and the cache is exactly where it promises.', failureMessage: 'The "map" {actor} bought turns out to be an old bar tab sketched on the back — a costly joke.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   // Capital only
@@ -263,14 +263,14 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
     emoji: '👑', title: 'Coronation', description: 'A new monarch is crowned at {town}. The whole realm watches.', location: 'capital', approaches: [
       { label: 'Swear fealty with grace', skill: 'wit', successMessage: "{actor}'s oath is spoken so well that the new monarch remembers the name.", failureMessage: "{actor}'s words come out stiff and forgettable amid a hundred other oaths.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
       { label: 'Steal the spotlight', skill: 'charm', successMessage: 'For one dazzling moment, the coronation belongs to {actor} as much as the monarch.', failureMessage: '{actor} cannot steal the spotlight, and the moment passes unnoticed.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
-      { label: 'Work the shadowed halls', skill: 'cunning', successMessage: 'While the crowd watches the crown, {actor} wins real favour in the corridors.', failureMessage: '{actor} finds the corridors offer nothing but empty rooms and wasted time.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
+      { label: 'Work the shadowed halls', skill: 'cunning', successMessage: 'While the crowd watches the crown, {actor} wins real favour in the corridors.', failureMessage: '{actor} is caught skulking in the shadowed halls, and word of it reaches the wrong ears.', successInfluence: 'medium', successGold: 'none', failureInfluence: 'small', failureGold: 'none', failureInjury: false },
     ],
   },
   {
     emoji: '🏰', title: 'Royal Audience', description: 'The crown grants audiences at {town}. Favour hangs in the balance.', location: 'capital', approaches: [
       { label: 'Petition the crown', skill: 'wit', successMessage: "{actor}'s petition is heard in full, and the crown's favour is granted.", failureMessage: "{actor}'s petition is dismissed before it's even finished being read.", successInfluence: 'small', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Call in a favour from an old ally at court', skill: 'cunning', successMessage: "A quiet word from {actor}'s well-placed friend, and the audience is granted at once.", failureMessage: "{actor}'s old ally has fallen out of favour too, and can do nothing after all.", successInfluence: 'small', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Bribe the chamberlain outright', buyoutTier: 'small', successMessage: "{actor}'s quiet exchange in the antechamber goes exactly as planned, and coin flows back their way besides.", failureMessage: "The chamberlain pockets {actor}'s bribe and does nothing whatsoever in return.", successInfluence: 'small', successGold: 'small', ...NO_CONSEQUENCE },
+      { label: 'Call in a favour from an old ally at court', skill: 'cunning', successMessage: "A quiet word from {actor}'s well-placed friend, and the audience is granted at once.", failureMessage: "{actor}'s old ally has fallen further from favour than anyone knew, and the association costs {actor} standing of their own.", successInfluence: 'small', successGold: 'medium', failureInfluence: 'small', failureGold: 'none', failureInjury: false },
+      { label: 'Bribe the chamberlain outright', buyoutTier: 'small', successMessage: "{actor}'s quiet exchange in the antechamber goes exactly as planned, and the chamberlain remembers the name.", failureMessage: "The chamberlain pockets {actor}'s bribe and does nothing whatsoever in return.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   {
@@ -282,7 +282,7 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   // Home estates
   {
     emoji: '🏹', title: 'Poachers on the Estate', description: 'Poachers have been spotted on your lands near {town}.', location: 'home', approaches: [
-      { label: 'Run them off', skill: 'might', successMessage: "The poachers flee at {actor}'s first show of force and do not return.", failureMessage: 'The poachers slip past {actor} into the trees, and the game keeps vanishing.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
+      { label: 'Run them off', skill: 'might', successMessage: "The poachers flee at {actor}'s first show of force and do not return.", failureMessage: 'The poachers turn on {actor} before slipping into the trees, and the game keeps vanishing along with a torn sleeve and a bruise.', successInfluence: 'medium', successGold: 'none', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Set snares of your own', skill: 'cunning', successMessage: '{actor} catches the poachers in their own game, red-handed.', failureMessage: "{actor}'s snares catch nothing, and the poachers keep to their usual trails.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
@@ -295,8 +295,8 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   {
     emoji: '📜', title: 'Ledgers & Accounts', description: 'The estate books at {town} are in disarray — and the tax collector is due.', location: 'home', approaches: [
       { label: 'Balance the books', skill: 'wit', successMessage: 'Every column {actor} adds up, and the tax collector finds nothing to complain about.', failureMessage: 'The numbers refuse to balance no matter how many times {actor} checks them.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Cook the books', skill: 'cunning', successMessage: '{actor} quietly rewrites the figures, and the collector is none the wiser.', failureMessage: "{actor}'s forgery is clumsy, and the collector's eyebrow stays raised the whole visit.", successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Cover the shortfall out of pocket', buyoutTier: 'small', successMessage: "The collector counts {actor}'s coin, nods once, and troubles the estate no further.", failureMessage: "The collector counts {actor}'s coin twice, finds it short anyway, and levies a fine besides.", successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
+      { label: 'Cook the books', skill: 'cunning', successMessage: '{actor} quietly rewrites the figures, and the collector is none the wiser.', failureMessage: "{actor}'s forgery is clumsy, and the collector levies a fine on the spot for the trouble.", successInfluence: 'none', successGold: 'medium', failureInfluence: 'none', failureGold: 'small', failureInjury: false },
+      { label: 'Cover the shortfall out of pocket', buyoutTier: 'small', successMessage: "The collector counts {actor}'s coin, nods once, and troubles the estate no further.", failureMessage: "The collector counts {actor}'s coin twice, finds it short anyway, and levies a fine besides.", successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
   {
@@ -308,8 +308,8 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   {
     emoji: '🗝️', title: 'Buried Family Fortune', description: "Family legend swears a strongbox lies buried somewhere on the {town} estate.", location: 'home', approaches: [
       { label: "Puzzle out grandfather's old riddle", skill: 'wit', successMessage: 'The riddle finally clicks for {actor}, and the spade strikes wood on the very first try.', failureMessage: '{actor} discovers too late that the riddle describes a landmark torn down decades ago.', successInfluence: 'small', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Dig up every likely spot yourself', skill: 'might', successMessage: 'After a long, filthy afternoon of digging, {actor} finally turns up the strongbox.', failureMessage: '{actor} leaves the estate pockmarked with holes, and not one of them holds anything.', successInfluence: 'small', successGold: 'small', ...NO_CONSEQUENCE },
-      { label: 'Hire a diviner to point the way', buyoutTier: 'small', successMessage: "The diviner's rod {actor} hired dips sharply, and the strongbox is exactly where it points.", failureMessage: '{actor} hired a diviner who is confident, theatrical, and completely wrong.', successInfluence: 'small', successGold: 'small', ...NO_CONSEQUENCE },
+      { label: 'Dig up every likely spot yourself', skill: 'might', successMessage: 'After a long, filthy afternoon of digging, {actor} finally turns up the strongbox.', failureMessage: '{actor} leaves the estate pockmarked with holes and nursing a twisted ankle, with not one of them holding anything.', successInfluence: 'small', successGold: 'medium', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
+      { label: 'Hire a diviner to point the way', buyoutTier: 'small', successMessage: "The diviner's rod {actor} hired dips sharply, and the strongbox is exactly where it points.", failureMessage: '{actor} hired a diviner who is confident, theatrical, and completely wrong.', successInfluence: 'small', successGold: 'none', ...NO_CONSEQUENCE },
     ],
   },
 ]
