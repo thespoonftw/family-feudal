@@ -90,23 +90,38 @@ Three layers:
   the server process cwd — `packages/server` in prod; override via `CONFIG_FILE`). Read at
   `startGame` — applies to games started after a change; in-progress games keep their
   values.
-- **Designable content** (`server/src/game/content.ts`): `GameContent` — the 8
-  `HouseDesign`s (name, colour, home city name), the `ScenarioDesign` list (flavour
-  emoji, title, description with `{town}`, 2–3 approaches — each a public label plus a
-  hidden skill and difficulty — and location: general/capital/home), and the herald
-  `narration` templates (one list per `NarrationKind` outcome shape — solo
-  triumph/defeat, contested win, shared spoils, all fall; `resolveRound` picks one at
-  random, fills `{family}/{member}/{approach}/{rivals}/{count}/{town}/{scenario}` via
-  `game/narration.ts` and ships the line in `RoundResult.narration` for the reveal
-  cards; rival lists compress to "A, B and N other houses"). Edited from the dev panel (full-replace PUT — the saved designs
-  ARE the settings; there is no reset), validated by `sanitizeContent` (needs ≥1 capital
-  + ≥1 home scenario), persisted to `game-content.json` (gitignored; override via
-  `CONTENT_FILE`). On load, files written by older builds are upgraded by
-  `migrateContent` so design edits survive schema changes — **extend `migrateContent`
-  whenever the content schema changes**; a file that is still invalid is backed up to
-  `game-content.json.invalid-<timestamp>` before falling back to defaults, never
-  silently discarded. Rooms snapshot towns + house presets at `room:create`; scenario
-  designs are re-read every planning phase.
+- **Designable content** (`server/src/game/content.ts`): three independently persisted
+  sections — one file, one loader, one dev-panel tab each, so saving one can never
+  clobber another — composed into a `GameContent` only as a read convenience
+  (`getContent()`) for `engine.ts`:
+  - **Houses** — the 8 `HouseDesign`s (name, colour, home city name, fixed 3-member
+    roster with hand-set skills/appearance). `getHouses`/`updateHouses`, validated by
+    `sanitizeHousesList` (exactly one house per city slot), persisted to
+    `game-houses.json` (gitignored; override via `HOUSES_FILE`).
+  - **Scenarios** — the `ScenarioDesign` list (flavour emoji, title, description with
+    `{town}`, 2–4 approaches — each a public label, a hidden skill (or a standalone gold
+    buyout), success/failure flavour text with `{actor}`, success/failure Influence+gold
+    reward tiers, and a failure-injury flag — and location: general/capital/home).
+    `getScenarios`/`updateScenarios`, validated by `sanitizeScenariosList` (needs ≥1
+    capital + ≥1 home scenario), persisted to `game-scenarios.json` (gitignored;
+    override via `SCENARIOS_FILE`).
+  - **Face outcomes** — `FaceOutcomeMap`, which portrait face a character swaps to on
+    success/failure. `getFaceOutcomes`/`updateFaceOutcomes`, validated by
+    `sanitizeFaceOutcomes`, persisted to `game-faces.json` (gitignored; override via
+    `FACES_FILE`).
+
+  Each is edited from its own dev panel tab (full-replace PUT — the saved designs ARE
+  the settings; there is no reset). On load, a file written by an older build is
+  upgraded by that section's migrator (`migrateHouses`/`migrateScenarios`/
+  `migrateFaceOutcomes`) so design edits survive schema changes — **extend the
+  matching migrator whenever that section's schema changes**; a file that is still
+  invalid after migration is backed up to `<file>.invalid-<timestamp>` before falling
+  back to defaults, never silently discarded. A server that predates the split
+  persisted everything to one combined `game-content.json` (`CONTENT_FILE`); the first
+  time a section's own file is missing, it's seeded from that combined file's matching
+  key (if present) rather than defaults, and immediately written out to its own file —
+  the legacy file itself is read-only and never touched again. Rooms snapshot towns +
+  house presets at `room:create`; scenario designs are re-read every planning phase.
 - **Fixed data** (`server/src/game/data.ts`): map slot geometry (capital + 8 city slots —
   city *names* come from the house designs), default designs, member name pool,
   `MIN_PLAYERS` (1 — solo games allowed).
@@ -129,7 +144,9 @@ member when assigning.
 ## Dev Panel
 
 `/dev` route — game settings (GET/PATCH `/api/dev/config`, POST
-`/api/dev/config/reset`), house designer + scenario designer (GET/PUT
-`/api/dev/content`; invalid saves 400 with a message; no reset — saves are the settings).
-Below them: read-only live room inspection (players, families, members, scenarios) via
-GET `/api/dev/rooms[/:code]` — in-progress games cannot be edited.
+`/api/dev/config/reset`), house designer (GET/PUT `/api/dev/houses`), scenario designer
+(GET/PUT `/api/dev/scenarios`), face-outcome designer (GET/PUT `/api/dev/faces`) — each
+tab loads and saves independently, so one tab's save can't overwrite another's; invalid
+saves 400 with a message, no reset — saves are the settings. Below them: read-only live
+room inspection (players, families, members, scenarios) via GET `/api/dev/rooms[/:code]`
+— in-progress games cannot be edited.

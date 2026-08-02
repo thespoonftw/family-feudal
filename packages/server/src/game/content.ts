@@ -53,9 +53,29 @@ export const DEFAULT_CONTENT: GameContent = {
   faceOutcomes: DEFAULT_FACE_OUTCOMES,
 }
 
-// Persisted so designs survive restarts/deploys. Resolved against the server process
-// cwd (packages/server under the systemd unit); override with CONTENT_FILE.
-const CONTENT_FILE = process.env['CONTENT_FILE'] ?? 'game-content.json'
+// Houses, scenarios, and face outcomes are persisted as three independent files — a save
+// from one dev-panel tab (or a broken/stale file) can never clobber another's. Resolved
+// against the server process cwd (packages/server under the systemd unit); each overridable
+// via its own env var.
+const HOUSES_FILE = process.env['HOUSES_FILE'] ?? 'game-houses.json'
+const SCENARIOS_FILE = process.env['SCENARIOS_FILE'] ?? 'game-scenarios.json'
+const FACES_FILE = process.env['FACES_FILE'] ?? 'game-faces.json'
+
+// Pre-split installs kept everything in one file. If a section's own file doesn't exist yet,
+// that section is seeded from here once, then written out to its own file from then on —
+// this file itself is otherwise never touched again.
+const LEGACY_CONTENT_FILE = process.env['CONTENT_FILE'] ?? 'game-content.json'
+let legacyContentCache: Record<string, unknown> | null | undefined
+function legacyContent(): Record<string, unknown> | null {
+  if (legacyContentCache === undefined) {
+    try {
+      legacyContentCache = JSON.parse(readFileSync(LEGACY_CONTENT_FILE, 'utf8')) as Record<string, unknown>
+    } catch {
+      legacyContentCache = null
+    }
+  }
+  return legacyContentCache
+}
 
 const LOCATIONS: ScenarioLocation[] = ['general', 'capital', 'home']
 
@@ -170,6 +190,19 @@ function sanitizeHouse(raw: unknown, index: number): HouseDesign | string {
   return { name, color: color.toLowerCase(), cityName, members }
 }
 
+function sanitizeHousesList(raw: unknown): HouseDesign[] | string {
+  if (!Array.isArray(raw) || raw.length !== CITY_SLOTS.length) {
+    return `There must be exactly ${CITY_SLOTS.length} houses — one per city slot`
+  }
+  const clean: HouseDesign[] = []
+  for (const [i, house] of raw.entries()) {
+    const result = sanitizeHouse(house, i)
+    if (typeof result === 'string') return result
+    clean.push(result)
+  }
+  return clean
+}
+
 /** parses a reward/consequence tier value, or null if not one of the known tiers */
 function parseTier(raw: unknown): RewardTier | null {
   return typeof raw === 'string' && (REWARD_TIERS as readonly string[]).includes(raw) ? (raw as RewardTier) : null
@@ -236,6 +269,22 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
   return { emoji, title, description, approaches: cleanApproaches, location: location as ScenarioLocation }
 }
 
+function sanitizeScenariosList(raw: unknown): ScenarioDesign[] | string {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 100) {
+    return 'There must be between 1 and 100 scenarios'
+  }
+  const clean: ScenarioDesign[] = []
+  for (const [i, scenario] of raw.entries()) {
+    const result = sanitizeScenario(scenario, i)
+    if (typeof result === 'string') return result
+    clean.push(result)
+  }
+  // the round generator always needs a capital scenario and a home scenario to draw
+  if (!clean.some((s) => s.location === 'capital')) return 'At least one scenario must be capital-only'
+  if (!clean.some((s) => s.location === 'home')) return 'At least one scenario must be a home-estate scenario'
+  return clean
+}
+
 function sanitizeFaceOutcomes(raw: unknown): FaceOutcomeMap | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const clean: FaceOutcomeMap = {}
@@ -258,41 +307,6 @@ function sanitizeFaceOutcomes(raw: unknown): FaceOutcomeMap | string {
     clean[key as AppearanceFace] = entry
   }
   return clean
-}
-
-/** Validate raw (client or file) content. Returns the cleaned content or an error message. */
-function sanitizeContent(raw: unknown): GameContent | string {
-  const obj = (raw ?? {}) as Record<string, unknown>
-  const houses = obj['houses']
-  if (!Array.isArray(houses) || houses.length !== CITY_SLOTS.length) {
-    return `There must be exactly ${CITY_SLOTS.length} houses — one per city slot`
-  }
-  const scenarios = obj['scenarios']
-  if (!Array.isArray(scenarios) || scenarios.length === 0 || scenarios.length > 100) {
-    return 'There must be between 1 and 100 scenarios'
-  }
-  const cleanHouses: HouseDesign[] = []
-  for (const [i, house] of houses.entries()) {
-    const result = sanitizeHouse(house, i)
-    if (typeof result === 'string') return result
-    cleanHouses.push(result)
-  }
-  const cleanScenarios: ScenarioDesign[] = []
-  for (const [i, scenario] of scenarios.entries()) {
-    const result = sanitizeScenario(scenario, i)
-    if (typeof result === 'string') return result
-    cleanScenarios.push(result)
-  }
-  // the round generator always needs a capital scenario and a home scenario to draw
-  if (!cleanScenarios.some((s) => s.location === 'capital')) {
-    return 'At least one scenario must be capital-only'
-  }
-  if (!cleanScenarios.some((s) => s.location === 'home')) {
-    return 'At least one scenario must be a home-estate scenario'
-  }
-  const faceOutcomes = sanitizeFaceOutcomes(obj['faceOutcomes'])
-  if (typeof faceOutcomes === 'string') return faceOutcomes
-  return { houses: cleanHouses, scenarios: cleanScenarios, faceOutcomes }
 }
 
 // generic fallback flavour text for approaches persisted before successMessage/failureMessage existed
@@ -374,29 +388,62 @@ function tiersFromLegacyReward(rewards: unknown[], rewardIndexRaw: unknown) {
 }
 
 /**
- * Upgrade a persisted content file written by an older build so design edits (titles,
+ * Upgrade a persisted houses file written by an older build so design edits survive schema
+ * changes: houses without a `members` array get that house's defaults, matched by slot
+ * index (the randomly-rolled members they used to have are gone either way), and members
+ * without an `appearance` — or one predating a later appearance field, or a skin/hair
+ * colour that predates the curated preset lists — get that field backfilled from the same
+ * generated defaults the stock roster uses, keyed off their house+member slot; fields
+ * already valid are left alone. A member whose `skills` don't match the current roster
+ * (the game moved from 5 skills to 4) can't be sensibly remapped, so it resets to that
+ * slot's fresh default rather than losing the appearance too.
+ */
+function migrateHouses(raw: unknown): unknown {
+  if (!Array.isArray(raw)) return raw
+  return raw.map((h, hi) => {
+    const house = (h ?? {}) as Record<string, unknown>
+    if (!Array.isArray(house['members'])) {
+      return { ...house, members: DEFAULT_HOUSES[hi]?.members ?? DEFAULT_HOUSES[0]?.members }
+    }
+    const members = house['members'].map((m, mi) => {
+      const member = (m ?? {}) as Record<string, unknown>
+      const fallback = appearanceFor(hi * MEMBERS_PER_HOUSE + mi)
+      const rawAppearance = (member['appearance'] ?? {}) as Record<string, unknown>
+      const appearance: MemberAppearance = {
+        skinColor: pickOption(APPEARANCE_SKIN_TONES, rawAppearance['skinColor'], fallback.skinColor),
+        hairColor: pickOption(APPEARANCE_HAIR_COLORS, rawAppearance['hairColor'], fallback.hairColor),
+        head: pickOption(APPEARANCE_HEAD_STYLES, rawAppearance['head'], fallback.head),
+        face: pickOption(APPEARANCE_FACES, rawAppearance['face'], fallback.face),
+        facialHair: pickOption(APPEARANCE_FACIAL_HAIR, rawAppearance['facialHair'], fallback.facialHair),
+        accessories: pickOption(APPEARANCE_ACCESSORIES, rawAppearance['accessories'], fallback.accessories),
+      }
+      const rawSkills = (member['skills'] ?? {}) as Record<string, unknown>
+      const hasValidSkills = SKILLS.every(
+        (skill) => typeof rawSkills[skill] === 'number' && Number.isFinite(rawSkills[skill]),
+      )
+      const defaultSkills = DEFAULT_HOUSES[hi]?.members[mi]?.skills ?? DEFAULT_HOUSES[0]?.members[0]?.skills
+      const skills = hasValidSkills ? (rawSkills as Record<SkillKey, number>) : defaultSkills
+      return { ...member, skills, appearance }
+    })
+    return { ...house, members }
+  })
+}
+
+/**
+ * Upgrade a persisted scenarios file written by an older build so design edits (titles,
  * descriptions, …) survive schema changes. Currently handles the pre-approach format
  * (scenarios with a single `skill` — and the old `beauty` skill — become two
  * generically-labelled approaches that keep the original text), the pre-approach-message
  * format (approaches without a `successMessage`/`failureMessage` get generic fallback
- * text), the pre-fixed-roster format (houses without a `members` array get that house's
- * defaults, matched by slot index — the randomly-rolled members they used to have are
- * gone either way), and the pre-portrait format (members without an `appearance`, or with
- * one predating a later appearance field such as eye/mouth/shirt style — or a skin/eye
- * colour that predates the curated preset lists — get that field backfilled from the same
- * generated defaults the stock roster uses, keyed off their house+member slot; fields
- * already valid are left alone), the pre-face-outcomes format (missing
- * `faceOutcomes` gets the default map), and the pre-reward-tier format (a scenario-level
- * `rewards`/`reward` list, named per approach by `rewardIndex`, becomes per-approach
- * success/failure Influence+gold tiers plus an injury flag — see
- * {@link tiersFromLegacyReward}; approaches already carrying valid tiers pass through
- * untouched), and the pre-buyout-tier format (an approach's flat numeric `buyoutCost`
- * becomes a `buyoutTier`, bucketed via {@link migrateApproachBuyout}).
+ * text), the pre-reward-tier format (a scenario-level `rewards`/`reward` list, named per
+ * approach by `rewardIndex`, becomes per-approach success/failure Influence+gold tiers plus
+ * an injury flag — see {@link tiersFromLegacyReward}; approaches already carrying valid
+ * tiers pass through untouched), and the pre-buyout-tier format (an approach's flat numeric
+ * `buyoutCost` becomes a `buyoutTier`, bucketed via {@link migrateApproachBuyout}).
  */
-function migrateContent(raw: unknown): unknown {
-  const obj = raw as Record<string, unknown> | null
-  if (!obj || !Array.isArray(obj['scenarios'])) return raw
-  const scenarios = obj['scenarios'].map((s) => {
+function migrateScenarios(raw: unknown): unknown {
+  if (!Array.isArray(raw)) return raw
+  return raw.map((s) => {
     const sc = (s ?? {}) as Record<string, unknown>
     if (!Array.isArray(sc['approaches'])) {
       if (sc['skill'] === undefined) return sc
@@ -438,63 +485,47 @@ function migrateContent(raw: unknown): unknown {
       }),
     }
   })
-  const houses = Array.isArray(obj['houses'])
-    ? obj['houses'].map((h, hi) => {
-        const house = (h ?? {}) as Record<string, unknown>
-        if (!Array.isArray(house['members'])) {
-          return { ...house, members: DEFAULT_HOUSES[hi]?.members ?? DEFAULT_HOUSES[0]?.members }
-        }
-        const members = house['members'].map((m, mi) => {
-          const member = (m ?? {}) as Record<string, unknown>
-          const fallback = appearanceFor(hi * MEMBERS_PER_HOUSE + mi)
-          const rawAppearance = (member['appearance'] ?? {}) as Record<string, unknown>
-          const appearance: MemberAppearance = {
-            skinColor: pickOption(APPEARANCE_SKIN_TONES, rawAppearance['skinColor'], fallback.skinColor),
-            hairColor: pickOption(APPEARANCE_HAIR_COLORS, rawAppearance['hairColor'], fallback.hairColor),
-            head: pickOption(APPEARANCE_HEAD_STYLES, rawAppearance['head'], fallback.head),
-            face: pickOption(APPEARANCE_FACES, rawAppearance['face'], fallback.face),
-            facialHair: pickOption(APPEARANCE_FACIAL_HAIR, rawAppearance['facialHair'], fallback.facialHair),
-            accessories: pickOption(APPEARANCE_ACCESSORIES, rawAppearance['accessories'], fallback.accessories),
-          }
-          // the game moved from 5 skills to 4 (might/charm/wit/cunning) — a persisted
-          // member whose skills object doesn't match the new roster can't be sensibly
-          // remapped (unlike a scenario approach's single skill), so it resets to that
-          // slot's fresh default rather than failing validation and losing the appearance too
-          const rawSkills = (member['skills'] ?? {}) as Record<string, unknown>
-          const hasValidSkills = SKILLS.every(
-            (skill) => typeof rawSkills[skill] === 'number' && Number.isFinite(rawSkills[skill]),
-          )
-          const defaultSkills =
-            DEFAULT_HOUSES[hi]?.members[mi]?.skills ?? DEFAULT_HOUSES[0]?.members[0]?.skills
-          const skills = hasValidSkills ? (rawSkills as Record<SkillKey, number>) : defaultSkills
-          return { ...member, skills, appearance }
-        })
-        return { ...house, members }
-      })
-    : obj['houses']
-  const faceOutcomes = obj['faceOutcomes'] ?? DEFAULT_FACE_OUTCOMES
-  return { ...obj, houses, scenarios, faceOutcomes }
 }
 
-function loadContent(): GameContent {
-  let text: string
+function migrateFaceOutcomes(raw: unknown): unknown {
+  return raw ?? DEFAULT_FACE_OUTCOMES
+}
+
+/**
+ * Load one section's persisted file, running it through migration + validation. A missing
+ * file falls back to the legacy combined content file's `legacyKey` slice (so upgrading to
+ * split files doesn't lose pre-split designs), then to `defaults` if that's absent too. A
+ * file (or legacy slice) that's present but invalid even after migration is never silently
+ * discarded — it's backed up before falling back to defaults.
+ */
+function loadSection<T>(
+  file: string,
+  legacyKey: string,
+  migrate: (raw: unknown) => unknown,
+  sanitize: (raw: unknown) => T | string,
+  defaults: T,
+): T {
+  let raw: unknown
+  let seeded = false
   try {
-    text = readFileSync(CONTENT_FILE, 'utf8')
+    raw = JSON.parse(readFileSync(file, 'utf8'))
   } catch {
-    // no file yet → defaults
-    return structuredClone(DEFAULT_CONTENT)
+    const legacy = legacyContent()
+    if (!legacy || !(legacyKey in legacy)) return structuredClone(defaults)
+    raw = legacy[legacyKey]
+    seeded = true
   }
   let failure: string
   try {
-    const raw: unknown = JSON.parse(text)
-    const parsed = sanitizeContent(migrateContent(raw))
+    const parsed = sanitize(migrate(raw))
     if (typeof parsed !== 'string') {
-      // persist a successful migration so the upgraded designs are the file from now on
-      if (JSON.stringify(parsed) !== JSON.stringify(raw)) {
+      // persist a successful migration (or a first split-out from the legacy file) so the
+      // upgraded designs are the file from now on
+      if (seeded || JSON.stringify(parsed) !== JSON.stringify(raw)) {
         try {
-          writeFileSync(CONTENT_FILE, JSON.stringify(parsed, null, 2) + '\n')
+          writeFileSync(file, JSON.stringify(parsed, null, 2) + '\n')
         } catch (err) {
-          console.error('failed to persist migrated game content:', err)
+          console.error(`failed to persist ${file}:`, err)
         }
       }
       return parsed
@@ -503,38 +534,87 @@ function loadContent(): GameContent {
   } catch (err) {
     failure = `not valid JSON: ${String(err)}`
   }
-  // invalid even after migration: never silently destroy designs — keep a backup
-  const backup = `${CONTENT_FILE}.invalid-${new Date().toISOString().replace(/[:.]/g, '-')}`
-  try {
-    copyFileSync(CONTENT_FILE, backup)
-    console.error(`game content file is invalid (${failure}); backed up to ${backup}, using defaults`)
-  } catch (err) {
-    console.error(`game content file is invalid (${failure}) and could not be backed up:`, err)
+  if (seeded) {
+    console.error(`legacy ${LEGACY_CONTENT_FILE} "${legacyKey}" section is invalid (${failure}); using defaults`)
+    return structuredClone(defaults)
   }
-  return structuredClone(DEFAULT_CONTENT)
-}
-
-function persistContent(): void {
+  const backup = `${file}.invalid-${new Date().toISOString().replace(/[:.]/g, '-')}`
   try {
-    writeFileSync(CONTENT_FILE, JSON.stringify(content, null, 2) + '\n')
+    copyFileSync(file, backup)
+    console.error(`${file} is invalid (${failure}); backed up to ${backup}, using defaults`)
   } catch (err) {
-    console.error('failed to persist game content:', err)
+    console.error(`${file} is invalid (${failure}) and could not be backed up:`, err)
   }
+  return structuredClone(defaults)
 }
 
-let content: GameContent = loadContent()
+let houses: HouseDesign[] = loadSection(HOUSES_FILE, 'houses', migrateHouses, sanitizeHousesList, DEFAULT_HOUSES)
+let scenarios: ScenarioDesign[] = loadSection(
+  SCENARIOS_FILE,
+  'scenarios',
+  migrateScenarios,
+  sanitizeScenariosList,
+  DEFAULT_SCENARIOS,
+)
+let faceOutcomes: FaceOutcomeMap = loadSection(
+  FACES_FILE,
+  'faceOutcomes',
+  migrateFaceOutcomes,
+  sanitizeFaceOutcomes,
+  DEFAULT_FACE_OUTCOMES,
+)
 
-export function getContent(): GameContent {
-  return content
+export function getHouses(): HouseDesign[] {
+  return houses
 }
 
-/** Replace the designs wholesale. Returns the new content, or an error message. */
-export function updateContent(raw: unknown): GameContent | string {
-  const next = sanitizeContent(raw)
+export function updateHouses(raw: unknown): HouseDesign[] | string {
+  const next = sanitizeHousesList(raw)
   if (typeof next === 'string') return next
-  content = next
-  persistContent()
-  return content
+  houses = next
+  try {
+    writeFileSync(HOUSES_FILE, JSON.stringify(houses, null, 2) + '\n')
+  } catch (err) {
+    console.error('failed to persist houses:', err)
+  }
+  return houses
+}
+
+export function getScenarios(): ScenarioDesign[] {
+  return scenarios
+}
+
+export function updateScenarios(raw: unknown): ScenarioDesign[] | string {
+  const next = sanitizeScenariosList(raw)
+  if (typeof next === 'string') return next
+  scenarios = next
+  try {
+    writeFileSync(SCENARIOS_FILE, JSON.stringify(scenarios, null, 2) + '\n')
+  } catch (err) {
+    console.error('failed to persist scenarios:', err)
+  }
+  return scenarios
+}
+
+export function getFaceOutcomes(): FaceOutcomeMap {
+  return faceOutcomes
+}
+
+export function updateFaceOutcomes(raw: unknown): FaceOutcomeMap | string {
+  const next = sanitizeFaceOutcomes(raw)
+  if (typeof next === 'string') return next
+  faceOutcomes = next
+  try {
+    writeFileSync(FACES_FILE, JSON.stringify(faceOutcomes, null, 2) + '\n')
+  } catch (err) {
+    console.error('failed to persist face outcomes:', err)
+  }
+  return faceOutcomes
+}
+
+/** composes the three independently-persisted sections; used by room/round setup */
+export function getContent(): GameContent {
+  return { houses: getHouses(), scenarios: getScenarios(), faceOutcomes: getFaceOutcomes() }
 }
 
 // ----- runtime structures derived from the designs -----

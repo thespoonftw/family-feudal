@@ -3,7 +3,14 @@ import type { DevRoomDetail, DevRoomSummary, GameConfig } from '@family-feudal/s
 import { getRoom, listRooms } from '../game/store.js'
 import type { Room } from '../game/engine.js'
 import { CONFIG_BOUNDS, DEFAULT_CONFIG, getConfig, resetConfig, updateConfig } from '../game/config.js'
-import { getContent, updateContent } from '../game/content.js'
+import {
+  getFaceOutcomes,
+  getHouses,
+  getScenarios,
+  updateFaceOutcomes,
+  updateHouses,
+  updateScenarios,
+} from '../game/content.js'
 
 function summary(room: Room): DevRoomSummary {
   return {
@@ -54,16 +61,38 @@ export function registerDevRoutes(app: FastifyInstance): void {
     return { config, defaults: DEFAULT_CONFIG, bounds: CONFIG_BOUNDS }
   })
 
-  // ----- designable content: houses + scenarios (applies to rooms created after saving) -----
+  // ----- designable content: houses, scenarios, face outcomes — each persisted and saved
+  // independently so editing one tab can never clobber another (applies to rooms created
+  // after saving) -----
 
-  app.get('/dev/content', async () => {
-    return { content: getContent() }
+  app.get('/dev/houses', async () => {
+    return { houses: getHouses() }
   })
 
-  app.put<{ Body: unknown }>('/dev/content', async (request, reply) => {
-    const result = updateContent(request.body)
+  app.put<{ Body: unknown }>('/dev/houses', async (request, reply) => {
+    const result = updateHouses(request.body)
     if (typeof result === 'string') return reply.status(400).send({ error: result })
-    return { content: result }
+    return { houses: result }
+  })
+
+  app.get('/dev/scenarios', async () => {
+    return { scenarios: getScenarios() }
+  })
+
+  app.put<{ Body: unknown }>('/dev/scenarios', async (request, reply) => {
+    const result = updateScenarios(request.body)
+    if (typeof result === 'string') return reply.status(400).send({ error: result })
+    return { scenarios: result }
+  })
+
+  app.get('/dev/faces', async () => {
+    return { faceOutcomes: getFaceOutcomes() }
+  })
+
+  app.put<{ Body: unknown }>('/dev/faces', async (request, reply) => {
+    const result = updateFaceOutcomes(request.body)
+    if (typeof result === 'string') return reply.status(400).send({ error: result })
+    return { faceOutcomes: result }
   })
 
   // ----- live room inspection (read-only) -----

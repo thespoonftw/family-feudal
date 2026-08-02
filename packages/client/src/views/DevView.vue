@@ -10,8 +10,8 @@ import type {
   DevRoomDetail,
   DevRoomSummary,
   FaceOutcomeDesign,
+  FaceOutcomeMap,
   GameConfig,
-  GameContent,
   HouseDesign,
   MemberAppearance,
   MemberDesign,
@@ -43,8 +43,16 @@ interface ConfigResponse {
   bounds: Record<keyof GameConfig, [number, number]>
 }
 
-interface ContentResponse {
-  content: GameContent
+interface HousesResponse {
+  houses: HouseDesign[]
+}
+
+interface ScenariosResponse {
+  scenarios: ScenarioDesign[]
+}
+
+interface FacesResponse {
+  faceOutcomes: FaceOutcomeMap
 }
 
 const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = [
@@ -63,7 +71,9 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
 ]
 
 const configData = ref<ConfigResponse | null>(null)
-const contentData = ref<ContentResponse | null>(null)
+const housesData = ref<HousesResponse | null>(null)
+const scenariosData = ref<ScenariosResponse | null>(null)
+const facesData = ref<FacesResponse | null>(null)
 const rooms = ref<DevRoomSummary[]>([])
 const detail = ref<DevRoomDetail | null>(null)
 const error = ref('')
@@ -119,23 +129,69 @@ async function resetSettings() {
   }
 }
 
-async function loadContent() {
+async function loadHouses() {
   try {
-    contentData.value = await api<ContentResponse>('/dev/content')
+    housesData.value = await api<HousesResponse>('/dev/houses')
     error.value = ''
   } catch (e) {
     error.value = String(e)
   }
 }
 
-async function saveContent() {
-  if (!contentData.value) return
+async function saveHouses() {
+  if (!housesData.value) return
   try {
-    contentData.value = await api<ContentResponse>('/dev/content', {
+    housesData.value = await api<HousesResponse>('/dev/houses', {
       method: 'PUT',
-      body: JSON.stringify(contentData.value.content),
+      body: JSON.stringify(housesData.value.houses),
     })
-    status.value = `Designs saved ✓ (${new Date().toLocaleTimeString()}) — applies to rooms created from now on`
+    status.value = `Houses saved ✓ (${new Date().toLocaleTimeString()}) — applies to rooms created from now on`
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+async function loadScenarios() {
+  try {
+    scenariosData.value = await api<ScenariosResponse>('/dev/scenarios')
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+async function saveScenarios() {
+  if (!scenariosData.value) return
+  try {
+    scenariosData.value = await api<ScenariosResponse>('/dev/scenarios', {
+      method: 'PUT',
+      body: JSON.stringify(scenariosData.value.scenarios),
+    })
+    status.value = `Scenarios saved ✓ (${new Date().toLocaleTimeString()}) — applies to rounds planned from now on`
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+async function loadFaces() {
+  try {
+    facesData.value = await api<FacesResponse>('/dev/faces')
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+async function saveFaces() {
+  if (!facesData.value) return
+  try {
+    facesData.value = await api<FacesResponse>('/dev/faces', {
+      method: 'PUT',
+      body: JSON.stringify(facesData.value.faceOutcomes),
+    })
+    status.value = `Faces saved ✓ (${new Date().toLocaleTimeString()}) — applies to results resolved from now on`
     error.value = ''
   } catch (e) {
     error.value = String(e)
@@ -152,7 +208,7 @@ const DEFAULT_TIERS = {
 } as const
 
 function addScenario() {
-  contentData.value?.content.scenarios.push({
+  scenariosData.value?.scenarios.push({
     emoji: '❔',
     title: 'New Scenario',
     description: 'Something is afoot at {town}.',
@@ -181,7 +237,7 @@ function setApproachKind(a: ApproachDesign, kind: 'skill' | 'buyout') {
 }
 
 function removeScenario(index: number) {
-  contentData.value?.content.scenarios.splice(index, 1)
+  scenariosData.value?.scenarios.splice(index, 1)
 }
 
 function addApproach(s: ScenarioDesign) {
@@ -280,7 +336,7 @@ function asHex(value: string): string {
 
 /** the face's outcome overrides, creating an empty entry the first time it's touched */
 function faceEntry(face: AppearanceFace): FaceOutcomeDesign {
-  const map = contentData.value?.content.faceOutcomes
+  const map = facesData.value?.faceOutcomes
   if (!map) return {}
   if (!map[face]) map[face] = {}
   return map[face]!
@@ -312,7 +368,9 @@ function facePreviewAppearance(face: AppearanceFace): MemberAppearance {
 
 onMounted(() => {
   void loadConfig()
-  void loadContent()
+  void loadHouses()
+  void loadScenarios()
+  void loadFaces()
   void loadRooms()
   pollTimer = setInterval(() => void loadRooms(), 5000)
 })
@@ -377,7 +435,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="contentData && activeTab === 'Houses'" class="card">
+    <section v-if="housesData && activeTab === 'Houses'" class="card">
       <h2>Houses</h2>
       <p class="dim">
         The eight houses a joining player can be dealt — name, banner colour, home city, and
@@ -385,7 +443,7 @@ onUnmounted(() => {
         every game a house plays uses exactly these three. Applies to rooms
         <strong>created after saving</strong>; live games keep their houses.
       </p>
-      <div v-for="(h, i) in contentData.content.houses" :key="i" class="house-card">
+      <div v-for="(h, i) in housesData.houses" :key="i" class="house-card">
         <div class="house-header">
           <input v-model="h.color" type="color" class="swatch" title="Banner colour" />
           <input v-model="h.name" type="text" maxlength="40" placeholder="House name" />
@@ -433,11 +491,11 @@ onUnmounted(() => {
         </table>
       </div>
       <div class="settings-actions">
-        <button class="small" @click="saveContent">Save designs</button>
+        <button class="small" @click="saveHouses">Save designs</button>
       </div>
     </section>
 
-    <section v-if="contentData && activeTab === 'Scenarios'" class="card">
+    <section v-if="scenariosData && activeTab === 'Scenarios'" class="card">
       <h2>Scenarios</h2>
       <p class="dim">
         Every scenario offers 2–4 approaches; checks roll skill + d6 against the Check DC,
@@ -457,7 +515,7 @@ onUnmounted(() => {
         skill. Applies to rounds planned after saving.
       </p>
       <div
-        v-for="(s, i) in contentData.content.scenarios"
+        v-for="(s, i) in scenariosData.scenarios"
         :key="i"
         class="scenario-row"
       >
@@ -571,11 +629,11 @@ onUnmounted(() => {
       </div>
       <div class="settings-actions">
         <button class="small" @click="addScenario">+ Add scenario</button>
-        <button class="small" @click="saveContent">Save designs</button>
+        <button class="small" @click="saveScenarios">Save designs</button>
       </div>
     </section>
 
-    <section v-if="contentData && activeTab === 'Faces'" class="card">
+    <section v-if="facesData && activeTab === 'Faces'" class="card">
       <h2>Faces</h2>
       <p class="dim">
         Every possible portrait face, and what it swaps to on the resolution screen when a
@@ -636,7 +694,7 @@ onUnmounted(() => {
         </tbody>
       </table>
       <div class="settings-actions">
-        <button class="small" @click="saveContent">Save designs</button>
+        <button class="small" @click="saveFaces">Save designs</button>
       </div>
     </section>
 
