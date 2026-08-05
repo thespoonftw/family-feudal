@@ -192,7 +192,7 @@ export interface GameView {
   faceOutcomes: FaceOutcomeMap
   /** flat total used instead of a skill roll when a family buys out an approach */
   buyoutBonus: number
-  /** deadline for the current timed phase (planning/approach), epoch ms; null otherwise */
+  /** deadline for the current timed phase (planning/approach/resolution), epoch ms; null otherwise */
   phaseEndsAt: number | null
 }
 
@@ -225,6 +225,8 @@ export interface GameConfig {
   planningSeconds: number
   /** seconds allowed for the approach (decision) phase before it auto-advances */
   approachSeconds: number
+  /** seconds the results screen holds after the reveal finishes, before it auto-advances */
+  resultsSeconds: number
 }
 
 // ---------- Editable game content (dev panel) ----------

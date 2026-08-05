@@ -222,6 +222,14 @@ function closeBoard() {
       <button class="secondary small" @click="closeBoard">Close</button>
     </header>
 
+    <div v-if="phaseTimerMs !== null" class="phase-timer">
+      <div
+        :key="view.phaseEndsAt ?? 0"
+        class="phase-timer-bar"
+        :style="{ animationDuration: phaseTimerMs + 'ms' }"
+      />
+    </div>
+
     <Transition name="phase-fade" mode="out-in">
 
     <!-- ================= LOBBY ================= -->
@@ -267,13 +275,6 @@ function closeBoard() {
         <ScoreBoard :families="view.families" :players="view.players" />
         <div class="card ready-card">
           <h3>{{ view.phase === 'planning' ? 'Planning' : 'Choosing approaches' }}</h3>
-          <div v-if="phaseTimerMs !== null" class="phase-timer">
-            <div
-              :key="view.phaseEndsAt ?? 0"
-              class="phase-timer-bar"
-              :style="{ animationDuration: phaseTimerMs + 'ms' }"
-            />
-          </div>
           <p class="hint">{{ readyCount }}/{{ view.players.length }} houses ready</p>
           <ul class="ready-list">
             <li v-for="p in view.players" :key="p.id">
@@ -553,10 +554,10 @@ button.small {
 
 .phase-timer {
   height: 4px;
-  border-radius: 999px;
+  display: flex;
+  justify-content: flex-end;
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
-  margin-bottom: 0.5rem;
 }
 
 .phase-timer-bar {

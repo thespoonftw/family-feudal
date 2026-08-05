@@ -17,7 +17,7 @@ import type {
   SkillKey,
   Town,
 } from '@family-feudal/shared'
-import { GOLD_STEP, goldTierBounds, INFLUENCE_TIER_VALUES } from '@family-feudal/shared'
+import { GOLD_STEP, goldTierBounds, INFLUENCE_TIER_VALUES, revealTotalMs } from '@family-feudal/shared'
 import { CAPITAL_ID } from './data.js'
 import { buildPresets, buildTowns, getContent, type FamilyPreset } from './content.js'
 import { getConfig } from './config.js'
@@ -387,13 +387,15 @@ export function resolveRound(room: Room): void {
   room.lastResult = result
   room.resultHistory.push(result)
   room.phase = 'resolution'
-  room.phaseEndsAt = null
+  // the results screen holds through the reveal sequence plus a fixed viewing window
+  room.phaseEndsAt = Date.now() + revealTotalMs(room.scenarios, result) + config.resultsSeconds * 1000
   for (const player of room.players) player.ready = false
 }
 
 export function nextRound(room: Room): void {
   if (room.round >= room.totalRounds) {
     room.phase = 'finished'
+    room.phaseEndsAt = null
     const max = Math.max(...room.families.map((f) => f.influence))
     room.winnerFamilyIds = room.families.filter((f) => f.influence === max).map((f) => f.id)
     return

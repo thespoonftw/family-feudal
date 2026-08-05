@@ -490,10 +490,7 @@ const winnerNames = computed(() => {
       zoom {{ uiScale.toFixed(2) }} · {{ Math.round(debugMetrics.width) }}×{{ Math.round(debugMetrics.height) }}
     </div>
 
-    <div
-      v-if="phaseTimerMs !== null && (view.phase === 'planning' || view.phase === 'approach')"
-      class="phase-timer"
-    >
+    <div v-if="phaseTimerMs !== null" class="phase-timer">
       <div
         :key="view.phaseEndsAt ?? 0"
         class="phase-timer-bar"
@@ -940,6 +937,12 @@ header {
 
 .phase-timer {
   height: 4px;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: flex-end;
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
 }

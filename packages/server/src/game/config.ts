@@ -17,6 +17,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   goldLargeMax: 100,
   planningSeconds: 90,
   approachSeconds: 60,
+  resultsSeconds: 20,
 }
 
 /** inclusive [min, max] bounds per field, used for clamping dev edits */
@@ -35,6 +36,7 @@ export const CONFIG_BOUNDS: Record<keyof GameConfig, [number, number]> = {
   goldLargeMax: [0, 300],
   planningSeconds: [10, 600],
   approachSeconds: [10, 600],
+  resultsSeconds: [5, 300],
 }
 
 // Persisted so settings survive restarts/deploys. Resolved against the server process
