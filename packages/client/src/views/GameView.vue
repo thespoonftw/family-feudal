@@ -268,6 +268,11 @@ const currentDeployment = computed(
 /** ms remaining in the current timed phase (planning/approach) as of its start; drives the countdown bar */
 const phaseTimerMs = ref<number | null>(null)
 
+/** during resolution, the bar only makes sense once the confirm screen (not the reveal) is showing */
+const phaseTimerVisible = computed(
+  () => phaseTimerMs.value !== null && (view.value?.phase !== 'resolution' || resultsRevealed.value),
+)
+
 watch(
   () => view.value?.phaseEndsAt,
   (endsAt) => {
@@ -294,10 +299,12 @@ watch(
     } else if (v.phase === 'resolution') {
       resultsRevealed.value = false
       // unlocks at the same moment the board's standings card lands
-      revealTimer = setTimeout(
-        () => (resultsRevealed.value = true),
-        revealTotalMs(v.scenarios, v.lastResult),
-      )
+      revealTimer = setTimeout(() => {
+        resultsRevealed.value = true
+        // timer bar only appears once the confirm screen is up, so it should
+        // count down (or up) just the remaining confirm window, not the reveal too
+        phaseTimerMs.value = v.phaseEndsAt ? Math.max(0, v.phaseEndsAt - Date.now()) : null
+      }, revealTotalMs(v.scenarios, v.lastResult))
     }
   },
   { immediate: true },
@@ -490,9 +497,9 @@ const winnerNames = computed(() => {
       zoom {{ uiScale.toFixed(2) }} · {{ Math.round(debugMetrics.width) }}×{{ Math.round(debugMetrics.height) }}
     </div>
 
-    <div v-if="phaseTimerMs !== null" class="phase-timer">
+    <div v-if="phaseTimerVisible" class="phase-timer">
       <div
-        :key="view.phaseEndsAt ?? 0"
+        :key="`${view.phaseEndsAt ?? 0}-${resultsRevealed}`"
         class="phase-timer-bar"
         :style="{ animationDuration: phaseTimerMs + 'ms' }"
       />

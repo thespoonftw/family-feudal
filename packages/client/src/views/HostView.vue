@@ -133,6 +133,11 @@ watch(
   { immediate: true },
 )
 
+/** during resolution, the bar only makes sense once the standings (confirm) card is showing */
+const phaseTimerVisible = computed(
+  () => phaseTimerMs.value !== null && (view.value?.phase !== 'resolution' || currentStep.value === null),
+)
+
 // ---------- results reveal: one scenario at a time, scores last ----------
 
 const revealIndex = ref(0)
@@ -162,7 +167,13 @@ const quietScenarios = computed<Scenario[]>(() => {
 
 function scheduleReveal() {
   const step = steps.value[revealIndex.value]
-  if (!step) return
+  if (!step) {
+    // reveal sequence finished — the timer bar only appears now, so it should
+    // track just the remaining confirm window, not the reveal too
+    const endsAt = view.value?.phaseEndsAt
+    phaseTimerMs.value = endsAt ? Math.max(0, endsAt - Date.now()) : null
+    return
+  }
   revealTimer = setTimeout(() => {
     revealIndex.value += 1
     scheduleReveal()
@@ -222,9 +233,9 @@ function closeBoard() {
       <button class="secondary small" @click="closeBoard">Close</button>
     </header>
 
-    <div v-if="phaseTimerMs !== null" class="phase-timer">
+    <div v-if="phaseTimerVisible" class="phase-timer">
       <div
-        :key="view.phaseEndsAt ?? 0"
+        :key="`${view.phaseEndsAt ?? 0}-${!currentStep}`"
         class="phase-timer-bar"
         :style="{ animationDuration: phaseTimerMs + 'ms' }"
       />
