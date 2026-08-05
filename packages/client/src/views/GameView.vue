@@ -946,26 +946,26 @@ header {
   margin: 0 auto;
   box-sizing: border-box;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
 }
 
 .phase-timer-bar {
   height: 100%;
-  width: 100%;
+  width: 0%;
   background: var(--gold-soft);
-  animation-name: phase-timer-shrink;
+  animation-name: phase-timer-grow;
   animation-timing-function: linear;
   animation-fill-mode: forwards;
 }
 
-@keyframes phase-timer-shrink {
+@keyframes phase-timer-grow {
   from {
-    width: 100%;
+    width: 0%;
   }
   to {
-    width: 0%;
+    width: 100%;
   }
 }
 
