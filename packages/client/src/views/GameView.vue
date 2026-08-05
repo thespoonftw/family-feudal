@@ -600,19 +600,23 @@ const winnerNames = computed(() => {
         </div>
       </div>
 
-      <!-- floating drag ghost, follows the pointer -->
-      <div
-        v-if="draggingMember()"
-        class="drag-ghost"
-        :style="{ left: dragPos.x + 'px', top: dragPos.y + 'px' }"
-      >
-        <MemberAvatar
-          :appearance="draggingMember()!.appearance"
-          :seed="draggingMember()!.name"
-          :shirt-color="game.yourFamily?.color ?? '#888888'"
-          :size="AVATAR_SIZE"
-        />
-      </div>
+      <!-- floating drag ghost, follows the pointer. Teleported to <body> so the ancestor
+           `zoom: uiScale` on this <main> (which rescales fixed-position descendants'
+           coordinates) can't throw its position off from the real cursor. -->
+      <Teleport to="body">
+        <div
+          v-if="draggingMember()"
+          class="drag-ghost"
+          :style="{ left: dragPos.x + 'px', top: dragPos.y + 'px' }"
+        >
+          <MemberAvatar
+            :appearance="draggingMember()!.appearance"
+            :seed="draggingMember()!.name"
+            :shirt-color="game.yourFamily?.color ?? '#888888'"
+            :size="AVATAR_SIZE"
+          />
+        </div>
+      </Teleport>
 
       <!-- ready bar pinned under the agents -->
       <div class="plan-bar">
