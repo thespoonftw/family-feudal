@@ -194,6 +194,8 @@ export interface GameView {
   buyoutBonus: number
   /** deadline for the current timed phase (planning/approach/resolution), epoch ms; null otherwise */
   phaseEndsAt: number | null
+  /** start of the current timed phase, epoch ms; null otherwise — lets a refresh resume the countdown bar mid-way instead of restarting it */
+  phaseStartedAt: number | null
 }
 
 // ---------- Global game configuration (dev panel) ----------

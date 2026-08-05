@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Family, FamilyMember, Scenario, ScenarioOutcome } from '@family-feudal/shared'
-import { revealSteps } from '@family-feudal/shared'
+import { revealSteps, revealTotalMs } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
@@ -122,20 +122,31 @@ function verdictText(o: ScenarioOutcome): string {
 
 // ---------- planning/approach: countdown to auto-advance ----------
 
-/** ms remaining in the current timed phase (planning/approach) as of its start; drives the countdown bar */
-const phaseTimerMs = ref<number | null>(null)
+/** duration/delay for the countdown bar's CSS animation. A negative delay is how a resumed
+ * (e.g. refreshed mid-phase) bar starts already part-filled instead of restarting at 0%. */
+const phaseTimerAnim = ref<{ duration: number; delay: number } | null>(null)
+
+function computeTimerAnim(
+  startedAt: number | null | undefined,
+  endsAt: number | null | undefined,
+): { duration: number; delay: number } | null {
+  if (!startedAt || !endsAt) return null
+  const duration = Math.max(0, endsAt - startedAt)
+  const elapsed = Math.min(Math.max(Date.now() - startedAt, 0), duration)
+  return { duration, delay: -elapsed }
+}
 
 watch(
   () => view.value?.phaseEndsAt,
   (endsAt) => {
-    phaseTimerMs.value = endsAt ? Math.max(0, endsAt - Date.now()) : null
+    phaseTimerAnim.value = computeTimerAnim(view.value?.phaseStartedAt, endsAt)
   },
   { immediate: true },
 )
 
 /** during resolution, the bar only makes sense once the standings (confirm) card is showing */
 const phaseTimerVisible = computed(
-  () => phaseTimerMs.value !== null && (view.value?.phase !== 'resolution' || currentStep.value === null),
+  () => phaseTimerAnim.value !== null && (view.value?.phase !== 'resolution' || currentStep.value === null),
 )
 
 // ---------- results reveal: one scenario at a time, scores last ----------
@@ -169,9 +180,12 @@ function scheduleReveal() {
   const step = steps.value[revealIndex.value]
   if (!step) {
     // reveal sequence finished — the timer bar only appears now, so it should
-    // track just the remaining confirm window, not the reveal too
-    const endsAt = view.value?.phaseEndsAt
-    phaseTimerMs.value = endsAt ? Math.max(0, endsAt - Date.now()) : null
+    // animate just the remaining confirm window, not the reveal too
+    const v = view.value
+    const confirmStart = v?.phaseStartedAt
+      ? v.phaseStartedAt + revealTotalMs(v.scenarios, v.lastResult)
+      : null
+    phaseTimerAnim.value = computeTimerAnim(confirmStart, v?.phaseEndsAt)
     return
   }
   revealTimer = setTimeout(() => {
@@ -237,7 +251,10 @@ function closeBoard() {
       <div
         :key="`${view.phaseEndsAt ?? 0}-${!currentStep}`"
         class="phase-timer-bar"
-        :style="{ animationDuration: phaseTimerMs + 'ms' }"
+        :style="{
+          animationDuration: phaseTimerAnim!.duration + 'ms',
+          animationDelay: phaseTimerAnim!.delay + 'ms',
+        }"
       />
     </div>
 

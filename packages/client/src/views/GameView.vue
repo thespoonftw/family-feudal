@@ -265,18 +265,29 @@ const currentDeployment = computed(
   () => yourDeployments.value[choiceIndex.value] ?? null,
 )
 
-/** ms remaining in the current timed phase (planning/approach) as of its start; drives the countdown bar */
-const phaseTimerMs = ref<number | null>(null)
+/** duration/delay for the countdown bar's CSS animation. A negative delay is how a resumed
+ * (e.g. refreshed mid-phase) bar starts already part-filled instead of restarting at 0%. */
+const phaseTimerAnim = ref<{ duration: number; delay: number } | null>(null)
+
+function computeTimerAnim(
+  startedAt: number | null | undefined,
+  endsAt: number | null | undefined,
+): { duration: number; delay: number } | null {
+  if (!startedAt || !endsAt) return null
+  const duration = Math.max(0, endsAt - startedAt)
+  const elapsed = Math.min(Math.max(Date.now() - startedAt, 0), duration)
+  return { duration, delay: -elapsed }
+}
 
 /** during resolution, the bar only makes sense once the confirm screen (not the reveal) is showing */
 const phaseTimerVisible = computed(
-  () => phaseTimerMs.value !== null && (view.value?.phase !== 'resolution' || resultsRevealed.value),
+  () => phaseTimerAnim.value !== null && (view.value?.phase !== 'resolution' || resultsRevealed.value),
 )
 
 watch(
   () => view.value?.phaseEndsAt,
   (endsAt) => {
-    phaseTimerMs.value = endsAt ? Math.max(0, endsAt - Date.now()) : null
+    phaseTimerAnim.value = computeTimerAnim(view.value?.phaseStartedAt, endsAt)
   },
   { immediate: true },
 )
@@ -302,8 +313,11 @@ watch(
       revealTimer = setTimeout(() => {
         resultsRevealed.value = true
         // timer bar only appears once the confirm screen is up, so it should
-        // count down (or up) just the remaining confirm window, not the reveal too
-        phaseTimerMs.value = v.phaseEndsAt ? Math.max(0, v.phaseEndsAt - Date.now()) : null
+        // animate just the remaining confirm window, not the reveal too
+        const confirmStart = v.phaseStartedAt
+          ? v.phaseStartedAt + revealTotalMs(v.scenarios, v.lastResult)
+          : null
+        phaseTimerAnim.value = computeTimerAnim(confirmStart, v.phaseEndsAt)
       }, revealTotalMs(v.scenarios, v.lastResult))
     }
   },
@@ -501,7 +515,10 @@ const winnerNames = computed(() => {
       <div
         :key="`${view.phaseEndsAt ?? 0}-${resultsRevealed}`"
         class="phase-timer-bar"
-        :style="{ animationDuration: phaseTimerMs + 'ms' }"
+        :style="{
+          animationDuration: phaseTimerAnim!.duration + 'ms',
+          animationDelay: phaseTimerAnim!.delay + 'ms',
+        }"
       />
     </div>
 

@@ -28,6 +28,8 @@ export interface Room {
   phase: GamePhase
   /** deadline for the current timed phase (planning/approach), epoch ms; null otherwise */
   phaseEndsAt: number | null
+  /** start of the current timed phase, epoch ms; null otherwise */
+  phaseStartedAt: number | null
   round: number
   totalRounds: number
   players: Player[]
@@ -78,6 +80,7 @@ export function createRoom(isCodeTaken: (code: string) => boolean): Room {
     createdAt: new Date(),
     phase: 'lobby',
     phaseEndsAt: null,
+    phaseStartedAt: null,
     round: 0,
     totalRounds: getConfig().totalRounds,
     players: [],
@@ -232,7 +235,8 @@ function beginPlanning(room: Room): void {
   }
   for (const player of room.players) player.ready = false
   room.phase = 'planning'
-  room.phaseEndsAt = Date.now() + getConfig().planningSeconds * 1000
+  room.phaseStartedAt = Date.now()
+  room.phaseEndsAt = room.phaseStartedAt + getConfig().planningSeconds * 1000
 }
 
 /** Validate and store a player's full assignment map. Returns an error message or null. */
@@ -280,7 +284,8 @@ export function finishPlanning(room: Room): void {
     return
   }
   room.phase = 'approach'
-  room.phaseEndsAt = Date.now() + getConfig().approachSeconds * 1000
+  room.phaseStartedAt = Date.now()
+  room.phaseEndsAt = room.phaseStartedAt + getConfig().approachSeconds * 1000
   for (const player of room.players) player.ready = false
 }
 
@@ -388,7 +393,9 @@ export function resolveRound(room: Room): void {
   room.resultHistory.push(result)
   room.phase = 'resolution'
   // the results screen holds through the reveal sequence plus a fixed viewing window
-  room.phaseEndsAt = Date.now() + revealTotalMs(room.scenarios, result) + config.resultsSeconds * 1000
+  room.phaseStartedAt = Date.now()
+  room.phaseEndsAt =
+    room.phaseStartedAt + revealTotalMs(room.scenarios, result) + config.resultsSeconds * 1000
   for (const player of room.players) player.ready = false
 }
 
@@ -396,6 +403,7 @@ export function nextRound(room: Room): void {
   if (room.round >= room.totalRounds) {
     room.phase = 'finished'
     room.phaseEndsAt = null
+    room.phaseStartedAt = null
     const max = Math.max(...room.families.map((f) => f.influence))
     room.winnerFamilyIds = room.families.filter((f) => f.influence === max).map((f) => f.id)
     return
@@ -412,6 +420,7 @@ export function buildView(room: Room, playerId: string | null): GameView {
     code: room.code,
     phase: room.phase,
     phaseEndsAt: room.phaseEndsAt,
+    phaseStartedAt: room.phaseStartedAt,
     round: room.round,
     totalRounds: room.totalRounds,
     players: room.players,
