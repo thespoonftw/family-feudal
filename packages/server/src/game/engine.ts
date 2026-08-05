@@ -26,6 +26,8 @@ export interface Room {
   code: string
   createdAt: Date
   phase: GamePhase
+  /** deadline for the current timed phase (planning/approach), epoch ms; null otherwise */
+  phaseEndsAt: number | null
   round: number
   totalRounds: number
   players: Player[]
@@ -75,6 +77,7 @@ export function createRoom(isCodeTaken: (code: string) => boolean): Room {
     code,
     createdAt: new Date(),
     phase: 'lobby',
+    phaseEndsAt: null,
     round: 0,
     totalRounds: getConfig().totalRounds,
     players: [],
@@ -229,6 +232,7 @@ function beginPlanning(room: Room): void {
   }
   for (const player of room.players) player.ready = false
   room.phase = 'planning'
+  room.phaseEndsAt = Date.now() + getConfig().planningSeconds * 1000
 }
 
 /** Validate and store a player's full assignment map. Returns an error message or null. */
@@ -276,6 +280,7 @@ export function finishPlanning(room: Room): void {
     return
   }
   room.phase = 'approach'
+  room.phaseEndsAt = Date.now() + getConfig().approachSeconds * 1000
   for (const player of room.players) player.ready = false
 }
 
@@ -382,6 +387,7 @@ export function resolveRound(room: Room): void {
   room.lastResult = result
   room.resultHistory.push(result)
   room.phase = 'resolution'
+  room.phaseEndsAt = null
   for (const player of room.players) player.ready = false
 }
 
@@ -403,6 +409,7 @@ export function buildView(room: Room, playerId: string | null): GameView {
   return {
     code: room.code,
     phase: room.phase,
+    phaseEndsAt: room.phaseEndsAt,
     round: room.round,
     totalRounds: room.totalRounds,
     players: room.players,

@@ -55,6 +55,29 @@ function cancelPendingDrop(roomCode: string, playerId: string): void {
   }
 }
 
+/** roomCode -> pending auto-advance timer for the room's current timed phase (planning/approach) */
+const phaseTimers = new Map<string, NodeJS.Timeout>()
+
+/** (Re)arm the auto-advance timer for a room's current phase deadline; clears it if untimed. */
+function schedulePhaseTimer(room: Room): void {
+  const existing = phaseTimers.get(room.code)
+  if (existing) {
+    clearTimeout(existing)
+    phaseTimers.delete(room.code)
+  }
+  if (room.phaseEndsAt === null) return
+  const delay = Math.max(0, room.phaseEndsAt - Date.now())
+  const timer = setTimeout(() => {
+    phaseTimers.delete(room.code)
+    if (getRoom(room.code) !== room) return
+    advancePhase(room)
+    schedulePhaseTimer(room)
+    void broadcastRoom(room)
+  }, delay)
+  timer.unref()
+  phaseTimers.set(room.code, timer)
+}
+
 /** Re-send a personalised view to every connected socket in the room (boards get a spectator view). */
 export async function broadcastRoom(room: Room): Promise<void> {
   if (!ioRef) return
@@ -134,6 +157,7 @@ export function registerSocketHandlers(io: IoServer): void {
         return cb({ ok: false, error: `Need at least ${MIN_PLAYERS} player(s)` })
       }
       startGame(room)
+      schedulePhaseTimer(room)
       cb({ ok: true })
       void broadcastRoom(room)
     })
@@ -161,7 +185,10 @@ export function registerSocketHandlers(io: IoServer): void {
       const phase = ctx?.room.phase
       if (!ctx || (phase !== 'planning' && phase !== 'approach')) return
       ctx.player.ready = ready
-      if (allReady(ctx.room)) advancePhase(ctx.room)
+      if (allReady(ctx.room)) {
+        advancePhase(ctx.room)
+        schedulePhaseTimer(ctx.room)
+      }
       void broadcastRoom(ctx.room)
     })
 
@@ -170,7 +197,10 @@ export function registerSocketHandlers(io: IoServer): void {
       if (!ctx) return cb({ ok: false, error: 'Not in a room' })
       if (ctx.room.phase !== 'resolution') return cb({ ok: false, error: 'Nothing to continue' })
       ctx.player.ready = true
-      if (allReady(ctx.room)) nextRound(ctx.room)
+      if (allReady(ctx.room)) {
+        nextRound(ctx.room)
+        schedulePhaseTimer(ctx.room)
+      }
       cb({ ok: true })
       void broadcastRoom(ctx.room)
     })
@@ -229,7 +259,10 @@ function handleDeparture(socket: IoSocket, explicit: boolean): void {
   }
 
   // a departure may unblock the round
-  if (room.players.length > 0 && allReady(room)) advancePhase(room)
+  if (room.players.length > 0 && allReady(room)) {
+    advancePhase(room)
+    schedulePhaseTimer(room)
+  }
   void broadcastRoom(room)
 }
 

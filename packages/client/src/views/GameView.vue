@@ -265,6 +265,17 @@ const currentDeployment = computed(
   () => yourDeployments.value[choiceIndex.value] ?? null,
 )
 
+/** ms remaining in the current timed phase (planning/approach) as of its start; drives the countdown bar */
+const phaseTimerMs = ref<number | null>(null)
+
+watch(
+  () => view.value?.phaseEndsAt,
+  (endsAt) => {
+    phaseTimerMs.value = endsAt ? Math.max(0, endsAt - Date.now()) : null
+  },
+  { immediate: true },
+)
+
 // phase entry (or rejoin mid-phase): stage the approach intro, or arm the reveal unlock.
 // Multi-source form matters: a getter returning an array would "change" on every
 // broadcast (any player's action) and restart the intro/reveal timers.
@@ -479,6 +490,17 @@ const winnerNames = computed(() => {
       zoom {{ uiScale.toFixed(2) }} · {{ Math.round(debugMetrics.width) }}×{{ Math.round(debugMetrics.height) }}
     </div>
 
+    <div
+      v-if="phaseTimerMs !== null && (view.phase === 'planning' || view.phase === 'approach')"
+      class="phase-timer"
+    >
+      <div
+        :key="view.phaseEndsAt ?? 0"
+        class="phase-timer-bar"
+        :style="{ animationDuration: phaseTimerMs + 'ms' }"
+      />
+    </div>
+
     <p v-if="actionError" class="error bar">{{ actionError }}</p>
 
     <Transition name="phase-fade" mode="out-in">
@@ -622,7 +644,6 @@ const winnerNames = computed(() => {
             <p class="progress hint">
               Round {{ view.round }} · decision {{ choiceIndex + 1 }} of
               {{ yourDeployments.length }}
-              <span class="gold-pill">💰 {{ remainingGold }}g</span>
             </p>
             <h3>{{ currentDeployment.scenario.emoji }} {{ currentDeployment.scenario.title }}</h3>
             <p class="hint">
@@ -684,9 +705,6 @@ const winnerNames = computed(() => {
           <!-- all decided (or nothing deployed): summary -->
           <div v-else key="summary" class="card choice-card">
             <h3>{{ yourDeployments.length > 0 ? 'The plans are laid' : 'A quiet round' }}</h3>
-            <p v-if="yourDeployments.length > 0" class="hint">
-              <span class="gold-pill">💰 {{ remainingGold }}g</span>
-            </p>
             <p v-if="yourDeployments.length === 0" class="hint">
               You sent no one out this round. The other houses are still deciding…
             </p>
@@ -918,6 +936,30 @@ header {
 
 .spacer {
   flex: 1;
+}
+
+.phase-timer {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.phase-timer-bar {
+  height: 100%;
+  width: 100%;
+  background: var(--gold-soft);
+  animation-name: phase-timer-shrink;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes phase-timer-shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
 }
 
 .offline {
@@ -1207,17 +1249,6 @@ button.small {
 
 .choice-card .attendee small {
   color: var(--text-dim);
-}
-
-.gold-pill {
-  display: inline-block;
-  margin-left: 0.5rem;
-  padding: 0.1rem 0.55rem;
-  border-radius: 999px;
-  border: 1px solid var(--gold);
-  color: var(--gold-soft);
-  font-weight: bold;
-  white-space: nowrap;
 }
 
 .approach-options {

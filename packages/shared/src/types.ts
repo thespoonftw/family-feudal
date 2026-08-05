@@ -192,6 +192,8 @@ export interface GameView {
   faceOutcomes: FaceOutcomeMap
   /** flat total used instead of a skill roll when a family buys out an approach */
   buyoutBonus: number
+  /** deadline for the current timed phase (planning/approach), epoch ms; null otherwise */
+  phaseEndsAt: number | null
 }
 
 // ---------- Global game configuration (dev panel) ----------
@@ -219,6 +221,10 @@ export interface GameConfig {
   /** inclusive gold range rolled for a Large tier */
   goldLargeMin: number
   goldLargeMax: number
+  /** seconds allowed for the planning (dispatch) phase before it auto-advances */
+  planningSeconds: number
+  /** seconds allowed for the approach (decision) phase before it auto-advances */
+  approachSeconds: number
 }
 
 // ---------- Editable game content (dev panel) ----------

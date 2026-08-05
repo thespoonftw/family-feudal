@@ -68,6 +68,8 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
   { key: 'goldMediumMax', label: 'Medium gold — max', hint: 'Upper bound of gold rolled for a Medium tier' },
   { key: 'goldLargeMin', label: 'Large gold — min', hint: 'Lower bound of gold rolled for a Large tier' },
   { key: 'goldLargeMax', label: 'Large gold — max', hint: 'Upper bound of gold rolled for a Large tier' },
+  { key: 'planningSeconds', label: 'Planning timer (s)', hint: 'Seconds allowed to assign members before the dispatch phase auto-advances' },
+  { key: 'approachSeconds', label: 'Approach timer (s)', hint: 'Seconds allowed to pick approaches before the decision phase auto-advances' },
 ]
 
 const configData = ref<ConfigResponse | null>(null)

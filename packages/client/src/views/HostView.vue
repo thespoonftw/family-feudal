@@ -120,6 +120,19 @@ function verdictText(o: ScenarioOutcome): string {
   return 'Failure'
 }
 
+// ---------- planning/approach: countdown to auto-advance ----------
+
+/** ms remaining in the current timed phase (planning/approach) as of its start; drives the countdown bar */
+const phaseTimerMs = ref<number | null>(null)
+
+watch(
+  () => view.value?.phaseEndsAt,
+  (endsAt) => {
+    phaseTimerMs.value = endsAt ? Math.max(0, endsAt - Date.now()) : null
+  },
+  { immediate: true },
+)
+
 // ---------- results reveal: one scenario at a time, scores last ----------
 
 const revealIndex = ref(0)
@@ -254,6 +267,13 @@ function closeBoard() {
         <ScoreBoard :families="view.families" :players="view.players" />
         <div class="card ready-card">
           <h3>{{ view.phase === 'planning' ? 'Planning' : 'Choosing approaches' }}</h3>
+          <div v-if="phaseTimerMs !== null" class="phase-timer">
+            <div
+              :key="view.phaseEndsAt ?? 0"
+              class="phase-timer-bar"
+              :style="{ animationDuration: phaseTimerMs + 'ms' }"
+            />
+          </div>
           <p class="hint">{{ readyCount }}/{{ view.players.length }} houses ready</p>
           <ul class="ready-list">
             <li v-for="p in view.players" :key="p.id">
@@ -529,6 +549,32 @@ button.small {
 .ready-card h3 {
   color: var(--gold-soft);
   margin-bottom: 0.4rem;
+}
+
+.phase-timer {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.phase-timer-bar {
+  height: 100%;
+  width: 100%;
+  background: var(--gold-soft);
+  animation-name: phase-timer-shrink;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes phase-timer-shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
 }
 
 .ready-list {
