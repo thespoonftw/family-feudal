@@ -608,10 +608,7 @@ const winnerNames = computed(() => {
           />
           <strong>{{ m.name }}</strong>
           <small class="agent-traits">
-            <template v-for="(trait, i) in m.traits" :key="trait">
-              <template v-if="i > 0"> · </template>
-              {{ trait }}
-            </template>
+            <span v-for="trait in m.traits" :key="trait">{{ trait }}</span>
           </small>
         </div>
       </div>
@@ -1204,9 +1201,12 @@ button.small {
 }
 
 .agent-traits {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   color: var(--text-dim);
   font-size: 0.7rem;
-  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .drag-ghost {
