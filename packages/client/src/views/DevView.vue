@@ -178,6 +178,22 @@ function removeSkill(index: number) {
   if (skillsData.value && skillsData.value.skills.length > 1) skillsData.value.skills.splice(index, 1)
 }
 
+/** catalog order is purely display order — skills/approaches/traits all reference a skill
+ *  by its key string, never by position, so reordering can never break a reference */
+const draggingSkillIndex = ref<number | null>(null)
+
+function onSkillDragStart(index: number) {
+  draggingSkillIndex.value = index
+}
+
+function onSkillDrop(index: number) {
+  const from = draggingSkillIndex.value
+  draggingSkillIndex.value = null
+  if (from === null || from === index || !skillsData.value) return
+  const [moved] = skillsData.value.skills.splice(from, 1)
+  skillsData.value.skills.splice(index, 0, moved!)
+}
+
 async function loadTraits() {
   try {
     traitsData.value = await api<TraitsResponse>('/dev/traits')
@@ -212,6 +228,22 @@ function addTrait() {
 
 function removeTrait(index: number) {
   if (traitsData.value && traitsData.value.traits.length > 1) traitsData.value.traits.splice(index, 1)
+}
+
+/** catalog order is purely display order — traits are referenced by name, never by
+ *  position, so reordering can never break a house's assigned trait references */
+const draggingTraitIndex = ref<number | null>(null)
+
+function onTraitDragStart(index: number) {
+  draggingTraitIndex.value = index
+}
+
+function onTraitDrop(index: number) {
+  const from = draggingTraitIndex.value
+  draggingTraitIndex.value = null
+  if (from === null || from === index || !traitsData.value) return
+  const [moved] = traitsData.value.traits.splice(from, 1)
+  traitsData.value.traits.splice(index, 0, moved!)
 }
 
 function addTraitBonus(f: TraitDesign) {
@@ -587,7 +619,21 @@ onUnmounted(() => {
         edit those afterwards if needed. Applies to trait/scenario designs
         <strong>saved after saving here</strong>; live games keep their skills.
       </p>
-      <div v-for="(_, i) in skillsData.skills" :key="i" class="skill-row">
+      <div
+        v-for="(_, i) in skillsData.skills"
+        :key="i"
+        class="skill-row"
+        :class="{ dragging: draggingSkillIndex === i }"
+        @dragover.prevent
+        @drop="onSkillDrop(i)"
+      >
+        <span
+          class="drag-handle"
+          draggable="true"
+          title="Drag to reorder"
+          @dragstart="onSkillDragStart(i)"
+          @dragend="draggingSkillIndex = null"
+        >⠿</span>
         <span class="scenario-id" title="Skill number">#{{ i + 1 }}</span>
         <input
           v-model="skillsData.skills[i]"
@@ -620,7 +666,21 @@ onUnmounted(() => {
         houses that still reference it. Applies to house designs
         <strong>saved after saving here</strong>; live games keep their resultant skills.
       </p>
-      <div v-for="(f, i) in traitsData.traits" :key="i" class="trait-row">
+      <div
+        v-for="(f, i) in traitsData.traits"
+        :key="i"
+        class="trait-row"
+        :class="{ dragging: draggingTraitIndex === i }"
+        @dragover.prevent
+        @drop="onTraitDrop(i)"
+      >
+        <span
+          class="drag-handle"
+          draggable="true"
+          title="Drag to reorder"
+          @dragstart="onTraitDragStart(i)"
+          @dragend="draggingTraitIndex = null"
+        >⠿</span>
         <span class="scenario-id" title="Trait number">#{{ i + 1 }}</span>
         <input v-model="f.name" type="text" maxlength="40" placeholder="Trait name" class="trait-name" />
         <button
@@ -1425,11 +1485,27 @@ table.faces select {
 
 .skill-row {
   display: grid;
-  grid-template-columns: 2.4em 1fr auto;
+  grid-template-columns: 1.4em 2.4em 1fr auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding: 0.55rem 0;
   border-bottom: 1px solid var(--border);
+}
+
+.skill-row.dragging,
+.trait-row.dragging {
+  opacity: 0.4;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--text-dim);
+  text-align: center;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .scenario-row input.emoji {
@@ -1454,7 +1530,7 @@ table.faces select {
 /* trait editor */
 .trait-row {
   display: grid;
-  grid-template-columns: 2.4em 1fr auto;
+  grid-template-columns: 1.4em 2.4em 1fr auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding: 0.55rem 0;
