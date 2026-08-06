@@ -6,7 +6,7 @@ import type {
   MemberAppearance,
   MemberDesign,
   ScenarioDesign,
-  SkillDesign,
+  SkillKey,
 } from '@family-feudal/shared'
 import {
   APPEARANCE_FACES,
@@ -20,14 +20,8 @@ import {
 // designable — see content.ts
 export const MIN_PLAYERS = 1
 
-// the default skill catalog — the game's original fixed 4 skills, with the icons that
-// used to be hardcoded client-side
-export const DEFAULT_SKILLS: SkillDesign[] = [
-  { key: 'might', label: 'Might', icon: '⚔️' },
-  { key: 'charm', label: 'Charm', icon: '🌹' },
-  { key: 'wit', label: 'Wit', icon: '📜' },
-  { key: 'cunning', label: 'Cunning', icon: '🦊' },
-]
+// the default skill catalog — the game's original fixed 4 skills
+export const DEFAULT_SKILLS: SkillKey[] = ['might', 'charm', 'wit', 'cunning']
 
 export const CAPITAL_ID = 'capital'
 export const CAPITAL_NAME = 'Kingsreach'

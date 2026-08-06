@@ -18,7 +18,7 @@ import type {
   Scenario,
   ScenarioDesign,
   ScenarioLocation,
-  SkillDesign,
+  SkillKey,
 } from '@family-feudal/shared'
 import {
   APPEARANCE_ACCESSORIES,
@@ -42,7 +42,7 @@ interface ConfigResponse {
 }
 
 interface SkillsResponse {
-  skills: SkillDesign[]
+  skills: SkillKey[]
 }
 
 interface HousesResponse {
@@ -145,7 +145,7 @@ function reconcileHouseSkills() {
   for (const house of houseList) {
     for (const member of house.members) {
       for (const skill of catalog) {
-        if (typeof member.skills[skill.key] !== 'number') member.skills[skill.key] = MEMBER_SKILL_BOUNDS[0]
+        if (typeof member.skills[skill] !== 'number') member.skills[skill] = MEMBER_SKILL_BOUNDS[0]
       }
     }
   }
@@ -179,7 +179,7 @@ async function saveSkills() {
 let nextNewSkillId = 1
 
 function addSkill() {
-  skillsData.value?.skills.push({ key: `skill${nextNewSkillId++}`, label: 'New Skill', icon: '❔' })
+  skillsData.value?.skills.push(`skill${nextNewSkillId++}`)
 }
 
 function removeSkill(index: number) {
@@ -267,12 +267,12 @@ const DEFAULT_TIERS = {
 
 /** first skill in the catalog, used as the default for newly-created skill approaches */
 function defaultSkillKey(): string {
-  return skillsData.value?.skills[0]?.key ?? ''
+  return skillsData.value?.skills[0] ?? ''
 }
 
 function addScenario() {
   const first = defaultSkillKey()
-  const second = skillsData.value?.skills[1]?.key ?? first
+  const second = skillsData.value?.skills[1] ?? first
   scenariosData.value?.scenarios.push({
     emoji: '❔',
     title: 'New Scenario',
@@ -321,14 +321,10 @@ function removeApproach(s: ScenarioDesign, index: number) {
   if (s.approaches.length > 2) s.approaches.splice(index, 1)
 }
 
-function skillLabel(key: string): string {
-  return skillsData.value?.skills.find((s) => s.key === key)?.label ?? key
-}
-
-/** compact "label (Skill)" list for the room inspector */
+/** compact "label (skill)" list for the room inspector */
 function approachSummary(s: Scenario): string {
   return s.approaches
-    .map((a) => `${a.label} (${a.skill ? skillLabel(a.skill) : `💰${a.buyoutCost}g`})`)
+    .map((a) => `${a.label} (${a.skill ? a.skill : `💰${a.buyoutCost}g`})`)
     .join(' / ')
 }
 
@@ -358,12 +354,12 @@ function townName(townId: string): string {
   return detail.value?.towns.find((t) => t.id === townId)?.name ?? '?'
 }
 
-function skillCatalog(): SkillDesign[] {
+function skillCatalog(): SkillKey[] {
   return skillsData.value?.skills ?? []
 }
 
 function memberTotal(m: MemberDesign): number {
-  return skillCatalog().reduce((sum, skill) => sum + (m.skills[skill.key] ?? 0), 0)
+  return skillCatalog().reduce((sum, skill) => sum + (m.skills[skill] ?? 0), 0)
 }
 
 function headStyles(): string[] {
@@ -513,16 +509,14 @@ onUnmounted(() => {
         those tabs afterwards if needed. Applies to house/scenario designs
         <strong>saved after saving here</strong>; live games keep their skills.
       </p>
-      <div v-for="(s, i) in skillsData.skills" :key="i" class="scenario-row">
+      <div v-for="(_, i) in skillsData.skills" :key="i" class="scenario-row">
         <span class="scenario-id" title="Skill number">#{{ i + 1 }}</span>
-        <input v-model="s.icon" type="text" maxlength="8" class="emoji" title="Icon" />
-        <input v-model="s.label" type="text" maxlength="24" placeholder="Label" />
         <input
-          v-model="s.key"
+          v-model="skillsData.skills[i]"
           type="text"
           maxlength="20"
           placeholder="key"
-          title="Internal key stored on members/approaches — lowercase letters/digits/underscores"
+          title="Lowercase letters/digits/underscores — stored on members/approaches"
           class="skill-key"
         />
         <button
@@ -558,14 +552,14 @@ onUnmounted(() => {
           <colgroup>
             <col class="col-avatar" />
             <col class="col-name" />
-            <col v-for="skill in skillCatalog()" :key="skill.key" class="col-skill" />
+            <col v-for="skill in skillCatalog()" :key="skill" class="col-skill" />
             <col class="col-total" />
           </colgroup>
           <thead>
             <tr>
               <th></th>
               <th>Character</th>
-              <th v-for="skill in skillCatalog()" :key="skill.key">{{ skill.icon }} {{ skill.label }}</th>
+              <th v-for="skill in skillCatalog()" :key="skill">{{ skill }}</th>
               <th>Total</th>
             </tr>
           </thead>
@@ -581,9 +575,9 @@ onUnmounted(() => {
                 </button>
               </td>
               <td><input v-model="m.name" type="text" maxlength="30" /></td>
-              <td v-for="skill in skillCatalog()" :key="skill.key">
+              <td v-for="skill in skillCatalog()" :key="skill">
                 <input
-                  v-model.number="m.skills[skill.key]"
+                  v-model.number="m.skills[skill]"
                   type="number"
                   :min="MEMBER_SKILL_BOUNDS[0]"
                   :max="MEMBER_SKILL_BOUNDS[1]"
@@ -657,8 +651,8 @@ onUnmounted(() => {
               <option value="buyout">Gold buyout</option>
             </select>
             <select v-if="approachKind(a) === 'skill'" v-model="a.skill" title="Hidden skill tested">
-              <option v-for="skill in skillCatalog()" :key="skill.key" :value="skill.key">
-                {{ skill.label }}
+              <option v-for="skill in skillCatalog()" :key="skill" :value="skill">
+                {{ skill }}
               </option>
             </select>
             <select
@@ -863,7 +857,7 @@ onUnmounted(() => {
               <th></th>
               <th>Family</th>
               <th>Name</th>
-              <th v-for="skill in skillCatalog()" :key="skill.key">{{ skill.icon }} {{ skill.label }}</th>
+              <th v-for="skill in skillCatalog()" :key="skill">{{ skill }}</th>
             </tr>
           </thead>
           <tbody>
@@ -874,7 +868,7 @@ onUnmounted(() => {
                   <span class="chip" :style="{ background: f.color }" /> {{ f.name }}
                 </td>
                 <td>{{ m.name }}</td>
-                <td v-for="skill in skillCatalog()" :key="skill.key">{{ m.skills[skill.key] }}</td>
+                <td v-for="skill in skillCatalog()" :key="skill">{{ m.skills[skill] }}</td>
               </tr>
             </template>
           </tbody>

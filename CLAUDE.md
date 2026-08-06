@@ -95,15 +95,16 @@ Three layers:
   sections — one file, one loader, one dev-panel tab each, so saving one can never
   clobber another — composed into a `GameContent` only as a read convenience
   (`getContent()`) for `engine.ts`:
-  - **Skills** — the `SkillDesign` catalog (1–20 entries: `key`/`label`/`icon`), the set
-    of skills members are rated on and approaches secretly test — no longer a fixed
-    4-value union, `SkillKey` is just `string`. `getSkills`/`updateSkills`, validated by
-    `sanitizeSkillsList` (unique lowercase keys), persisted to `game-skills.json`
-    (gitignored; override via `SKILLS_FILE`). Loaded **before** houses/scenarios at
-    module init since their sanitizers validate member/approach skill keys against the
-    live catalog. Read live into every `GameView` (same as face outcomes, not
-    snapshotted per-room) — editing labels/icons applies instantly, even mid-game;
-    removing a key doesn't retroactively fix houses/scenarios still referencing it.
+  - **Skills** — a flat `SkillKey[]` catalog (1–20 lowercase keys, no separate label/icon
+    — the key *is* the display name), the set of skills members are rated on and
+    approaches secretly test — no longer a fixed 4-value union, `SkillKey` is just
+    `string`. `getSkills`/`updateSkills`, validated by `sanitizeSkillsList` (unique
+    lowercase keys), persisted to `game-skills.json` (gitignored; override via
+    `SKILLS_FILE`). Loaded **before** houses/scenarios at module init since their
+    sanitizers validate member/approach skill keys against the live catalog. Read live
+    into every `GameView` (same as face outcomes, not snapshotted per-room) — renaming a
+    key applies instantly, even mid-game; removing a key doesn't retroactively fix
+    houses/scenarios still referencing it.
   - **Houses** — the 8 `HouseDesign`s (name, colour, home city name, fixed 3-member
     roster with hand-set skills/appearance). `getHouses`/`updateHouses`, validated by
     `sanitizeHousesList` (exactly one house per city slot), persisted to

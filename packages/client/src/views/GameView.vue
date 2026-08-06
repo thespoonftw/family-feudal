@@ -608,9 +608,9 @@ const winnerNames = computed(() => {
           />
           <strong>{{ m.name }}</strong>
           <small class="agent-skills">
-            <template v-for="(skill, i) in view?.skills ?? []" :key="skill.key">
+            <template v-for="(skill, i) in view?.skills ?? []" :key="skill">
               <template v-if="i > 0"> · </template>
-              {{ skill.icon }}{{ m.skills[skill.key] }}
+              {{ skill }} {{ m.skills[skill] }}
             </template>
           </small>
         </div>
@@ -688,9 +688,9 @@ const winnerNames = computed(() => {
               <span class="attendee-info">
                 <span class="attendee-name"><strong>{{ currentDeployment.member.name }}</strong> attends</span>
                 <small>
-                  <template v-for="(skill, i) in view?.skills ?? []" :key="skill.key">
+                  <template v-for="(skill, i) in view?.skills ?? []" :key="skill">
                     <template v-if="i > 0"> · </template>
-                    {{ skill.icon }}{{ currentDeployment.member.skills[skill.key] }}
+                    {{ skill }} {{ currentDeployment.member.skills[skill] }}
                   </template>
                 </small>
               </span>
