@@ -4,7 +4,7 @@ import type {
   Assignments,
   Family,
   FamilyMember,
-  FeatureDesign,
+  TraitDesign,
   GamePhase,
   GameView,
   GoldTier,
@@ -144,19 +144,21 @@ export function addPlayer(room: Room, name: string): Player {
 }
 
 /** Instantiate a family's members from its house preset's fixed roster (new id per game).
- *  Skills are derived from each member's assigned features against the feature/skill
+ *  Skills are derived from each member's assigned traits against the trait/skill
  *  catalogs in effect right now — baked into concrete numbers once, like config, rather
- *  than read live for the rest of the game. */
+ *  than read live for the rest of the game. Trait names are kept alongside the derived
+ *  skills — players see those instead of the numeric skills they grant. */
 function generateMembers(
   preset: FamilyPreset | undefined,
-  features: FeatureDesign[],
+  traits: TraitDesign[],
   skillCatalog: SkillKey[],
 ): FamilyMember[] {
   if (!preset) return []
   return preset.members.map((m) => ({
     id: randomUUID(),
     name: m.name,
-    skills: computeMemberSkills(m.features, features, skillCatalog),
+    skills: computeMemberSkills(m.traits, traits, skillCatalog),
+    traits: [...m.traits],
     appearance: { ...m.appearance },
   }))
 }
@@ -168,7 +170,7 @@ export function startGame(room: Room): void {
   // houses and home cities were claimed as players joined; instantiate the fixed roster now
   for (const family of room.families) {
     const preset = room.presets.find((p) => p.homeTownId === family.homeTownId)
-    family.members = generateMembers(preset, content.features, content.skills)
+    family.members = generateMembers(preset, content.traits, content.skills)
     family.gold = config.startingGold
   }
   room.phase = 'planning'

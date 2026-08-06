@@ -607,10 +607,10 @@ const winnerNames = computed(() => {
             :size="AVATAR_SIZE"
           />
           <strong>{{ m.name }}</strong>
-          <small class="agent-skills">
-            <template v-for="(skill, i) in view?.skills ?? []" :key="skill">
+          <small class="agent-traits">
+            <template v-for="(trait, i) in m.traits" :key="trait">
               <template v-if="i > 0"> · </template>
-              {{ skill }} {{ m.skills[skill] }}
+              {{ trait }}
             </template>
           </small>
         </div>
@@ -688,9 +688,9 @@ const winnerNames = computed(() => {
               <span class="attendee-info">
                 <span class="attendee-name"><strong>{{ currentDeployment.member.name }}</strong> attends</span>
                 <small>
-                  <template v-for="(skill, i) in view?.skills ?? []" :key="skill">
+                  <template v-for="(trait, i) in currentDeployment.member.traits" :key="trait">
                     <template v-if="i > 0"> · </template>
-                    {{ skill }} {{ currentDeployment.member.skills[skill] }}
+                    {{ trait }}
                   </template>
                 </small>
               </span>
@@ -1203,7 +1203,7 @@ button.small {
   line-height: 1.1;
 }
 
-.agent-skills {
+.agent-traits {
   color: var(--text-dim);
   font-size: 0.7rem;
   white-space: nowrap;

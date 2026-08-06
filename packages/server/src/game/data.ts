@@ -2,12 +2,12 @@ import type {
   AppearanceAccessories,
   AppearanceFace,
   AppearanceFacialHair,
-  FeatureDesign,
   HouseDesign,
   MemberAppearance,
   MemberDesign,
   ScenarioDesign,
   SkillKey,
+  TraitDesign,
 } from '@family-feudal/shared'
 import {
   APPEARANCE_FACES,
@@ -17,17 +17,17 @@ import {
 } from '@family-feudal/shared'
 
 // rounds/scenarios/max-players are runtime-tunable — see config.ts
-// the skill catalog, feature catalog, houses (incl. their fixed 3-character rosters), and
+// the skill catalog, trait catalog, houses (incl. their fixed 3-character rosters), and
 // scenarios are designable — see content.ts
 export const MIN_PLAYERS = 1
 
 // the default skill catalog — the game's original fixed 4 skills
 export const DEFAULT_SKILLS: SkillKey[] = ['might', 'charm', 'wit', 'cunning']
 
-// the default feature catalog — one flat +3 bonus per original skill, so the stock roster
+// the default trait catalog — one flat +3 bonus per original skill, so the stock roster
 // (each member assigned 3 of these) reproduces the game's original might/charm/wit/cunning
 // spread of "3 skills built up, 1 left at the base value"
-export const DEFAULT_FEATURES: FeatureDesign[] = [
+export const DEFAULT_TRAITS: TraitDesign[] = [
   { name: 'Battle-hardened', bonuses: [{ skill: 'might', amount: 3 }] },
   { name: 'Silver Tongue', bonuses: [{ skill: 'charm', amount: 3 }] },
   { name: 'Sharp Mind', bonuses: [{ skill: 'wit', amount: 3 }] },
@@ -60,58 +60,58 @@ export const CITY_SLOTS: MapSlot[] = [
 ]
 
 // Each house's fixed roster of MEMBERS_PER_HOUSE characters — name + up to
-// MAX_FEATURES_PER_MEMBER assigned features (skills are derived from these, see
+// MAX_TRAITS_PER_MEMBER assigned traits (skills are derived from these, see
 // computeMemberSkills). No longer rolled at game start; edited from the dev panel like
 // everything else here.
 /** a house roster before its portrait defaults are attached — see {@link withAppearance} */
 type MemberSeed = Omit<MemberDesign, 'appearance'>
 
 const ASHFORD_MEMBERS: MemberSeed[] = [
-  { name: 'Aldric', features: ['Scheming', 'Silver Tongue', 'Sharp Mind'] },
-  { name: 'Beatrice', features: ['Scheming', 'Sharp Mind', 'Battle-hardened'] },
-  { name: 'Cedric', features: ['Scheming', 'Battle-hardened', 'Silver Tongue'] },
+  { name: 'Aldric', traits: ['Scheming', 'Silver Tongue', 'Sharp Mind'] },
+  { name: 'Beatrice', traits: ['Scheming', 'Sharp Mind', 'Battle-hardened'] },
+  { name: 'Cedric', traits: ['Scheming', 'Battle-hardened', 'Silver Tongue'] },
 ]
 
 const BELMONT_MEMBERS: MemberSeed[] = [
-  { name: 'Daphne', features: ['Silver Tongue', 'Scheming', 'Battle-hardened'] },
-  { name: 'Edmund', features: ['Battle-hardened', 'Silver Tongue', 'Scheming'] },
-  { name: 'Freya', features: ['Sharp Mind', 'Silver Tongue', 'Scheming'] },
+  { name: 'Daphne', traits: ['Silver Tongue', 'Scheming', 'Battle-hardened'] },
+  { name: 'Edmund', traits: ['Battle-hardened', 'Silver Tongue', 'Scheming'] },
+  { name: 'Freya', traits: ['Sharp Mind', 'Silver Tongue', 'Scheming'] },
 ]
 
 const CALDWELL_MEMBERS: MemberSeed[] = [
-  { name: 'Godwin', features: ['Battle-hardened', 'Sharp Mind', 'Scheming'] },
-  { name: 'Helena', features: ['Sharp Mind', 'Battle-hardened', 'Silver Tongue'] },
-  { name: 'Isolde', features: ['Silver Tongue', 'Battle-hardened', 'Sharp Mind'] },
+  { name: 'Godwin', traits: ['Battle-hardened', 'Sharp Mind', 'Scheming'] },
+  { name: 'Helena', traits: ['Sharp Mind', 'Battle-hardened', 'Silver Tongue'] },
+  { name: 'Isolde', traits: ['Silver Tongue', 'Battle-hardened', 'Sharp Mind'] },
 ]
 
 const DRAYMOOR_MEMBERS: MemberSeed[] = [
-  { name: 'Jasper', features: ['Silver Tongue', 'Scheming', 'Battle-hardened'] },
-  { name: 'Katherine', features: ['Sharp Mind', 'Scheming', 'Battle-hardened'] },
-  { name: 'Leopold', features: ['Silver Tongue', 'Sharp Mind', 'Scheming'] },
+  { name: 'Jasper', traits: ['Silver Tongue', 'Scheming', 'Battle-hardened'] },
+  { name: 'Katherine', traits: ['Sharp Mind', 'Scheming', 'Battle-hardened'] },
+  { name: 'Leopold', traits: ['Silver Tongue', 'Sharp Mind', 'Scheming'] },
 ]
 
 const EVERLY_MEMBERS: MemberSeed[] = [
-  { name: 'Margaery', features: ['Silver Tongue', 'Sharp Mind', 'Scheming'] },
-  { name: 'Nathaniel', features: ['Scheming', 'Silver Tongue', 'Battle-hardened'] },
-  { name: 'Odette', features: ['Silver Tongue', 'Scheming', 'Battle-hardened'] },
+  { name: 'Margaery', traits: ['Silver Tongue', 'Sharp Mind', 'Scheming'] },
+  { name: 'Nathaniel', traits: ['Scheming', 'Silver Tongue', 'Battle-hardened'] },
+  { name: 'Odette', traits: ['Silver Tongue', 'Scheming', 'Battle-hardened'] },
 ]
 
 const FENWICK_MEMBERS: MemberSeed[] = [
-  { name: 'Percival', features: ['Battle-hardened', 'Silver Tongue', 'Sharp Mind'] },
-  { name: 'Quinn', features: ['Scheming', 'Sharp Mind', 'Silver Tongue'] },
-  { name: 'Rosalind', features: ['Battle-hardened', 'Silver Tongue', 'Scheming'] },
+  { name: 'Percival', traits: ['Battle-hardened', 'Silver Tongue', 'Sharp Mind'] },
+  { name: 'Quinn', traits: ['Scheming', 'Sharp Mind', 'Silver Tongue'] },
+  { name: 'Rosalind', traits: ['Battle-hardened', 'Silver Tongue', 'Scheming'] },
 ]
 
 const GRIMSBY_MEMBERS: MemberSeed[] = [
-  { name: 'Silas', features: ['Sharp Mind', 'Scheming', 'Battle-hardened'] },
-  { name: 'Tamsin', features: ['Battle-hardened', 'Sharp Mind', 'Silver Tongue'] },
-  { name: 'Ulric', features: ['Sharp Mind', 'Scheming', 'Battle-hardened'] },
+  { name: 'Silas', traits: ['Sharp Mind', 'Scheming', 'Battle-hardened'] },
+  { name: 'Tamsin', traits: ['Battle-hardened', 'Sharp Mind', 'Silver Tongue'] },
+  { name: 'Ulric', traits: ['Sharp Mind', 'Scheming', 'Battle-hardened'] },
 ]
 
 const HARROWGATE_MEMBERS: MemberSeed[] = [
-  { name: 'Vivienne', features: ['Battle-hardened', 'Scheming', 'Silver Tongue'] },
-  { name: 'Wilfred', features: ['Silver Tongue', 'Sharp Mind', 'Scheming'] },
-  { name: 'Yvette', features: ['Silver Tongue', 'Battle-hardened', 'Scheming'] },
+  { name: 'Vivienne', traits: ['Battle-hardened', 'Scheming', 'Silver Tongue'] },
+  { name: 'Wilfred', traits: ['Silver Tongue', 'Sharp Mind', 'Scheming'] },
+  { name: 'Yvette', traits: ['Silver Tongue', 'Battle-hardened', 'Scheming'] },
 ]
 
 // Default portrait swatches, cycled by a global member index so the 24 stock characters

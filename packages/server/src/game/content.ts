@@ -9,8 +9,8 @@ import type {
   AppearanceSkinTone,
   FaceOutcomeDesign,
   FaceOutcomeMap,
-  FeatureBonus,
-  FeatureDesign,
+  TraitBonus,
+  TraitDesign,
   GameContent,
   GoldTier,
   HouseDesign,
@@ -29,8 +29,8 @@ import {
   APPEARANCE_HAIR_COLORS,
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
-  FEATURE_BONUS_BOUNDS,
-  MAX_FEATURES_PER_MEMBER,
+  TRAIT_BONUS_BOUNDS,
+  MAX_TRAITS_PER_MEMBER,
   MEMBERS_PER_HOUSE,
   REWARD_TIERS,
 } from '@family-feudal/shared'
@@ -39,7 +39,7 @@ import {
   CAPITAL_NAME,
   CAPITAL_SLOT,
   CITY_SLOTS,
-  DEFAULT_FEATURES,
+  DEFAULT_TRAITS,
   DEFAULT_HOUSES,
   DEFAULT_SCENARIOS,
   DEFAULT_SKILLS,
@@ -53,18 +53,18 @@ const DEFAULT_FACE_OUTCOMES: FaceOutcomeMap = Object.fromEntries(
 
 export const DEFAULT_CONTENT: GameContent = {
   skills: DEFAULT_SKILLS,
-  features: DEFAULT_FEATURES,
+  traits: DEFAULT_TRAITS,
   houses: DEFAULT_HOUSES,
   scenarios: DEFAULT_SCENARIOS,
   faceOutcomes: DEFAULT_FACE_OUTCOMES,
 }
 
-// Skills, features, houses, scenarios, and face outcomes are persisted as five independent
+// Skills, traits, houses, scenarios, and face outcomes are persisted as five independent
 // files — a save from one dev-panel tab (or a broken/stale file) can never clobber
 // another's. Resolved against the server process cwd (packages/server under the systemd
 // unit); each overridable via its own env var.
 const SKILLS_FILE = process.env['SKILLS_FILE'] ?? 'game-skills.json'
-const FEATURES_FILE = process.env['FEATURES_FILE'] ?? 'game-features.json'
+const TRAITS_FILE = process.env['TRAITS_FILE'] ?? 'game-traits.json'
 const HOUSES_FILE = process.env['HOUSES_FILE'] ?? 'game-houses.json'
 const SCENARIOS_FILE = process.env['SCENARIOS_FILE'] ?? 'game-scenarios.json'
 const FACES_FILE = process.env['FACES_FILE'] ?? 'game-faces.json'
@@ -94,16 +94,16 @@ function cleanString(value: unknown, maxLength: number): string | null {
   return trimmed
 }
 
-function sanitizeMemberFeatures(raw: unknown, where: string): string[] | string {
-  if (!Array.isArray(raw) || raw.length > MAX_FEATURES_PER_MEMBER) {
-    return `${where}: may have at most ${MAX_FEATURES_PER_MEMBER} features`
+function sanitizeMemberTraits(raw: unknown, where: string): string[] | string {
+  if (!Array.isArray(raw) || raw.length > MAX_TRAITS_PER_MEMBER) {
+    return `${where}: may have at most ${MAX_TRAITS_PER_MEMBER} traits`
   }
   const clean: string[] = []
   for (const entry of raw) {
-    if (typeof entry !== 'string' || !features.some((f) => f.name === entry)) {
-      return `${where}: unknown feature "${String(entry)}"`
+    if (typeof entry !== 'string' || !traits.some((f) => f.name === entry)) {
+      return `${where}: unknown trait "${String(entry)}"`
     }
-    if (clean.includes(entry)) return `${where}: feature "${entry}" is assigned twice`
+    if (clean.includes(entry)) return `${where}: trait "${entry}" is assigned twice`
     clean.push(entry)
   }
   return clean
@@ -184,9 +184,9 @@ function migrateSkills(raw: unknown): unknown {
   return raw.map((s) => (s && typeof s === 'object' && 'key' in s ? (s as { key: unknown }).key : s))
 }
 
-function sanitizeFeatureBonus(raw: unknown, where: string): FeatureBonus | string {
+function sanitizeTraitBonus(raw: unknown, where: string): TraitBonus | string {
   const obj = (raw ?? {}) as Record<string, unknown>
-  const [min, max] = FEATURE_BONUS_BOUNDS
+  const [min, max] = TRAIT_BONUS_BOUNDS
   const skill = obj['skill']
   if (!skills.includes(skill as SkillKey)) return `${where}: unknown skill`
   const amount = obj['amount']
@@ -196,24 +196,24 @@ function sanitizeFeatureBonus(raw: unknown, where: string): FeatureBonus | strin
   return { skill: skill as SkillKey, amount: rounded }
 }
 
-function sanitizeFeature(raw: unknown, index: number, seenNames: Set<string>): FeatureDesign | string {
+function sanitizeTrait(raw: unknown, index: number, seenNames: Set<string>): TraitDesign | string {
   const obj = (raw ?? {}) as Record<string, unknown>
-  const where = `Feature ${index + 1}`
+  const where = `Trait ${index + 1}`
   const name = cleanString(obj['name'], 40)
   if (!name) return `${where}: name must be 1–40 characters`
-  if (seenNames.has(name.toLowerCase())) return `${where}: "${name}" is already used by another feature`
+  if (seenNames.has(name.toLowerCase())) return `${where}: "${name}" is already used by another trait`
   seenNames.add(name.toLowerCase())
   const bonusesRaw = obj['bonuses']
   if (!Array.isArray(bonusesRaw) || bonusesRaw.length === 0) {
     return `${where}: needs at least one skill bonus`
   }
-  const bonuses: FeatureBonus[] = []
+  const bonuses: TraitBonus[] = []
   const usedSkills = new Set<string>()
   for (const [i, bonus] of bonusesRaw.entries()) {
-    const result = sanitizeFeatureBonus(bonus, `${where}, bonus ${i + 1}`)
+    const result = sanitizeTraitBonus(bonus, `${where}, bonus ${i + 1}`)
     if (typeof result === 'string') return result
     if (usedSkills.has(result.skill)) {
-      return `${where}, bonus ${i + 1}: "${result.skill}" is already bonused by this feature`
+      return `${where}, bonus ${i + 1}: "${result.skill}" is already bonused by this trait`
     }
     usedSkills.add(result.skill)
     bonuses.push(result)
@@ -221,23 +221,23 @@ function sanitizeFeature(raw: unknown, index: number, seenNames: Set<string>): F
   return { name, bonuses }
 }
 
-function sanitizeFeaturesList(raw: unknown): FeatureDesign[] | string {
+function sanitizeTraitsList(raw: unknown): TraitDesign[] | string {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 100) {
-    return 'There must be between 1 and 100 features'
+    return 'There must be between 1 and 100 traits'
   }
-  const clean: FeatureDesign[] = []
+  const clean: TraitDesign[] = []
   const seenNames = new Set<string>()
-  for (const [i, feature] of raw.entries()) {
-    const result = sanitizeFeature(feature, i, seenNames)
+  for (const [i, trait] of raw.entries()) {
+    const result = sanitizeTrait(trait, i, seenNames)
     if (typeof result === 'string') return result
     clean.push(result)
   }
   return clean
 }
 
-// no prior build ever persisted features — nothing to upgrade, just seed defaults
-function migrateFeatures(raw: unknown): unknown {
-  return raw ?? DEFAULT_FEATURES
+// no prior build ever persisted traits — nothing to upgrade, just seed defaults
+function migrateTraits(raw: unknown): unknown {
+  return raw ?? DEFAULT_TRAITS
 }
 
 function sanitizeMember(raw: unknown, houseLabel: string, index: number): MemberDesign | string {
@@ -245,11 +245,11 @@ function sanitizeMember(raw: unknown, houseLabel: string, index: number): Member
   const where = `${houseLabel}, character ${index + 1}`
   const name = cleanString(obj['name'], 30)
   if (!name) return `${where}: name must be 1–30 characters`
-  const memberFeatures = sanitizeMemberFeatures(obj['features'], where)
-  if (typeof memberFeatures === 'string') return memberFeatures
+  const memberTraits = sanitizeMemberTraits(obj['traits'], where)
+  if (typeof memberTraits === 'string') return memberTraits
   const appearance = sanitizeAppearance(obj['appearance'], where)
   if (typeof appearance === 'string') return appearance
-  return { name, features: memberFeatures, appearance }
+  return { name, traits: memberTraits, appearance }
 }
 
 function sanitizeHouse(raw: unknown, index: number): HouseDesign | string {
@@ -480,9 +480,9 @@ function tiersFromLegacyReward(rewards: unknown[], rewardIndexRaw: unknown) {
  * without an `appearance` — or one predating a later appearance field, or a skin/hair
  * colour that predates the curated preset lists — get that field backfilled from the same
  * generated defaults the stock roster uses, keyed off their house+member slot; fields
- * already valid are left alone. A member whose `features` are missing, invalid, or don't
- * match the current feature catalog (including a pre-features file whose members only ever
- * had hand-set `skills`, which can't be sensibly mapped onto features) resets to that
+ * already valid are left alone. A member whose `traits` are missing, invalid, or don't
+ * match the current trait catalog (including a pre-traits file whose members only ever
+ * had hand-set `skills`, which can't be sensibly mapped onto traits) resets to that
  * slot's fresh default rather than losing the appearance too.
  */
 function migrateHouses(raw: unknown): unknown {
@@ -504,15 +504,15 @@ function migrateHouses(raw: unknown): unknown {
         facialHair: pickOption(APPEARANCE_FACIAL_HAIR, rawAppearance['facialHair'], fallback.facialHair),
         accessories: pickOption(APPEARANCE_ACCESSORIES, rawAppearance['accessories'], fallback.accessories),
       }
-      const rawFeatures = member['features']
-      const hasValidFeatures =
-        Array.isArray(rawFeatures) &&
-        rawFeatures.length <= MAX_FEATURES_PER_MEMBER &&
-        rawFeatures.every((f) => typeof f === 'string' && features.some((fd) => fd.name === f))
-      const defaultFeatures =
-        DEFAULT_HOUSES[hi]?.members[mi]?.features ?? DEFAULT_HOUSES[0]?.members[0]?.features ?? []
-      const memberFeatures = hasValidFeatures ? (rawFeatures as string[]) : defaultFeatures
-      return { ...member, features: memberFeatures, appearance }
+      const rawTraits = member['traits']
+      const hasValidTraits =
+        Array.isArray(rawTraits) &&
+        rawTraits.length <= MAX_TRAITS_PER_MEMBER &&
+        rawTraits.every((f) => typeof f === 'string' && traits.some((fd) => fd.name === f))
+      const defaultTraits =
+        DEFAULT_HOUSES[hi]?.members[mi]?.traits ?? DEFAULT_HOUSES[0]?.members[0]?.traits ?? []
+      const memberTraits = hasValidTraits ? (rawTraits as string[]) : defaultTraits
+      return { ...member, traits: memberTraits, appearance }
     })
     return { ...house, members }
   })
@@ -637,16 +637,16 @@ function loadSection<T>(
   return structuredClone(defaults)
 }
 
-// skills load first — sanitizing features/houses/scenarios validates their skill references
-// against the current catalog, so it must already be in memory. features load next — houses
-// validates each member's assigned features against the current feature catalog.
+// skills load first — sanitizing traits/houses/scenarios validates their skill references
+// against the current catalog, so it must already be in memory. traits load next — houses
+// validates each member's assigned traits against the current trait catalog.
 let skills: SkillKey[] = loadSection(SKILLS_FILE, 'skills', migrateSkills, sanitizeSkillsList, DEFAULT_SKILLS)
-let features: FeatureDesign[] = loadSection(
-  FEATURES_FILE,
-  'features',
-  migrateFeatures,
-  sanitizeFeaturesList,
-  DEFAULT_FEATURES,
+let traits: TraitDesign[] = loadSection(
+  TRAITS_FILE,
+  'traits',
+  migrateTraits,
+  sanitizeTraitsList,
+  DEFAULT_TRAITS,
 )
 let houses: HouseDesign[] = loadSection(HOUSES_FILE, 'houses', migrateHouses, sanitizeHousesList, DEFAULT_HOUSES)
 let scenarios: ScenarioDesign[] = loadSection(
@@ -680,20 +680,20 @@ export function updateSkills(raw: unknown): SkillKey[] | string {
   return skills
 }
 
-export function getFeatures(): FeatureDesign[] {
-  return features
+export function getTraits(): TraitDesign[] {
+  return traits
 }
 
-export function updateFeatures(raw: unknown): FeatureDesign[] | string {
-  const next = sanitizeFeaturesList(raw)
+export function updateTraits(raw: unknown): TraitDesign[] | string {
+  const next = sanitizeTraitsList(raw)
   if (typeof next === 'string') return next
-  features = next
+  traits = next
   try {
-    writeFileSync(FEATURES_FILE, JSON.stringify(features, null, 2) + '\n')
+    writeFileSync(TRAITS_FILE, JSON.stringify(traits, null, 2) + '\n')
   } catch (err) {
-    console.error('failed to persist features:', err)
+    console.error('failed to persist traits:', err)
   }
-  return features
+  return traits
 }
 
 export function getHouses(): HouseDesign[] {
@@ -748,7 +748,7 @@ export function updateFaceOutcomes(raw: unknown): FaceOutcomeMap | string {
 export function getContent(): GameContent {
   return {
     skills: getSkills(),
-    features: getFeatures(),
+    traits: getTraits(),
     houses: getHouses(),
     scenarios: getScenarios(),
     faceOutcomes: getFaceOutcomes(),

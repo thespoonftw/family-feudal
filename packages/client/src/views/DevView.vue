@@ -11,7 +11,7 @@ import type {
   DevRoomSummary,
   FaceOutcomeDesign,
   FaceOutcomeMap,
-  FeatureDesign,
+  TraitDesign,
   GameConfig,
   HouseDesign,
   MemberAppearance,
@@ -29,9 +29,9 @@ import {
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
   computeMemberSkills,
-  FEATURE_BONUS_BOUNDS,
+  TRAIT_BONUS_BOUNDS,
   GOLD_TIERS,
-  MAX_FEATURES_PER_MEMBER,
+  MAX_TRAITS_PER_MEMBER,
   REWARD_TIER_LABELS,
   REWARD_TIERS,
   SCENARIO_LOCATION_LABELS,
@@ -48,8 +48,8 @@ interface SkillsResponse {
   skills: SkillKey[]
 }
 
-interface FeaturesResponse {
-  features: FeatureDesign[]
+interface TraitsResponse {
+  traits: TraitDesign[]
 }
 
 interface HousesResponse {
@@ -84,7 +84,7 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
 
 const configData = ref<ConfigResponse | null>(null)
 const skillsData = ref<SkillsResponse | null>(null)
-const featuresData = ref<FeaturesResponse | null>(null)
+const traitsData = ref<TraitsResponse | null>(null)
 const housesData = ref<HousesResponse | null>(null)
 const scenariosData = ref<ScenariosResponse | null>(null)
 const facesData = ref<FacesResponse | null>(null)
@@ -96,7 +96,7 @@ const editingMember = ref<{ member: MemberDesign; house: HouseDesign } | null>(n
 /** which members currently have their resultant-skills preview expanded, keyed by "house::member" */
 const previewOpen = ref<Record<string, boolean>>({})
 
-const TABS = ['Settings', 'Skills and Features', 'Houses', 'Scenarios', 'Faces', 'Rooms'] as const
+const TABS = ['Settings', 'Skills and Traits', 'Houses', 'Scenarios', 'Faces', 'Rooms'] as const
 type Tab = (typeof TABS)[number]
 const activeTab = ref<Tab>('Settings')
 
@@ -178,48 +178,48 @@ function removeSkill(index: number) {
   if (skillsData.value && skillsData.value.skills.length > 1) skillsData.value.skills.splice(index, 1)
 }
 
-async function loadFeatures() {
+async function loadTraits() {
   try {
-    featuresData.value = await api<FeaturesResponse>('/dev/features')
+    traitsData.value = await api<TraitsResponse>('/dev/traits')
     error.value = ''
   } catch (e) {
     error.value = String(e)
   }
 }
 
-async function saveFeatures() {
-  if (!featuresData.value) return
+async function saveTraits() {
+  if (!traitsData.value) return
   try {
-    featuresData.value = await api<FeaturesResponse>('/dev/features', {
+    traitsData.value = await api<TraitsResponse>('/dev/traits', {
       method: 'PUT',
-      body: JSON.stringify(featuresData.value.features),
+      body: JSON.stringify(traitsData.value.traits),
     })
-    status.value = `Features saved ✓ (${new Date().toLocaleTimeString()}) — applies to house designs saved from now on`
+    status.value = `Traits saved ✓ (${new Date().toLocaleTimeString()}) — applies to house designs saved from now on`
     error.value = ''
   } catch (e) {
     error.value = String(e)
   }
 }
 
-let nextNewFeatureId = 1
+let nextNewTraitId = 1
 
-function addFeature() {
-  featuresData.value?.features.push({
-    name: `Feature ${nextNewFeatureId++}`,
+function addTrait() {
+  traitsData.value?.traits.push({
+    name: `Trait ${nextNewTraitId++}`,
     bonuses: [{ skill: defaultSkillKey(), amount: 1 }],
   })
 }
 
-function removeFeature(index: number) {
-  if (featuresData.value && featuresData.value.features.length > 1) featuresData.value.features.splice(index, 1)
+function removeTrait(index: number) {
+  if (traitsData.value && traitsData.value.traits.length > 1) traitsData.value.traits.splice(index, 1)
 }
 
-function addFeatureBonus(f: FeatureDesign) {
+function addTraitBonus(f: TraitDesign) {
   const used = new Set(f.bonuses.map((b) => b.skill))
   f.bonuses.push({ skill: skillCatalog().find((s) => !used.has(s)) ?? defaultSkillKey(), amount: 1 })
 }
 
-function removeFeatureBonus(f: FeatureDesign, index: number) {
+function removeTraitBonus(f: TraitDesign, index: number) {
   if (f.bonuses.length > 1) f.bonuses.splice(index, 1)
 }
 
@@ -394,10 +394,10 @@ function skillCatalog(): SkillKey[] {
   return skillsData.value?.skills ?? []
 }
 
-/** a member's resultant skills, derived from their assigned features — same computation
+/** a member's resultant skills, derived from their assigned traits — same computation
  *  the server runs at game start, run here client-side for an instant preview */
 function memberSkills(m: MemberDesign): Record<SkillKey, number> {
-  return computeMemberSkills(m.features, featuresData.value?.features ?? [], skillCatalog())
+  return computeMemberSkills(m.traits, traitsData.value?.traits ?? [], skillCatalog())
 }
 
 function memberTotal(m: MemberDesign): number {
@@ -405,25 +405,25 @@ function memberTotal(m: MemberDesign): number {
   return skillCatalog().reduce((sum, skill) => sum + (skills[skill] ?? 0), 0)
 }
 
-const FEATURE_SLOTS = Array.from({ length: MAX_FEATURES_PER_MEMBER }, (_, i) => i)
+const TRAIT_SLOTS = Array.from({ length: MAX_TRAITS_PER_MEMBER }, (_, i) => i)
 
-function featureAt(m: MemberDesign, slot: number): string {
-  return m.features[slot] ?? ''
+function traitAt(m: MemberDesign, slot: number): string {
+  return m.traits[slot] ?? ''
 }
 
-function setFeatureAt(m: MemberDesign, slot: number, value: string) {
-  const next = [...m.features]
+function setTraitAt(m: MemberDesign, slot: number, value: string) {
+  const next = [...m.traits]
   while (next.length <= slot) next.push('')
   next[slot] = value
-  m.features = next.filter((f) => f !== '')
+  m.traits = next.filter((f) => f !== '')
 }
 
-/** feature options for one slot's dropdown — excludes features already assigned in this
+/** trait options for one slot's dropdown — excludes traits already assigned in this
  *  member's other slots, but keeps the slot's own current pick selectable */
-function featureOptionsFor(m: MemberDesign, slot: number): FeatureDesign[] {
-  const current = featureAt(m, slot)
-  const chosenElsewhere = new Set(m.features.filter((f) => f !== current))
-  return (featuresData.value?.features ?? []).filter((f) => !chosenElsewhere.has(f.name))
+function traitOptionsFor(m: MemberDesign, slot: number): TraitDesign[] {
+  const current = traitAt(m, slot)
+  const chosenElsewhere = new Set(m.traits.filter((f) => f !== current))
+  return (traitsData.value?.traits ?? []).filter((f) => !chosenElsewhere.has(f.name))
 }
 
 function memberKey(h: HouseDesign, m: MemberDesign): string {
@@ -511,7 +511,7 @@ function facePreviewAppearance(face: AppearanceFace): MemberAppearance {
 onMounted(() => {
   void loadConfig()
   void loadSkills()
-  void loadFeatures()
+  void loadTraits()
   void loadHouses()
   void loadScenarios()
   void loadFaces()
@@ -579,12 +579,12 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="skillsData && featuresData && activeTab === 'Skills and Features'" class="card">
+    <section v-if="skillsData && traitsData && activeTab === 'Skills and Traits'" class="card">
       <h2>Skills</h2>
       <p class="dim">
         The skill catalog members are scored on and approaches secretly test. Removing a
-        skill here doesn't retroactively fix features/scenarios that still reference it —
-        edit those afterwards if needed. Applies to feature/scenario designs
+        skill here doesn't retroactively fix traits/scenarios that still reference it —
+        edit those afterwards if needed. Applies to trait/scenario designs
         <strong>saved after saving here</strong>; live games keep their skills.
       </p>
       <div v-for="(_, i) in skillsData.skills" :key="i" class="skill-row">
@@ -611,23 +611,23 @@ onUnmounted(() => {
         <button class="small" @click="saveSkills">Save skills</button>
       </div>
 
-      <h2>Features</h2>
+      <h2>Traits</h2>
       <p class="dim">
-        Traits a character can be assigned — up to {{ MAX_FEATURES_PER_MEMBER }} each, from
+        Traits a character can be assigned — up to {{ MAX_TRAITS_PER_MEMBER }} each, from
         the Houses tab — each granting a numeric bonus to one or more skills. A member's
         resultant skill in each catalog entry starts at the base value and adds every
-        assigned feature's bonuses on top. Removing a feature here doesn't retroactively fix
+        assigned trait's bonuses on top. Removing a trait here doesn't retroactively fix
         houses that still reference it. Applies to house designs
         <strong>saved after saving here</strong>; live games keep their resultant skills.
       </p>
-      <div v-for="(f, i) in featuresData.features" :key="i" class="feature-row">
-        <span class="scenario-id" title="Feature number">#{{ i + 1 }}</span>
-        <input v-model="f.name" type="text" maxlength="40" placeholder="Feature name" class="feature-name" />
+      <div v-for="(f, i) in traitsData.traits" :key="i" class="trait-row">
+        <span class="scenario-id" title="Trait number">#{{ i + 1 }}</span>
+        <input v-model="f.name" type="text" maxlength="40" placeholder="Trait name" class="trait-name" />
         <button
           class="small secondary"
-          title="Remove feature"
-          :disabled="featuresData.features.length <= 1"
-          @click="removeFeature(i)"
+          title="Remove trait"
+          :disabled="traitsData.traits.length <= 1"
+          @click="removeTrait(i)"
         >
           ✕
         </button>
@@ -639,38 +639,38 @@ onUnmounted(() => {
             <input
               v-model.number="b.amount"
               type="number"
-              :min="FEATURE_BONUS_BOUNDS[0]"
-              :max="FEATURE_BONUS_BOUNDS[1]"
+              :min="TRAIT_BONUS_BOUNDS[0]"
+              :max="TRAIT_BONUS_BOUNDS[1]"
               class="num"
             />
             <button
               class="small secondary"
               title="Remove bonus"
               :disabled="f.bonuses.length <= 1"
-              @click="removeFeatureBonus(f, k)"
+              @click="removeTraitBonus(f, k)"
             >
               ✕
             </button>
           </div>
-          <button class="small secondary" title="Add a bonus to another skill" @click="addFeatureBonus(f)">
+          <button class="small secondary" title="Add a bonus to another skill" @click="addTraitBonus(f)">
             + bonus
           </button>
         </div>
       </div>
       <div class="settings-actions">
-        <button class="small" @click="addFeature">+ Add feature</button>
-        <button class="small" @click="saveFeatures">Save features</button>
+        <button class="small" @click="addTrait">+ Add trait</button>
+        <button class="small" @click="saveTraits">Save traits</button>
       </div>
     </section>
 
-    <section v-if="housesData && featuresData && activeTab === 'Houses'" class="card">
+    <section v-if="housesData && traitsData && activeTab === 'Houses'" class="card">
       <h2>Houses</h2>
       <p class="dim">
         The eight houses a joining player can be dealt — name, banner colour, home city, and
         a fixed roster of three characters. Each character is assigned up to
-        {{ MAX_FEATURES_PER_MEMBER }} features (edited in the Skills and Features tab)
+        {{ MAX_TRAITS_PER_MEMBER }} traits (edited in the Skills and Traits tab)
         instead of hand-set skill points — click "Show skills" on a character to see the
-        skills those features add up to. Applies to rooms <strong>created after saving</strong>;
+        skills those traits add up to. Applies to rooms <strong>created after saving</strong>;
         live games keep their houses.
       </p>
       <div v-for="(h, i) in housesData.houses" :key="i" class="house-card">
@@ -684,16 +684,16 @@ onUnmounted(() => {
             <MemberAvatar :appearance="m.appearance" :seed="m.name" :shirt-color="h.color" :size="64" />
           </button>
           <input v-model="m.name" type="text" maxlength="30" class="member-name" />
-          <div class="feature-slots">
+          <div class="trait-slots">
             <select
-              v-for="slot in FEATURE_SLOTS"
+              v-for="slot in TRAIT_SLOTS"
               :key="slot"
-              :value="featureAt(m, slot)"
-              title="Assigned feature"
-              @change="setFeatureAt(m, slot, ($event.target as HTMLSelectElement).value)"
+              :value="traitAt(m, slot)"
+              title="Assigned trait"
+              @change="setTraitAt(m, slot, ($event.target as HTMLSelectElement).value)"
             >
               <option value="">(none)</option>
-              <option v-for="f in featureOptionsFor(m, slot)" :key="f.name" :value="f.name">{{ f.name }}</option>
+              <option v-for="f in traitOptionsFor(m, slot)" :key="f.name" :value="f.name">{{ f.name }}</option>
             </select>
           </div>
           <button class="small secondary" @click="togglePreview(h, m)">
@@ -1238,13 +1238,13 @@ button.small {
   width: 9em;
 }
 
-.feature-slots {
+.trait-slots {
   display: flex;
   gap: 0.35rem;
   flex-wrap: wrap;
 }
 
-.feature-slots select {
+.trait-slots select {
   width: 10em;
 }
 
@@ -1451,8 +1451,8 @@ table.faces select {
   font-size: 0.8rem;
 }
 
-/* feature editor */
-.feature-row {
+/* trait editor */
+.trait-row {
   display: grid;
   grid-template-columns: 2.4em 1fr auto;
   gap: 0.35rem 0.5rem;
@@ -1461,11 +1461,11 @@ table.faces select {
   border-bottom: 1px solid var(--border);
 }
 
-.feature-name {
+.trait-name {
   width: 100%;
 }
 
-.feature-row .bonuses {
+.trait-row .bonuses {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
