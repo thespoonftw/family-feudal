@@ -509,7 +509,7 @@ onUnmounted(() => {
         those tabs afterwards if needed. Applies to house/scenario designs
         <strong>saved after saving here</strong>; live games keep their skills.
       </p>
-      <div v-for="(_, i) in skillsData.skills" :key="i" class="scenario-row">
+      <div v-for="(_, i) in skillsData.skills" :key="i" class="skill-row">
         <span class="scenario-id" title="Skill number">#{{ i + 1 }}</span>
         <input
           v-model="skillsData.skills[i]"
@@ -1299,6 +1299,15 @@ table.faces select {
   text-align: right;
 }
 
+.skill-row {
+  display: grid;
+  grid-template-columns: 2.4em 1fr auto;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
 .scenario-row input.emoji {
   text-align: center;
 }
@@ -1312,7 +1321,7 @@ table.faces select {
   font-size: 0.85rem;
 }
 
-.scenario-row input.skill-key {
+.skill-row input.skill-key {
   width: 8em;
   font-family: monospace;
   font-size: 0.8rem;
