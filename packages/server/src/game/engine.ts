@@ -4,6 +4,7 @@ import type {
   Assignments,
   Family,
   FamilyMember,
+  FeatureDesign,
   GamePhase,
   GameView,
   GoldTier,
@@ -17,7 +18,7 @@ import type {
   SkillKey,
   Town,
 } from '@family-feudal/shared'
-import { GOLD_STEP, goldTierBounds, INFLUENCE_TIER_VALUES, revealTotalMs } from '@family-feudal/shared'
+import { computeMemberSkills, GOLD_STEP, goldTierBounds, INFLUENCE_TIER_VALUES, revealTotalMs } from '@family-feudal/shared'
 import { CAPITAL_ID } from './data.js'
 import { buildPresets, buildTowns, getContent, type FamilyPreset } from './content.js'
 import { getConfig } from './config.js'
@@ -142,24 +143,32 @@ export function addPlayer(room: Room, name: string): Player {
   return player
 }
 
-/** Instantiate a family's members from its house preset's fixed roster (new id per game). */
-function generateMembers(preset: FamilyPreset | undefined): FamilyMember[] {
+/** Instantiate a family's members from its house preset's fixed roster (new id per game).
+ *  Skills are derived from each member's assigned features against the feature/skill
+ *  catalogs in effect right now — baked into concrete numbers once, like config, rather
+ *  than read live for the rest of the game. */
+function generateMembers(
+  preset: FamilyPreset | undefined,
+  features: FeatureDesign[],
+  skillCatalog: SkillKey[],
+): FamilyMember[] {
   if (!preset) return []
   return preset.members.map((m) => ({
     id: randomUUID(),
     name: m.name,
-    skills: { ...m.skills },
+    skills: computeMemberSkills(m.features, features, skillCatalog),
     appearance: { ...m.appearance },
   }))
 }
 
 export function startGame(room: Room): void {
   const config = getConfig()
+  const content = getContent()
   room.totalRounds = config.totalRounds
   // houses and home cities were claimed as players joined; instantiate the fixed roster now
   for (const family of room.families) {
     const preset = room.presets.find((p) => p.homeTownId === family.homeTownId)
-    family.members = generateMembers(preset)
+    family.members = generateMembers(preset, content.features, content.skills)
     family.gold = config.startingGold
   }
   room.phase = 'planning'

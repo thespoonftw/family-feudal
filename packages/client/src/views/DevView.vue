@@ -11,6 +11,7 @@ import type {
   DevRoomSummary,
   FaceOutcomeDesign,
   FaceOutcomeMap,
+  FeatureDesign,
   GameConfig,
   HouseDesign,
   MemberAppearance,
@@ -27,8 +28,10 @@ import {
   APPEARANCE_HAIR_COLORS,
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
+  computeMemberSkills,
+  FEATURE_BONUS_BOUNDS,
   GOLD_TIERS,
-  MEMBER_SKILL_BOUNDS,
+  MAX_FEATURES_PER_MEMBER,
   REWARD_TIER_LABELS,
   REWARD_TIERS,
   SCENARIO_LOCATION_LABELS,
@@ -43,6 +46,10 @@ interface ConfigResponse {
 
 interface SkillsResponse {
   skills: SkillKey[]
+}
+
+interface FeaturesResponse {
+  features: FeatureDesign[]
 }
 
 interface HousesResponse {
@@ -77,6 +84,7 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
 
 const configData = ref<ConfigResponse | null>(null)
 const skillsData = ref<SkillsResponse | null>(null)
+const featuresData = ref<FeaturesResponse | null>(null)
 const housesData = ref<HousesResponse | null>(null)
 const scenariosData = ref<ScenariosResponse | null>(null)
 const facesData = ref<FacesResponse | null>(null)
@@ -85,8 +93,10 @@ const detail = ref<DevRoomDetail | null>(null)
 const error = ref('')
 const status = ref('')
 const editingMember = ref<{ member: MemberDesign; house: HouseDesign } | null>(null)
+/** which members currently have their resultant-skills preview expanded, keyed by "house::member" */
+const previewOpen = ref<Record<string, boolean>>({})
 
-const TABS = ['Settings', 'Skills', 'Houses', 'Scenarios', 'Faces', 'Rooms'] as const
+const TABS = ['Settings', 'Skills and Features', 'Houses', 'Scenarios', 'Faces', 'Rooms'] as const
 type Tab = (typeof TABS)[number]
 const activeTab = ref<Tab>('Settings')
 
@@ -135,27 +145,10 @@ async function resetSettings() {
   }
 }
 
-/** backfills any house member missing a currently-defined skill key with the bounds
- *  minimum, so adding a new skill doesn't leave the Houses tab showing blank inputs or
- *  produce a confusing 400 on save */
-function reconcileHouseSkills() {
-  const catalog = skillsData.value?.skills
-  const houseList = housesData.value?.houses
-  if (!catalog || !houseList) return
-  for (const house of houseList) {
-    for (const member of house.members) {
-      for (const skill of catalog) {
-        if (typeof member.skills[skill] !== 'number') member.skills[skill] = MEMBER_SKILL_BOUNDS[0]
-      }
-    }
-  }
-}
-
 async function loadSkills() {
   try {
     skillsData.value = await api<SkillsResponse>('/dev/skills')
     error.value = ''
-    reconcileHouseSkills()
   } catch (e) {
     error.value = String(e)
   }
@@ -170,7 +163,6 @@ async function saveSkills() {
     })
     status.value = `Skills saved ✓ (${new Date().toLocaleTimeString()}) — applies to house/scenario designs saved from now on`
     error.value = ''
-    reconcileHouseSkills()
   } catch (e) {
     error.value = String(e)
   }
@@ -186,11 +178,55 @@ function removeSkill(index: number) {
   if (skillsData.value && skillsData.value.skills.length > 1) skillsData.value.skills.splice(index, 1)
 }
 
+async function loadFeatures() {
+  try {
+    featuresData.value = await api<FeaturesResponse>('/dev/features')
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+async function saveFeatures() {
+  if (!featuresData.value) return
+  try {
+    featuresData.value = await api<FeaturesResponse>('/dev/features', {
+      method: 'PUT',
+      body: JSON.stringify(featuresData.value.features),
+    })
+    status.value = `Features saved ✓ (${new Date().toLocaleTimeString()}) — applies to house designs saved from now on`
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+let nextNewFeatureId = 1
+
+function addFeature() {
+  featuresData.value?.features.push({
+    name: `Feature ${nextNewFeatureId++}`,
+    bonuses: [{ skill: defaultSkillKey(), amount: 1 }],
+  })
+}
+
+function removeFeature(index: number) {
+  if (featuresData.value && featuresData.value.features.length > 1) featuresData.value.features.splice(index, 1)
+}
+
+function addFeatureBonus(f: FeatureDesign) {
+  const used = new Set(f.bonuses.map((b) => b.skill))
+  f.bonuses.push({ skill: skillCatalog().find((s) => !used.has(s)) ?? defaultSkillKey(), amount: 1 })
+}
+
+function removeFeatureBonus(f: FeatureDesign, index: number) {
+  if (f.bonuses.length > 1) f.bonuses.splice(index, 1)
+}
+
 async function loadHouses() {
   try {
     housesData.value = await api<HousesResponse>('/dev/houses')
     error.value = ''
-    reconcileHouseSkills()
   } catch (e) {
     error.value = String(e)
   }
@@ -358,8 +394,49 @@ function skillCatalog(): SkillKey[] {
   return skillsData.value?.skills ?? []
 }
 
+/** a member's resultant skills, derived from their assigned features — same computation
+ *  the server runs at game start, run here client-side for an instant preview */
+function memberSkills(m: MemberDesign): Record<SkillKey, number> {
+  return computeMemberSkills(m.features, featuresData.value?.features ?? [], skillCatalog())
+}
+
 function memberTotal(m: MemberDesign): number {
-  return skillCatalog().reduce((sum, skill) => sum + (m.skills[skill] ?? 0), 0)
+  const skills = memberSkills(m)
+  return skillCatalog().reduce((sum, skill) => sum + (skills[skill] ?? 0), 0)
+}
+
+const FEATURE_SLOTS = Array.from({ length: MAX_FEATURES_PER_MEMBER }, (_, i) => i)
+
+function featureAt(m: MemberDesign, slot: number): string {
+  return m.features[slot] ?? ''
+}
+
+function setFeatureAt(m: MemberDesign, slot: number, value: string) {
+  const next = [...m.features]
+  while (next.length <= slot) next.push('')
+  next[slot] = value
+  m.features = next.filter((f) => f !== '')
+}
+
+/** feature options for one slot's dropdown — excludes features already assigned in this
+ *  member's other slots, but keeps the slot's own current pick selectable */
+function featureOptionsFor(m: MemberDesign, slot: number): FeatureDesign[] {
+  const current = featureAt(m, slot)
+  const chosenElsewhere = new Set(m.features.filter((f) => f !== current))
+  return (featuresData.value?.features ?? []).filter((f) => !chosenElsewhere.has(f.name))
+}
+
+function memberKey(h: HouseDesign, m: MemberDesign): string {
+  return `${h.name}::${m.name}`
+}
+
+function togglePreview(h: HouseDesign, m: MemberDesign) {
+  const key = memberKey(h, m)
+  previewOpen.value[key] = !previewOpen.value[key]
+}
+
+function isPreviewOpen(h: HouseDesign, m: MemberDesign): boolean {
+  return !!previewOpen.value[memberKey(h, m)]
 }
 
 function headStyles(): string[] {
@@ -434,6 +511,7 @@ function facePreviewAppearance(face: AppearanceFace): MemberAppearance {
 onMounted(() => {
   void loadConfig()
   void loadSkills()
+  void loadFeatures()
   void loadHouses()
   void loadScenarios()
   void loadFaces()
@@ -501,12 +579,12 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="skillsData && activeTab === 'Skills'" class="card">
+    <section v-if="skillsData && featuresData && activeTab === 'Skills and Features'" class="card">
       <h2>Skills</h2>
       <p class="dim">
         The skill catalog members are scored on and approaches secretly test. Removing a
-        skill here doesn't retroactively fix houses/scenarios that still reference it — edit
-        those tabs afterwards if needed. Applies to house/scenario designs
+        skill here doesn't retroactively fix features/scenarios that still reference it —
+        edit those afterwards if needed. Applies to feature/scenario designs
         <strong>saved after saving here</strong>; live games keep their skills.
       </p>
       <div v-for="(_, i) in skillsData.skills" :key="i" class="skill-row">
@@ -532,15 +610,68 @@ onUnmounted(() => {
         <button class="small" @click="addSkill">+ Add skill</button>
         <button class="small" @click="saveSkills">Save skills</button>
       </div>
+
+      <h2>Features</h2>
+      <p class="dim">
+        Traits a character can be assigned — up to {{ MAX_FEATURES_PER_MEMBER }} each, from
+        the Houses tab — each granting a numeric bonus to one or more skills. A member's
+        resultant skill in each catalog entry starts at the base value and adds every
+        assigned feature's bonuses on top. Removing a feature here doesn't retroactively fix
+        houses that still reference it. Applies to house designs
+        <strong>saved after saving here</strong>; live games keep their resultant skills.
+      </p>
+      <div v-for="(f, i) in featuresData.features" :key="i" class="feature-row">
+        <span class="scenario-id" title="Feature number">#{{ i + 1 }}</span>
+        <input v-model="f.name" type="text" maxlength="40" placeholder="Feature name" class="feature-name" />
+        <button
+          class="small secondary"
+          title="Remove feature"
+          :disabled="featuresData.features.length <= 1"
+          @click="removeFeature(i)"
+        >
+          ✕
+        </button>
+        <div class="bonuses">
+          <div v-for="(b, k) in f.bonuses" :key="k" class="bonus-edit">
+            <select v-model="b.skill" title="Skill bonused">
+              <option v-for="skill in skillCatalog()" :key="skill" :value="skill">{{ skill }}</option>
+            </select>
+            <input
+              v-model.number="b.amount"
+              type="number"
+              :min="FEATURE_BONUS_BOUNDS[0]"
+              :max="FEATURE_BONUS_BOUNDS[1]"
+              class="num"
+            />
+            <button
+              class="small secondary"
+              title="Remove bonus"
+              :disabled="f.bonuses.length <= 1"
+              @click="removeFeatureBonus(f, k)"
+            >
+              ✕
+            </button>
+          </div>
+          <button class="small secondary" title="Add a bonus to another skill" @click="addFeatureBonus(f)">
+            + bonus
+          </button>
+        </div>
+      </div>
+      <div class="settings-actions">
+        <button class="small" @click="addFeature">+ Add feature</button>
+        <button class="small" @click="saveFeatures">Save features</button>
+      </div>
     </section>
 
-    <section v-if="housesData && activeTab === 'Houses'" class="card">
+    <section v-if="housesData && featuresData && activeTab === 'Houses'" class="card">
       <h2>Houses</h2>
       <p class="dim">
         The eight houses a joining player can be dealt — name, banner colour, home city, and
-        a fixed roster of three characters. Character skills are hand-set here, not rolled;
-        every game a house plays uses exactly these three. Applies to rooms
-        <strong>created after saving</strong>; live games keep their houses.
+        a fixed roster of three characters. Each character is assigned up to
+        {{ MAX_FEATURES_PER_MEMBER }} features (edited in the Skills and Features tab)
+        instead of hand-set skill points — click "Show skills" on a character to see the
+        skills those features add up to. Applies to rooms <strong>created after saving</strong>;
+        live games keep their houses.
       </p>
       <div v-for="(h, i) in housesData.houses" :key="i" class="house-card">
         <div class="house-header">
@@ -548,46 +679,31 @@ onUnmounted(() => {
           <input v-model="h.name" type="text" maxlength="40" placeholder="House name" />
           <input v-model="h.cityName" type="text" maxlength="24" placeholder="Home city" />
         </div>
-        <table class="members">
-          <colgroup>
-            <col class="col-avatar" />
-            <col class="col-name" />
-            <col v-for="skill in skillCatalog()" :key="skill" class="col-skill" />
-            <col class="col-total" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th></th>
-              <th>Character</th>
-              <th v-for="skill in skillCatalog()" :key="skill">{{ skill }}</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(m, j) in h.members" :key="j">
-              <td>
-                <button
-                  class="avatar-btn"
-                  title="Edit appearance"
-                  @click="editingMember = { member: m, house: h }"
-                >
-                  <MemberAvatar :appearance="m.appearance" :seed="m.name" :shirt-color="h.color" :size="80" />
-                </button>
-              </td>
-              <td><input v-model="m.name" type="text" maxlength="30" /></td>
-              <td v-for="skill in skillCatalog()" :key="skill">
-                <input
-                  v-model.number="m.skills[skill]"
-                  type="number"
-                  :min="MEMBER_SKILL_BOUNDS[0]"
-                  :max="MEMBER_SKILL_BOUNDS[1]"
-                  class="num"
-                />
-              </td>
-              <td class="total">{{ memberTotal(m) }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-for="(m, j) in h.members" :key="j" class="member-row">
+          <button class="avatar-btn" title="Edit appearance" @click="editingMember = { member: m, house: h }">
+            <MemberAvatar :appearance="m.appearance" :seed="m.name" :shirt-color="h.color" :size="64" />
+          </button>
+          <input v-model="m.name" type="text" maxlength="30" class="member-name" />
+          <div class="feature-slots">
+            <select
+              v-for="slot in FEATURE_SLOTS"
+              :key="slot"
+              :value="featureAt(m, slot)"
+              title="Assigned feature"
+              @change="setFeatureAt(m, slot, ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">(none)</option>
+              <option v-for="f in featureOptionsFor(m, slot)" :key="f.name" :value="f.name">{{ f.name }}</option>
+            </select>
+          </div>
+          <button class="small secondary" @click="togglePreview(h, m)">
+            {{ isPreviewOpen(h, m) ? 'Hide skills' : 'Show skills' }}
+          </button>
+          <div v-if="isPreviewOpen(h, m)" class="skill-preview">
+            <span v-for="skill in skillCatalog()" :key="skill">{{ skill }} {{ memberSkills(m)[skill] }}</span>
+            <span class="total">total {{ memberTotal(m) }}</span>
+          </div>
+        </div>
       </div>
       <div class="settings-actions">
         <button class="small" @click="saveHouses">Save designs</button>
@@ -1109,34 +1225,42 @@ button.small {
   margin-bottom: 0.5rem;
 }
 
-table.members {
-  table-layout: fixed;
+.member-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-top: 1px dashed var(--border);
 }
 
-table.members .col-avatar {
-  width: 6.5em;
+.member-name {
+  width: 9em;
 }
 
-table.members .col-name {
+.feature-slots {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.feature-slots select {
   width: 10em;
 }
 
-table.members .col-skill,
-table.members .col-total {
-  width: 7.2em;
+.skill-preview {
+  flex-basis: 100%;
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  padding-left: 4.7em;
 }
 
-table.members input[type='text'] {
-  width: 100%;
-}
-
-table.members input.num {
-  width: 100%;
-}
-
-table.members td.total {
+.skill-preview .total {
   font-weight: 600;
-  text-align: center;
+  color: var(--gold-soft);
 }
 
 .avatar-btn {
@@ -1325,6 +1449,43 @@ table.faces select {
   width: 8em;
   font-family: monospace;
   font-size: 0.8rem;
+}
+
+/* feature editor */
+.feature-row {
+  display: grid;
+  grid-template-columns: 2.4em 1fr auto;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.feature-name {
+  width: 100%;
+}
+
+.feature-row .bonuses {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding-left: 1.2rem;
+}
+
+.bonus-edit {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.bonus-edit select {
+  width: 10em;
+}
+
+.bonus-edit input.num {
+  width: 4.5em;
 }
 
 .scenario-row .approaches {

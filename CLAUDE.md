@@ -7,8 +7,8 @@ A shared "host board" tab creates the room and shows the code, realm map, round 
 leaderboard — it is a spectator, not a player, but it starts the game from its lobby.
 Players join from their own devices with the 4-letter code; the first joiner is the VIP
 (`Player.isHost`, display only). Each player is assigned a noble family (name, colour,
-home town, 4 members each rated across the designable skill catalog — Might/Charm/Wit/
-Cunning by default).
+home town, 4 members each carrying up to 3 designable features — traits that add numeric
+bonuses to skills in the designable skill catalog — Might/Charm/Wit/Cunning by default).
 Five rounds of: planning (assign members to scenarios on the realm map, one member per
 scenario) → approach (each scenario offers 2–3 approaches; pick one per deployed member;
 skipped if nobody deployed) → resolution (member's skill for the chosen approach + d6 vs
@@ -30,7 +30,7 @@ packages/
   shared/    — game types (types.ts) + socket event maps (events.ts). No runtime deps.
   server/    — Fastify + Socket.io. game/ holds the engine:
                data.ts (fixed map geometry, default house/scenario designs, member names)
-               content.ts (editable skill/house/scenario designs, persisted, dev-panel backed)
+               content.ts (editable skill/feature/house/scenario designs, persisted, dev-panel backed)
                config.ts (numeric runtime config, persisted, dev-panel backed)
                engine.ts (room lifecycle, round generation, resolution)
                store.ts (in-memory room map)
@@ -84,14 +84,13 @@ Pass `-Full` to also `pnpm install` on the server.
 
 Three layers:
 
-- **Runtime config** (`server/src/game/config.ts`): `GameConfig` (rounds, members per
-  family, scenarios per round, skill min/max, skill-sum band, check DC, max players —
-  rolled skills are nudged until each member's total lands in the band), editable from the
-  dev panel, clamped to `CONFIG_BOUNDS`, persisted to `game-config.json` (gitignored, in
-  the server process cwd — `packages/server` in prod; override via `CONFIG_FILE`). Read at
-  `startGame` — applies to games started after a change; in-progress games keep their
-  values.
-- **Designable content** (`server/src/game/content.ts`): four independently persisted
+- **Runtime config** (`server/src/game/config.ts`): `GameConfig` (rounds, scenarios per
+  round, check DC, max players, buyout bonus, starting gold, gold tier ranges, phase
+  timers), editable from the dev panel, clamped to `CONFIG_BOUNDS`, persisted to
+  `game-config.json` (gitignored, in the server process cwd — `packages/server` in prod;
+  override via `CONFIG_FILE`). Read at `startGame` — applies to games started after a
+  change; in-progress games keep their values.
+- **Designable content** (`server/src/game/content.ts`): five independently persisted
   sections — one file, one loader, one dev-panel tab each, so saving one can never
   clobber another — composed into a `GameContent` only as a read convenience
   (`getContent()`) for `engine.ts`:
@@ -100,15 +99,25 @@ Three layers:
     approaches secretly test — no longer a fixed 4-value union, `SkillKey` is just
     `string`. `getSkills`/`updateSkills`, validated by `sanitizeSkillsList` (unique
     lowercase keys), persisted to `game-skills.json` (gitignored; override via
-    `SKILLS_FILE`). Loaded **before** houses/scenarios at module init since their
-    sanitizers validate member/approach skill keys against the live catalog. Read live
-    into every `GameView` (same as face outcomes, not snapshotted per-room) — renaming a
-    key applies instantly, even mid-game; removing a key doesn't retroactively fix
-    houses/scenarios still referencing it.
+    `SKILLS_FILE`). Loaded **before** features/houses/scenarios at module init since
+    their sanitizers validate skill keys against the live catalog. Read live into every
+    `GameView` (same as face outcomes, not snapshotted per-room) — renaming a key applies
+    instantly, even mid-game; removing a key doesn't retroactively fix
+    features/houses/scenarios still referencing it.
+  - **Features** — the `FeatureDesign[]` catalog (name + a list of `{skill, amount}`
+    bonuses, `amount` clamped to `FEATURE_BONUS_BOUNDS`), the traits a character can be
+    assigned (up to `MAX_FEATURES_PER_MEMBER` each) instead of hand-set skill points —
+    see below. `getFeatures`/`updateFeatures`, validated by `sanitizeFeaturesList` (unique
+    names, ≥1 bonus each, no duplicate skill within one feature), persisted to
+    `game-features.json` (gitignored; override via `FEATURES_FILE`). Loaded **before**
+    houses since the house sanitizer validates each member's assigned feature names
+    against the live catalog.
   - **Houses** — the 8 `HouseDesign`s (name, colour, home city name, fixed 3-member
-    roster with hand-set skills/appearance). `getHouses`/`updateHouses`, validated by
-    `sanitizeHousesList` (exactly one house per city slot), persisted to
-    `game-houses.json` (gitignored; override via `HOUSES_FILE`).
+    roster — name, appearance, and up to `MAX_FEATURES_PER_MEMBER` assigned feature
+    names; skills are no longer hand-set, they're derived from those features, see
+    below). `getHouses`/`updateHouses`, validated by `sanitizeHousesList` (exactly one
+    house per city slot), persisted to `game-houses.json` (gitignored; override via
+    `HOUSES_FILE`).
   - **Scenarios** — the `ScenarioDesign` list (flavour emoji, title, description with
     `{town}`, 2–4 approaches — each a public label, a hidden skill (or a standalone gold
     buyout), success/failure flavour text with `{actor}`, success/failure Influence+gold
@@ -123,23 +132,30 @@ Three layers:
 
   Each is edited from its own dev panel tab (full-replace PUT — the saved designs ARE
   the settings; there is no reset). On load, a file written by an older build is
-  upgraded by that section's migrator (`migrateSkills`/`migrateHouses`/`migrateScenarios`/
-  `migrateFaceOutcomes`) so design edits survive schema changes — **extend the
-  matching migrator whenever that section's schema changes**; a file that is still
-  invalid after migration is backed up to `<file>.invalid-<timestamp>` before falling
-  back to defaults, never silently discarded. A server that predates the split
+  upgraded by that section's migrator (`migrateSkills`/`migrateFeatures`/`migrateHouses`/
+  `migrateScenarios`/`migrateFaceOutcomes`) so design edits survive schema changes —
+  **extend the matching migrator whenever that section's schema changes**; a file that is
+  still invalid after migration is backed up to `<file>.invalid-<timestamp>` before
+  falling back to defaults, never silently discarded. A server that predates the split
   persisted everything to one combined `game-content.json` (`CONTENT_FILE`); the first
   time a section's own file is missing, it's seeded from that combined file's matching
   key (if present) rather than defaults, and immediately written out to its own file —
-  the legacy file itself is read-only and never touched again. Rooms snapshot towns +
-  house presets at `room:create`; scenario designs are re-read every planning phase.
+  the legacy file itself is read-only and never touched again (features never existed in
+  that combined file, so its section always seeds from `DEFAULT_FEATURES` instead). Rooms
+  snapshot towns + house presets at `room:create`; scenario designs are re-read every
+  planning phase.
 - **Fixed data** (`server/src/game/data.ts`): map slot geometry (capital + 8 city slots —
   city *names* come from the house designs), default designs, member name pool,
   `MIN_PLAYERS` (1 — solo games allowed).
 
 Each joining player is dealt a *random* free house (house + home city) in the lobby
-(`claimFamily` in `engine.ts`; freed on lobby departure via `releaseFamily`); members are
-rolled at `startGame`.
+(`claimFamily` in `engine.ts`; freed on lobby departure via `releaseFamily`); at
+`startGame`, each member's assigned feature names are resolved into concrete skill values
+(`computeMemberSkills` in `packages/shared/src/skills.ts`: every catalog skill starts at
+`MEMBER_SKILL_BOUNDS[0]`, each assigned feature adds its bonuses on top, clamped to
+`MEMBER_SKILL_BOUNDS[1]`) against the feature/skill catalogs in effect at that moment —
+baked into concrete numbers once, like config, rather than read live for the rest of the
+game.
 
 Resolution (see `resolveRound` in `engine.ts`): every attending family rolls the member's
 skill for its chosen approach + 1d6 against the configured check DC (`checkDC`, default
@@ -155,7 +171,8 @@ catalog for each member when assigning.
 ## Dev Panel
 
 `/dev` route — game settings (GET/PATCH `/api/dev/config`, POST
-`/api/dev/config/reset`), skill catalog designer (GET/PUT `/api/dev/skills`), house
+`/api/dev/config/reset`), skill catalog designer (GET/PUT `/api/dev/skills`), feature
+designer (GET/PUT `/api/dev/features`) — both under the "Skills and Features" tab — house
 designer (GET/PUT `/api/dev/houses`), scenario designer (GET/PUT `/api/dev/scenarios`),
 face-outcome designer (GET/PUT `/api/dev/faces`) — each
 tab loads and saves independently, so one tab's save can't overwrite another's; invalid

@@ -397,15 +397,37 @@ export interface MemberAppearance {
   accessories: AppearanceAccessories
 }
 
-/** one fixed character belonging to a house, with hand-set (not rolled) skills */
+/** one fixed character belonging to a house. Skills are no longer hand-set directly —
+ *  they're derived from up to MAX_FEATURES_PER_MEMBER assigned features (see
+ *  {@link FeatureDesign}, {@link computeMemberSkills}). */
 export interface MemberDesign {
   name: string
-  skills: Record<SkillKey, number>
+  /** names of assigned FeatureDesigns (0–MAX_FEATURES_PER_MEMBER, each unique) */
+  features: string[]
   appearance: MemberAppearance
 }
 
-/** inclusive bounds for a designed character's skill values */
+/** inclusive bounds for a member's resultant skill values (base value + feature bonuses) */
 export const MEMBER_SKILL_BOUNDS: [number, number] = [1, 10]
+
+/** a character may be assigned at most this many features */
+export const MAX_FEATURES_PER_MEMBER = 3
+
+/** inclusive bounds for one feature's bonus amount to a single skill */
+export const FEATURE_BONUS_BOUNDS: [number, number] = [1, 9]
+
+/** a numeric bonus a feature grants to one skill */
+export interface FeatureBonus {
+  skill: SkillKey
+  amount: number
+}
+
+/** a designable trait characters can be assigned (up to MAX_FEATURES_PER_MEMBER each),
+ *  granting a numeric bonus to one or more skills */
+export interface FeatureDesign {
+  name: string
+  bonuses: FeatureBonus[]
+}
 
 /** one of the eight houses a joining player can be dealt */
 export interface HouseDesign {
@@ -475,6 +497,8 @@ export type FaceOutcomeMap = Partial<Record<AppearanceFace, FaceOutcomeDesign>>
 export interface GameContent {
   /** the skill catalog members are scored on and approaches test */
   skills: SkillKey[]
+  /** the feature catalog characters draw their skills from */
+  features: FeatureDesign[]
   houses: HouseDesign[]
   scenarios: ScenarioDesign[]
   /** per-face success/failure portrait overrides used on the resolution screen */

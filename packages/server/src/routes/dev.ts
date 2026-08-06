@@ -5,10 +5,12 @@ import type { Room } from '../game/engine.js'
 import { CONFIG_BOUNDS, DEFAULT_CONFIG, getConfig, resetConfig, updateConfig } from '../game/config.js'
 import {
   getFaceOutcomes,
+  getFeatures,
   getHouses,
   getScenarios,
   getSkills,
   updateFaceOutcomes,
+  updateFeatures,
   updateHouses,
   updateScenarios,
   updateSkills,
@@ -63,9 +65,9 @@ export function registerDevRoutes(app: FastifyInstance): void {
     return { config, defaults: DEFAULT_CONFIG, bounds: CONFIG_BOUNDS }
   })
 
-  // ----- designable content: skills, houses, scenarios, face outcomes — each persisted and
-  // saved independently so editing one tab can never clobber another (applies to rooms
-  // created after saving) -----
+  // ----- designable content: skills, features, houses, scenarios, face outcomes — each
+  // persisted and saved independently so editing one tab can never clobber another
+  // (applies to rooms created after saving) -----
 
   app.get('/dev/skills', async () => {
     return { skills: getSkills() }
@@ -75,6 +77,16 @@ export function registerDevRoutes(app: FastifyInstance): void {
     const result = updateSkills(request.body)
     if (typeof result === 'string') return reply.status(400).send({ error: result })
     return { skills: result }
+  })
+
+  app.get('/dev/features', async () => {
+    return { features: getFeatures() }
+  })
+
+  app.put<{ Body: unknown }>('/dev/features', async (request, reply) => {
+    const result = updateFeatures(request.body)
+    if (typeof result === 'string') return reply.status(400).send({ error: result })
+    return { features: result }
   })
 
   app.get('/dev/houses', async () => {
