@@ -18,7 +18,7 @@ import type {
   Scenario,
   ScenarioDesign,
   ScenarioLocation,
-  SkillKey,
+  SkillDesign,
 } from '@family-feudal/shared'
 import {
   APPEARANCE_ACCESSORIES,
@@ -32,8 +32,6 @@ import {
   REWARD_TIER_LABELS,
   REWARD_TIERS,
   SCENARIO_LOCATION_LABELS,
-  SKILL_LABELS,
-  SKILLS,
 } from '@family-feudal/shared'
 import MemberAvatar from '../components/MemberAvatar.vue'
 
@@ -41,6 +39,10 @@ interface ConfigResponse {
   config: GameConfig
   defaults: GameConfig
   bounds: Record<keyof GameConfig, [number, number]>
+}
+
+interface SkillsResponse {
+  skills: SkillDesign[]
 }
 
 interface HousesResponse {
@@ -74,6 +76,7 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
 ]
 
 const configData = ref<ConfigResponse | null>(null)
+const skillsData = ref<SkillsResponse | null>(null)
 const housesData = ref<HousesResponse | null>(null)
 const scenariosData = ref<ScenariosResponse | null>(null)
 const facesData = ref<FacesResponse | null>(null)
@@ -83,7 +86,7 @@ const error = ref('')
 const status = ref('')
 const editingMember = ref<{ member: MemberDesign; house: HouseDesign } | null>(null)
 
-const TABS = ['Settings', 'Houses', 'Scenarios', 'Faces', 'Rooms'] as const
+const TABS = ['Settings', 'Skills', 'Houses', 'Scenarios', 'Faces', 'Rooms'] as const
 type Tab = (typeof TABS)[number]
 const activeTab = ref<Tab>('Settings')
 
@@ -132,10 +135,62 @@ async function resetSettings() {
   }
 }
 
+/** backfills any house member missing a currently-defined skill key with the bounds
+ *  minimum, so adding a new skill doesn't leave the Houses tab showing blank inputs or
+ *  produce a confusing 400 on save */
+function reconcileHouseSkills() {
+  const catalog = skillsData.value?.skills
+  const houseList = housesData.value?.houses
+  if (!catalog || !houseList) return
+  for (const house of houseList) {
+    for (const member of house.members) {
+      for (const skill of catalog) {
+        if (typeof member.skills[skill.key] !== 'number') member.skills[skill.key] = MEMBER_SKILL_BOUNDS[0]
+      }
+    }
+  }
+}
+
+async function loadSkills() {
+  try {
+    skillsData.value = await api<SkillsResponse>('/dev/skills')
+    error.value = ''
+    reconcileHouseSkills()
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+async function saveSkills() {
+  if (!skillsData.value) return
+  try {
+    skillsData.value = await api<SkillsResponse>('/dev/skills', {
+      method: 'PUT',
+      body: JSON.stringify(skillsData.value.skills),
+    })
+    status.value = `Skills saved ✓ (${new Date().toLocaleTimeString()}) — applies to house/scenario designs saved from now on`
+    error.value = ''
+    reconcileHouseSkills()
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+let nextNewSkillId = 1
+
+function addSkill() {
+  skillsData.value?.skills.push({ key: `skill${nextNewSkillId++}`, label: 'New Skill', icon: '❔' })
+}
+
+function removeSkill(index: number) {
+  if (skillsData.value && skillsData.value.skills.length > 1) skillsData.value.skills.splice(index, 1)
+}
+
 async function loadHouses() {
   try {
     housesData.value = await api<HousesResponse>('/dev/houses')
     error.value = ''
+    reconcileHouseSkills()
   } catch (e) {
     error.value = String(e)
   }
@@ -210,14 +265,21 @@ const DEFAULT_TIERS = {
   failureInjury: false,
 } as const
 
+/** first skill in the catalog, used as the default for newly-created skill approaches */
+function defaultSkillKey(): string {
+  return skillsData.value?.skills[0]?.key ?? ''
+}
+
 function addScenario() {
+  const first = defaultSkillKey()
+  const second = skillsData.value?.skills[1]?.key ?? first
   scenariosData.value?.scenarios.push({
     emoji: '❔',
     title: 'New Scenario',
     description: 'Something is afoot at {town}.',
     approaches: [
-      { label: 'Meet it head-on', skill: 'might', successMessage: 'Success!', failureMessage: 'It comes to nothing.', ...DEFAULT_TIERS },
-      { label: 'Find another way', skill: 'cunning', successMessage: 'Success!', failureMessage: 'It comes to nothing.', ...DEFAULT_TIERS },
+      { label: 'Meet it head-on', skill: first, successMessage: 'Success!', failureMessage: 'It comes to nothing.', ...DEFAULT_TIERS },
+      { label: 'Find another way', skill: second, successMessage: 'Success!', failureMessage: 'It comes to nothing.', ...DEFAULT_TIERS },
     ],
     location: 'general',
   })
@@ -235,7 +297,7 @@ function setApproachKind(a: ApproachDesign, kind: 'skill' | 'buyout') {
     if (a.buyoutTier === undefined) a.buyoutTier = 'small'
   } else {
     delete a.buyoutTier
-    if (a.skill === undefined) a.skill = 'might'
+    if (a.skill === undefined) a.skill = defaultSkillKey()
   }
 }
 
@@ -247,7 +309,7 @@ function addApproach(s: ScenarioDesign) {
   if (s.approaches.length < 4) {
     s.approaches.push({
       label: 'New approach',
-      skill: 'might',
+      skill: defaultSkillKey(),
       successMessage: 'Success!',
       failureMessage: 'It comes to nothing.',
       ...DEFAULT_TIERS,
@@ -259,10 +321,14 @@ function removeApproach(s: ScenarioDesign, index: number) {
   if (s.approaches.length > 2) s.approaches.splice(index, 1)
 }
 
+function skillLabel(key: string): string {
+  return skillsData.value?.skills.find((s) => s.key === key)?.label ?? key
+}
+
 /** compact "label (Skill)" list for the room inspector */
 function approachSummary(s: Scenario): string {
   return s.approaches
-    .map((a) => `${a.label} (${a.skill ? SKILL_LABELS[a.skill] : `💰${a.buyoutCost}g`})`)
+    .map((a) => `${a.label} (${a.skill ? skillLabel(a.skill) : `💰${a.buyoutCost}g`})`)
     .join(' / ')
 }
 
@@ -292,12 +358,12 @@ function townName(townId: string): string {
   return detail.value?.towns.find((t) => t.id === townId)?.name ?? '?'
 }
 
-function skillKeys(): SkillKey[] {
-  return [...SKILLS]
+function skillCatalog(): SkillDesign[] {
+  return skillsData.value?.skills ?? []
 }
 
 function memberTotal(m: MemberDesign): number {
-  return SKILLS.reduce((sum, skill) => sum + m.skills[skill], 0)
+  return skillCatalog().reduce((sum, skill) => sum + (m.skills[skill.key] ?? 0), 0)
 }
 
 function headStyles(): string[] {
@@ -371,6 +437,7 @@ function facePreviewAppearance(face: AppearanceFace): MemberAppearance {
 
 onMounted(() => {
   void loadConfig()
+  void loadSkills()
   void loadHouses()
   void loadScenarios()
   void loadFaces()
@@ -438,6 +505,41 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <section v-if="skillsData && activeTab === 'Skills'" class="card">
+      <h2>Skills</h2>
+      <p class="dim">
+        The skill catalog members are scored on and approaches secretly test. Removing a
+        skill here doesn't retroactively fix houses/scenarios that still reference it — edit
+        those tabs afterwards if needed. Applies to house/scenario designs
+        <strong>saved after saving here</strong>; live games keep their skills.
+      </p>
+      <div v-for="(s, i) in skillsData.skills" :key="i" class="scenario-row">
+        <span class="scenario-id" title="Skill number">#{{ i + 1 }}</span>
+        <input v-model="s.icon" type="text" maxlength="8" class="emoji" title="Icon" />
+        <input v-model="s.label" type="text" maxlength="24" placeholder="Label" />
+        <input
+          v-model="s.key"
+          type="text"
+          maxlength="20"
+          placeholder="key"
+          title="Internal key stored on members/approaches — lowercase letters/digits/underscores"
+          class="skill-key"
+        />
+        <button
+          class="small secondary"
+          title="Remove skill"
+          :disabled="skillsData.skills.length <= 1"
+          @click="removeSkill(i)"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="settings-actions">
+        <button class="small" @click="addSkill">+ Add skill</button>
+        <button class="small" @click="saveSkills">Save skills</button>
+      </div>
+    </section>
+
     <section v-if="housesData && activeTab === 'Houses'" class="card">
       <h2>Houses</h2>
       <p class="dim">
@@ -456,14 +558,14 @@ onUnmounted(() => {
           <colgroup>
             <col class="col-avatar" />
             <col class="col-name" />
-            <col v-for="skill in skillKeys()" :key="skill" class="col-skill" />
+            <col v-for="skill in skillCatalog()" :key="skill.key" class="col-skill" />
             <col class="col-total" />
           </colgroup>
           <thead>
             <tr>
               <th></th>
               <th>Character</th>
-              <th v-for="skill in skillKeys()" :key="skill">{{ SKILL_LABELS[skill] }}</th>
+              <th v-for="skill in skillCatalog()" :key="skill.key">{{ skill.icon }} {{ skill.label }}</th>
               <th>Total</th>
             </tr>
           </thead>
@@ -479,9 +581,9 @@ onUnmounted(() => {
                 </button>
               </td>
               <td><input v-model="m.name" type="text" maxlength="30" /></td>
-              <td v-for="skill in skillKeys()" :key="skill">
+              <td v-for="skill in skillCatalog()" :key="skill.key">
                 <input
-                  v-model.number="m.skills[skill]"
+                  v-model.number="m.skills[skill.key]"
                   type="number"
                   :min="MEMBER_SKILL_BOUNDS[0]"
                   :max="MEMBER_SKILL_BOUNDS[1]"
@@ -555,8 +657,8 @@ onUnmounted(() => {
               <option value="buyout">Gold buyout</option>
             </select>
             <select v-if="approachKind(a) === 'skill'" v-model="a.skill" title="Hidden skill tested">
-              <option v-for="skill in skillKeys()" :key="skill" :value="skill">
-                {{ SKILL_LABELS[skill] }}
+              <option v-for="skill in skillCatalog()" :key="skill.key" :value="skill.key">
+                {{ skill.label }}
               </option>
             </select>
             <select
@@ -761,7 +863,7 @@ onUnmounted(() => {
               <th></th>
               <th>Family</th>
               <th>Name</th>
-              <th v-for="skill in skillKeys()" :key="skill">{{ SKILL_LABELS[skill] }}</th>
+              <th v-for="skill in skillCatalog()" :key="skill.key">{{ skill.icon }} {{ skill.label }}</th>
             </tr>
           </thead>
           <tbody>
@@ -772,7 +874,7 @@ onUnmounted(() => {
                   <span class="chip" :style="{ background: f.color }" /> {{ f.name }}
                 </td>
                 <td>{{ m.name }}</td>
-                <td v-for="skill in skillKeys()" :key="skill">{{ m.skills[skill] }}</td>
+                <td v-for="skill in skillCatalog()" :key="skill.key">{{ m.skills[skill.key] }}</td>
               </tr>
             </template>
           </tbody>
@@ -1214,6 +1316,12 @@ table.faces select {
 .scenario-row select {
   padding: 0.25em 0.3em;
   font-size: 0.85rem;
+}
+
+.scenario-row input.skill-key {
+  width: 8em;
+  font-family: monospace;
+  font-size: 0.8rem;
 }
 
 .scenario-row .approaches {

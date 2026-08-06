@@ -340,7 +340,7 @@ export function resolveRound(room: Room): void {
       if (boughtOut) family.gold -= approach.buyoutCost as number
       const skillTotal = boughtOut
         ? config.buyoutBonus
-        : members.reduce((sum, m) => sum + m.skills[approach.skill as SkillKey], 0)
+        : members.reduce((sum, m) => sum + (m.skills[approach.skill as SkillKey] ?? 0), 0)
       const roll = randomInt(1, 6)
       const total = skillTotal + roll
       contenders.push({
@@ -435,6 +435,7 @@ export function buildView(room: Room, playerId: string | null): GameView {
     resultHistory: room.phase === 'finished' ? room.resultHistory : [],
     winnerFamilyIds: room.winnerFamilyIds,
     faceOutcomes: getContent().faceOutcomes,
+    skills: getContent().skills,
     buyoutBonus: getConfig().buyoutBonus,
   }
 }

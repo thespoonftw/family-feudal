@@ -6,6 +6,7 @@ import type {
   MemberAppearance,
   MemberDesign,
   ScenarioDesign,
+  SkillDesign,
 } from '@family-feudal/shared'
 import {
   APPEARANCE_FACES,
@@ -15,8 +16,18 @@ import {
 } from '@family-feudal/shared'
 
 // rounds/scenarios/max-players are runtime-tunable — see config.ts
-// houses (incl. their fixed 3-character rosters) and scenarios are designable — see content.ts
+// the skill catalog, houses (incl. their fixed 3-character rosters), and scenarios are
+// designable — see content.ts
 export const MIN_PLAYERS = 1
+
+// the default skill catalog — the game's original fixed 4 skills, with the icons that
+// used to be hardcoded client-side
+export const DEFAULT_SKILLS: SkillDesign[] = [
+  { key: 'might', label: 'Might', icon: '⚔️' },
+  { key: 'charm', label: 'Charm', icon: '🌹' },
+  { key: 'wit', label: 'Wit', icon: '📜' },
+  { key: 'cunning', label: 'Cunning', icon: '🦊' },
+]
 
 export const CAPITAL_ID = 'capital'
 export const CAPITAL_NAME = 'Kingsreach'

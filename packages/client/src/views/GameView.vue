@@ -6,9 +6,8 @@ import type {
   FamilyMember,
   Scenario,
   ScenarioOutcome,
-  SkillKey,
 } from '@family-feudal/shared'
-import { revealTotalMs, SKILLS } from '@family-feudal/shared'
+import { revealTotalMs } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import ScoreBoard from '../components/ScoreBoard.vue'
 import MemberAvatar from '../components/MemberAvatar.vue'
@@ -24,13 +23,6 @@ const debugMode = ref(localStorage.getItem(DEBUG_KEY) === '1')
 function toggleDebug() {
   debugMode.value = !debugMode.value
   localStorage.setItem(DEBUG_KEY, debugMode.value ? '1' : '0')
-}
-
-const SKILL_ICONS: Record<SkillKey, string> = {
-  might: '⚔️',
-  charm: '🌹',
-  wit: '📜',
-  cunning: '🦊',
 }
 
 onMounted(async () => {
@@ -616,9 +608,9 @@ const winnerNames = computed(() => {
           />
           <strong>{{ m.name }}</strong>
           <small class="agent-skills">
-            <template v-for="(skill, i) in SKILLS" :key="skill">
+            <template v-for="(skill, i) in view?.skills ?? []" :key="skill.key">
               <template v-if="i > 0"> · </template>
-              {{ SKILL_ICONS[skill] }}{{ m.skills[skill] }}
+              {{ skill.icon }}{{ m.skills[skill.key] }}
             </template>
           </small>
         </div>
@@ -696,9 +688,9 @@ const winnerNames = computed(() => {
               <span class="attendee-info">
                 <span class="attendee-name"><strong>{{ currentDeployment.member.name }}</strong> attends</span>
                 <small>
-                  <template v-for="(skill, i) in SKILLS" :key="skill">
+                  <template v-for="(skill, i) in view?.skills ?? []" :key="skill.key">
                     <template v-if="i > 0"> · </template>
-                    {{ SKILL_ICONS[skill] }}{{ currentDeployment.member.skills[skill] }}
+                    {{ skill.icon }}{{ currentDeployment.member.skills[skill.key] }}
                   </template>
                 </small>
               </span>

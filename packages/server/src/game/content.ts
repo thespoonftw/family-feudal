@@ -17,6 +17,7 @@ import type {
   RewardTier,
   ScenarioDesign,
   ScenarioLocation,
+  SkillDesign,
   SkillKey,
   Town,
 } from '@family-feudal/shared'
@@ -30,7 +31,6 @@ import {
   MEMBER_SKILL_BOUNDS,
   MEMBERS_PER_HOUSE,
   REWARD_TIERS,
-  SKILLS,
 } from '@family-feudal/shared'
 import {
   appearanceFor,
@@ -39,6 +39,7 @@ import {
   CITY_SLOTS,
   DEFAULT_HOUSES,
   DEFAULT_SCENARIOS,
+  DEFAULT_SKILLS,
 } from './data.js'
 
 // every face defaults to a downcast "concerned" look on a failed check, matching the
@@ -48,15 +49,17 @@ const DEFAULT_FACE_OUTCOMES: FaceOutcomeMap = Object.fromEntries(
 ) as FaceOutcomeMap
 
 export const DEFAULT_CONTENT: GameContent = {
+  skills: DEFAULT_SKILLS,
   houses: DEFAULT_HOUSES,
   scenarios: DEFAULT_SCENARIOS,
   faceOutcomes: DEFAULT_FACE_OUTCOMES,
 }
 
-// Houses, scenarios, and face outcomes are persisted as three independent files — a save
-// from one dev-panel tab (or a broken/stale file) can never clobber another's. Resolved
+// Skills, houses, scenarios, and face outcomes are persisted as four independent files — a
+// save from one dev-panel tab (or a broken/stale file) can never clobber another's. Resolved
 // against the server process cwd (packages/server under the systemd unit); each overridable
 // via its own env var.
+const SKILLS_FILE = process.env['SKILLS_FILE'] ?? 'game-skills.json'
 const HOUSES_FILE = process.env['HOUSES_FILE'] ?? 'game-houses.json'
 const SCENARIOS_FILE = process.env['SCENARIOS_FILE'] ?? 'game-scenarios.json'
 const FACES_FILE = process.env['FACES_FILE'] ?? 'game-faces.json'
@@ -89,17 +92,17 @@ function cleanString(value: unknown, maxLength: number): string | null {
 function sanitizeMemberSkills(raw: unknown, where: string): Record<SkillKey, number> | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const [min, max] = MEMBER_SKILL_BOUNDS
-  const skills = {} as Record<SkillKey, number>
-  for (const skill of SKILLS) {
-    const value = obj[skill]
+  const result = {} as Record<SkillKey, number>
+  for (const skill of skills) {
+    const value = obj[skill.key]
     if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return `${where}: ${skill} skill must be a number`
+      return `${where}: ${skill.label} skill must be a number`
     }
     const rounded = Math.round(value)
-    if (rounded < min || rounded > max) return `${where}: ${skill} skill must be ${min}–${max}`
-    skills[skill] = rounded
+    if (rounded < min || rounded > max) return `${where}: ${skill.label} skill must be ${min}–${max}`
+    result[skill.key] = rounded
   }
-  return skills
+  return result
 }
 
 /** migration helper: keep a legacy value if it's still one of the valid options, else fall back */
@@ -108,24 +111,23 @@ function pickOption<T extends string>(options: readonly T[], value: unknown, fal
 }
 
 /**
- * migration helper: map a scenario approach's `skill` onto the current 4-skill roster
- * (might/charm/wit/cunning). Already-valid values pass through; the retired 5-skill set
- * (combat/intellect/diplomacy, plus the older `beauty`) maps onto its nearest fit.
+ * migration helper: map a scenario approach's `skill` onto the current skill catalog.
+ * Already-valid values pass through; the once-current might/charm/wit/cunning set (and the
+ * retired 5-skill set before it — combat/intellect/diplomacy, plus the older `beauty`) maps
+ * onto its nearest fit if that key still exists, else falls back to the catalog's first skill.
  */
 function remapSkill(value: unknown): SkillKey {
-  if (typeof value === 'string' && (SKILLS as readonly string[]).includes(value)) return value as SkillKey
-  switch (value) {
-    case 'combat':
-      return 'might'
-    case 'intellect':
-      return 'wit'
-    case 'diplomacy':
-      return 'charm'
-    case 'beauty':
-      return 'charm'
-    default:
-      return 'cunning'
+  const keys = skills.map((s) => s.key)
+  if (typeof value === 'string' && keys.includes(value)) return value
+  const legacy: Record<string, SkillKey> = {
+    combat: 'might',
+    intellect: 'wit',
+    diplomacy: 'charm',
+    beauty: 'charm',
   }
+  const mapped = typeof value === 'string' ? legacy[value] : undefined
+  if (mapped && keys.includes(mapped)) return mapped
+  return keys[0] ?? 'might'
 }
 
 function sanitizeAppearance(raw: unknown, where: string): MemberAppearance | string {
@@ -152,6 +154,42 @@ function sanitizeAppearance(raw: unknown, where: string): MemberAppearance | str
     facialHair: facialHair as AppearanceFacialHair,
     accessories: accessories as AppearanceAccessories,
   }
+}
+
+const SKILL_KEY_PATTERN = /^[a-z][a-z0-9_]{0,19}$/
+
+function sanitizeSkill(raw: unknown, index: number, seenKeys: Set<string>): SkillDesign | string {
+  const obj = (raw ?? {}) as Record<string, unknown>
+  const where = `Skill ${index + 1}`
+  const key = cleanString(obj['key'], 20)
+  if (!key || !SKILL_KEY_PATTERN.test(key)) {
+    return `${where}: key must be 1–20 lowercase letters/digits/underscores, starting with a letter`
+  }
+  if (seenKeys.has(key)) return `${where}: key "${key}" is already used by another skill`
+  seenKeys.add(key)
+  const label = cleanString(obj['label'], 24)
+  if (!label) return `${where}: label must be 1–24 characters`
+  const icon = cleanString(obj['icon'], 8)
+  if (!icon) return `${where}: icon is required`
+  return { key, label, icon }
+}
+
+function sanitizeSkillsList(raw: unknown): SkillDesign[] | string {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 20) {
+    return 'There must be between 1 and 20 skills'
+  }
+  const seenKeys = new Set<string>()
+  const clean: SkillDesign[] = []
+  for (const [i, skill] of raw.entries()) {
+    const result = sanitizeSkill(skill, i, seenKeys)
+    if (typeof result === 'string') return result
+    clean.push(result)
+  }
+  return clean
+}
+
+function migrateSkills(raw: unknown): unknown {
+  return raw ?? DEFAULT_SKILLS
 }
 
 function sanitizeMember(raw: unknown, houseLabel: string, index: number): MemberDesign | string {
@@ -240,7 +278,7 @@ function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): A
     return { label, successMessage, failureMessage, buyoutTier, ...tiers }
   }
   const skill = obj['skill']
-  if (!SKILLS.includes(skill as SkillKey)) return `${where}: unknown skill`
+  if (!skills.some((s) => s.key === skill)) return `${where}: unknown skill`
   // a legacy per-approach `difficulty` is simply ignored (checks now roll against the DC)
   return { label, skill: skill as SkillKey, successMessage, failureMessage, ...tiers }
 }
@@ -418,12 +456,12 @@ function migrateHouses(raw: unknown): unknown {
         accessories: pickOption(APPEARANCE_ACCESSORIES, rawAppearance['accessories'], fallback.accessories),
       }
       const rawSkills = (member['skills'] ?? {}) as Record<string, unknown>
-      const hasValidSkills = SKILLS.every(
-        (skill) => typeof rawSkills[skill] === 'number' && Number.isFinite(rawSkills[skill]),
+      const hasValidSkills = skills.every(
+        (skill) => typeof rawSkills[skill.key] === 'number' && Number.isFinite(rawSkills[skill.key]),
       )
       const defaultSkills = DEFAULT_HOUSES[hi]?.members[mi]?.skills ?? DEFAULT_HOUSES[0]?.members[0]?.skills
-      const skills = hasValidSkills ? (rawSkills as Record<SkillKey, number>) : defaultSkills
-      return { ...member, skills, appearance }
+      const memberSkills = hasValidSkills ? (rawSkills as Record<SkillKey, number>) : defaultSkills
+      return { ...member, skills: memberSkills, appearance }
     })
     return { ...house, members }
   })
@@ -548,6 +586,9 @@ function loadSection<T>(
   return structuredClone(defaults)
 }
 
+// skills load first — sanitizing houses/scenarios validates member skills / approach skills
+// against the current catalog, so it must already be in memory.
+let skills: SkillDesign[] = loadSection(SKILLS_FILE, 'skills', migrateSkills, sanitizeSkillsList, DEFAULT_SKILLS)
 let houses: HouseDesign[] = loadSection(HOUSES_FILE, 'houses', migrateHouses, sanitizeHousesList, DEFAULT_HOUSES)
 let scenarios: ScenarioDesign[] = loadSection(
   SCENARIOS_FILE,
@@ -563,6 +604,22 @@ let faceOutcomes: FaceOutcomeMap = loadSection(
   sanitizeFaceOutcomes,
   DEFAULT_FACE_OUTCOMES,
 )
+
+export function getSkills(): SkillDesign[] {
+  return skills
+}
+
+export function updateSkills(raw: unknown): SkillDesign[] | string {
+  const next = sanitizeSkillsList(raw)
+  if (typeof next === 'string') return next
+  skills = next
+  try {
+    writeFileSync(SKILLS_FILE, JSON.stringify(skills, null, 2) + '\n')
+  } catch (err) {
+    console.error('failed to persist skills:', err)
+  }
+  return skills
+}
 
 export function getHouses(): HouseDesign[] {
   return houses
@@ -612,9 +669,14 @@ export function updateFaceOutcomes(raw: unknown): FaceOutcomeMap | string {
   return faceOutcomes
 }
 
-/** composes the three independently-persisted sections; used by room/round setup */
+/** composes the four independently-persisted sections; used by room/round setup */
 export function getContent(): GameContent {
-  return { houses: getHouses(), scenarios: getScenarios(), faceOutcomes: getFaceOutcomes() }
+  return {
+    skills: getSkills(),
+    houses: getHouses(),
+    scenarios: getScenarios(),
+    faceOutcomes: getFaceOutcomes(),
+  }
 }
 
 // ----- runtime structures derived from the designs -----

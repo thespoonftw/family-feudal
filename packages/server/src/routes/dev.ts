@@ -7,9 +7,11 @@ import {
   getFaceOutcomes,
   getHouses,
   getScenarios,
+  getSkills,
   updateFaceOutcomes,
   updateHouses,
   updateScenarios,
+  updateSkills,
 } from '../game/content.js'
 
 function summary(room: Room): DevRoomSummary {
@@ -61,9 +63,19 @@ export function registerDevRoutes(app: FastifyInstance): void {
     return { config, defaults: DEFAULT_CONFIG, bounds: CONFIG_BOUNDS }
   })
 
-  // ----- designable content: houses, scenarios, face outcomes — each persisted and saved
-  // independently so editing one tab can never clobber another (applies to rooms created
-  // after saving) -----
+  // ----- designable content: skills, houses, scenarios, face outcomes — each persisted and
+  // saved independently so editing one tab can never clobber another (applies to rooms
+  // created after saving) -----
+
+  app.get('/dev/skills', async () => {
+    return { skills: getSkills() }
+  })
+
+  app.put<{ Body: unknown }>('/dev/skills', async (request, reply) => {
+    const result = updateSkills(request.body)
+    if (typeof result === 'string') return reply.status(400).send({ error: result })
+    return { skills: result }
+  })
 
   app.get('/dev/houses', async () => {
     return { houses: getHouses() }

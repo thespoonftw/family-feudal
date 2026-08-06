@@ -1,14 +1,8 @@
 // ---------- Core game types ----------
 
-export const SKILLS = ['might', 'charm', 'wit', 'cunning'] as const
-export type SkillKey = (typeof SKILLS)[number]
-
-export const SKILL_LABELS: Record<SkillKey, string> = {
-  might: 'Might',
-  charm: 'Charm',
-  wit: 'Wit',
-  cunning: 'Cunning',
-}
+/** a skill's catalog key — see {@link SkillDesign}. Validated dynamically against the
+ *  designable skill catalog (content.ts), not a fixed literal union. */
+export type SkillKey = string
 
 export interface FamilyMember {
   id: string
@@ -190,6 +184,8 @@ export interface GameView {
   winnerFamilyIds: string[] | null
   /** per-face success/failure portrait overrides, for the resolution screen */
   faceOutcomes: FaceOutcomeMap
+  /** the current skill catalog (label/icon per key), read live same as faceOutcomes */
+  skills: SkillDesign[]
   /** flat total used instead of a skill roll when a family buys out an approach */
   buyoutBonus: number
   /** deadline for the current timed phase (planning/approach/resolution), epoch ms; null otherwise */
@@ -244,6 +240,15 @@ export const SCENARIO_LOCATION_LABELS: Record<ScenarioLocation, string> = {
 
 /** number of fixed characters every house has */
 export const MEMBERS_PER_HOUSE = 3
+
+/** one entry in the designable skill catalog — the set of skills members can have and
+ *  approaches can test. `key` is the stable identifier stored in `FamilyMember.skills` /
+ *  `ApproachDesign.skill`; `label`/`icon` are display-only. */
+export interface SkillDesign {
+  key: string
+  label: string
+  icon: string
+}
 
 // ---------- Portrait appearance (DiceBear "open-peeps" style traits) ----------
 
@@ -477,6 +482,8 @@ export type FaceOutcomeMap = Partial<Record<AppearanceFace, FaceOutcomeDesign>>
 
 /** Designable content: applies to rooms/rounds created after saving. */
 export interface GameContent {
+  /** the skill catalog members are scored on and approaches test — see {@link SkillDesign} */
+  skills: SkillDesign[]
   houses: HouseDesign[]
   scenarios: ScenarioDesign[]
   /** per-face success/failure portrait overrides used on the resolution screen */

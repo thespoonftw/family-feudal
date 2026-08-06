@@ -7,7 +7,8 @@ A shared "host board" tab creates the room and shows the code, realm map, round 
 leaderboard — it is a spectator, not a player, but it starts the game from its lobby.
 Players join from their own devices with the 4-letter code; the first joiner is the VIP
 (`Player.isHost`, display only). Each player is assigned a noble family (name, colour,
-home town, 4 members with skills 1–4 in Combat/Charm/Intellect/Diplomacy/Cunning).
+home town, 4 members each rated across the designable skill catalog — Might/Charm/Wit/
+Cunning by default).
 Five rounds of: planning (assign members to scenarios on the realm map, one member per
 scenario) → approach (each scenario offers 2–3 approaches; pick one per deployed member;
 skipped if nobody deployed) → resolution (member's skill for the chosen approach + d6 vs
@@ -29,7 +30,7 @@ packages/
   shared/    — game types (types.ts) + socket event maps (events.ts). No runtime deps.
   server/    — Fastify + Socket.io. game/ holds the engine:
                data.ts (fixed map geometry, default house/scenario designs, member names)
-               content.ts (editable house + scenario designs, persisted, dev-panel backed)
+               content.ts (editable skill/house/scenario designs, persisted, dev-panel backed)
                config.ts (numeric runtime config, persisted, dev-panel backed)
                engine.ts (room lifecycle, round generation, resolution)
                store.ts (in-memory room map)
@@ -90,10 +91,19 @@ Three layers:
   the server process cwd — `packages/server` in prod; override via `CONFIG_FILE`). Read at
   `startGame` — applies to games started after a change; in-progress games keep their
   values.
-- **Designable content** (`server/src/game/content.ts`): three independently persisted
+- **Designable content** (`server/src/game/content.ts`): four independently persisted
   sections — one file, one loader, one dev-panel tab each, so saving one can never
   clobber another — composed into a `GameContent` only as a read convenience
   (`getContent()`) for `engine.ts`:
+  - **Skills** — the `SkillDesign` catalog (1–20 entries: `key`/`label`/`icon`), the set
+    of skills members are rated on and approaches secretly test — no longer a fixed
+    4-value union, `SkillKey` is just `string`. `getSkills`/`updateSkills`, validated by
+    `sanitizeSkillsList` (unique lowercase keys), persisted to `game-skills.json`
+    (gitignored; override via `SKILLS_FILE`). Loaded **before** houses/scenarios at
+    module init since their sanitizers validate member/approach skill keys against the
+    live catalog. Read live into every `GameView` (same as face outcomes, not
+    snapshotted per-room) — editing labels/icons applies instantly, even mid-game;
+    removing a key doesn't retroactively fix houses/scenarios still referencing it.
   - **Houses** — the 8 `HouseDesign`s (name, colour, home city name, fixed 3-member
     roster with hand-set skills/appearance). `getHouses`/`updateHouses`, validated by
     `sanitizeHousesList` (exactly one house per city slot), persisted to
@@ -112,7 +122,7 @@ Three layers:
 
   Each is edited from its own dev panel tab (full-replace PUT — the saved designs ARE
   the settings; there is no reset). On load, a file written by an older build is
-  upgraded by that section's migrator (`migrateHouses`/`migrateScenarios`/
+  upgraded by that section's migrator (`migrateSkills`/`migrateHouses`/`migrateScenarios`/
   `migrateFaceOutcomes`) so design edits survive schema changes — **extend the
   matching migrator whenever that section's schema changes**; a file that is still
   invalid after migration is backed up to `<file>.invalid-<timestamp>` before falling
@@ -138,14 +148,15 @@ passing but being beaten shows as "Outdone" in the results. Only one member per 
 may attend each scenario (enforced in `setAssignments` and greyed out as "Used" in the
 UI). Approach choices are validated in `setChoices` (approach phase only, only for
 scenarios you deployed to). Players see approach *labels* but never the skill behind
-them — labels/emoji/description are the only clues; players see all five skills for each
-member when assigning.
+them — labels/emoji/description are the only clues; players see every skill in the
+catalog for each member when assigning.
 
 ## Dev Panel
 
 `/dev` route — game settings (GET/PATCH `/api/dev/config`, POST
-`/api/dev/config/reset`), house designer (GET/PUT `/api/dev/houses`), scenario designer
-(GET/PUT `/api/dev/scenarios`), face-outcome designer (GET/PUT `/api/dev/faces`) — each
+`/api/dev/config/reset`), skill catalog designer (GET/PUT `/api/dev/skills`), house
+designer (GET/PUT `/api/dev/houses`), scenario designer (GET/PUT `/api/dev/scenarios`),
+face-outcome designer (GET/PUT `/api/dev/faces`) — each
 tab loads and saves independently, so one tab's save can't overwrite another's; invalid
 saves 400 with a message, no reset — saves are the settings. Below them: read-only live
 room inspection (players, families, members, scenarios) via GET `/api/dev/rooms[/:code]`
