@@ -440,6 +440,11 @@ export interface TraitDesign {
   bonuses: TraitBonus[]
 }
 
+/** a designable occupation — same shape as {@link TraitDesign} for now (a name plus
+ *  skill bonuses); kept as its own catalog since occupations are expected to diverge
+ *  from traits later (e.g. one per member instead of up to MAX_TRAITS_PER_MEMBER). */
+export type OccupationDesign = TraitDesign
+
 /** one of the eight houses a joining player can be dealt */
 export interface HouseDesign {
   name: string
@@ -510,6 +515,8 @@ export interface GameContent {
   skills: SkillDesign[]
   /** the trait catalog characters draw their skills from */
   traits: TraitDesign[]
+  /** the occupation catalog — behaves the same as traits for now, not yet assigned to members */
+  occupations: OccupationDesign[]
   houses: HouseDesign[]
   scenarios: ScenarioDesign[]
   /** per-face success/failure portrait overrides used on the resolution screen */

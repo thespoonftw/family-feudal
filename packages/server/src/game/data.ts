@@ -5,6 +5,7 @@ import type {
   HouseDesign,
   MemberAppearance,
   MemberDesign,
+  OccupationDesign,
   ScenarioDesign,
   SkillDesign,
   TraitDesign,
@@ -46,6 +47,12 @@ export const DEFAULT_TRAITS: TraitDesign[] = [
   { name: 'Silver Tongue', bonuses: [{ skill: 'charm', amount: 3 }] },
   { name: 'Sharp Mind', bonuses: [{ skill: 'wit', amount: 3 }] },
   { name: 'Scheming', bonuses: [{ skill: 'cunning', amount: 3 }] },
+]
+
+// the default occupation catalog — a single placeholder entry; occupations behave the
+// same as traits for now (not yet assigned to members anywhere)
+export const DEFAULT_OCCUPATIONS: OccupationDesign[] = [
+  { name: 'Farmhand', bonuses: [{ skill: 'physique', amount: 1 }] },
 ]
 
 export const CAPITAL_ID = 'capital'

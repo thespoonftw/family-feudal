@@ -9,6 +9,7 @@ import type {
   AppearanceSkinTone,
   FaceOutcomeDesign,
   FaceOutcomeMap,
+  OccupationDesign,
   TraitBonus,
   TraitDesign,
   GameContent,
@@ -41,6 +42,7 @@ import {
   CAPITAL_SLOT,
   CITY_SLOTS,
   DEFAULT_TRAITS,
+  DEFAULT_OCCUPATIONS,
   DEFAULT_HOUSES,
   DEFAULT_SCENARIOS,
   DEFAULT_SKILLS,
@@ -55,17 +57,19 @@ const DEFAULT_FACE_OUTCOMES: FaceOutcomeMap = Object.fromEntries(
 export const DEFAULT_CONTENT: GameContent = {
   skills: DEFAULT_SKILLS,
   traits: DEFAULT_TRAITS,
+  occupations: DEFAULT_OCCUPATIONS,
   houses: DEFAULT_HOUSES,
   scenarios: DEFAULT_SCENARIOS,
   faceOutcomes: DEFAULT_FACE_OUTCOMES,
 }
 
-// Skills, traits, houses, scenarios, and face outcomes are persisted as five independent
-// files — a save from one dev-panel tab (or a broken/stale file) can never clobber
-// another's. Resolved against the server process cwd (packages/server under the systemd
-// unit); each overridable via its own env var.
+// Skills, traits, occupations, houses, scenarios, and face outcomes are persisted as six
+// independent files — a save from one dev-panel tab (or a broken/stale file) can never
+// clobber another's. Resolved against the server process cwd (packages/server under the
+// systemd unit); each overridable via its own env var.
 const SKILLS_FILE = process.env['SKILLS_FILE'] ?? 'game-skills.json'
 const TRAITS_FILE = process.env['TRAITS_FILE'] ?? 'game-traits.json'
+const OCCUPATIONS_FILE = process.env['OCCUPATIONS_FILE'] ?? 'game-occupations.json'
 const HOUSES_FILE = process.env['HOUSES_FILE'] ?? 'game-houses.json'
 const SCENARIOS_FILE = process.env['SCENARIOS_FILE'] ?? 'game-scenarios.json'
 const FACES_FILE = process.env['FACES_FILE'] ?? 'game-faces.json'
@@ -219,12 +223,19 @@ function sanitizeTraitBonus(raw: unknown, where: string): TraitBonus | string {
   return { skill: skill as SkillKey, amount: rounded }
 }
 
-function sanitizeTrait(raw: unknown, index: number, seenNames: Set<string>): TraitDesign | string {
+// shared by traits and occupations — both are just a name plus skill bonuses (see
+// {@link OccupationDesign})
+function sanitizeNamedBonuses(
+  raw: unknown,
+  kind: string,
+  index: number,
+  seenNames: Set<string>,
+): TraitDesign | string {
   const obj = (raw ?? {}) as Record<string, unknown>
-  const where = `Trait ${index + 1}`
+  const where = `${kind} ${index + 1}`
   const name = cleanString(obj['name'], 40)
   if (!name) return `${where}: name must be 1–40 characters`
-  if (seenNames.has(name.toLowerCase())) return `${where}: "${name}" is already used by another trait`
+  if (seenNames.has(name.toLowerCase())) return `${where}: "${name}" is already used by another ${kind.toLowerCase()}`
   seenNames.add(name.toLowerCase())
   const bonusesRaw = obj['bonuses']
   if (!Array.isArray(bonusesRaw) || bonusesRaw.length === 0) {
@@ -236,7 +247,7 @@ function sanitizeTrait(raw: unknown, index: number, seenNames: Set<string>): Tra
     const result = sanitizeTraitBonus(bonus, `${where}, bonus ${i + 1}`)
     if (typeof result === 'string') return result
     if (usedSkills.has(result.skill)) {
-      return `${where}, bonus ${i + 1}: "${result.skill}" is already bonused by this trait`
+      return `${where}, bonus ${i + 1}: "${result.skill}" is already bonused by this ${kind.toLowerCase()}`
     }
     usedSkills.add(result.skill)
     bonuses.push(result)
@@ -244,23 +255,36 @@ function sanitizeTrait(raw: unknown, index: number, seenNames: Set<string>): Tra
   return { name, bonuses }
 }
 
-function sanitizeTraitsList(raw: unknown): TraitDesign[] | string {
+function sanitizeNamedBonusList(raw: unknown, kind: string): TraitDesign[] | string {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 100) {
-    return 'There must be between 1 and 100 traits'
+    return `There must be between 1 and 100 ${kind.toLowerCase()}s`
   }
   const clean: TraitDesign[] = []
   const seenNames = new Set<string>()
-  for (const [i, trait] of raw.entries()) {
-    const result = sanitizeTrait(trait, i, seenNames)
+  for (const [i, entry] of raw.entries()) {
+    const result = sanitizeNamedBonuses(entry, kind, i, seenNames)
     if (typeof result === 'string') return result
     clean.push(result)
   }
   return clean
 }
 
+function sanitizeTraitsList(raw: unknown): TraitDesign[] | string {
+  return sanitizeNamedBonusList(raw, 'Trait')
+}
+
+function sanitizeOccupationsList(raw: unknown): OccupationDesign[] | string {
+  return sanitizeNamedBonusList(raw, 'Occupation')
+}
+
 // no prior build ever persisted traits — nothing to upgrade, just seed defaults
 function migrateTraits(raw: unknown): unknown {
   return raw ?? DEFAULT_TRAITS
+}
+
+// occupations are new — nothing to upgrade, just seed defaults
+function migrateOccupations(raw: unknown): unknown {
+  return raw ?? DEFAULT_OCCUPATIONS
 }
 
 function sanitizeMember(raw: unknown, houseLabel: string, index: number): MemberDesign | string {
@@ -662,7 +686,8 @@ function loadSection<T>(
 
 // skills load first — sanitizing traits/houses/scenarios validates their skill references
 // against the current catalog, so it must already be in memory. traits load next — houses
-// validates each member's assigned traits against the current trait catalog.
+// validates each member's assigned traits against the current trait catalog. occupations
+// aren't referenced by anything else yet, so their load position doesn't matter.
 let skills: SkillDesign[] = loadSection(SKILLS_FILE, 'skills', migrateSkills, sanitizeSkillsList, DEFAULT_SKILLS)
 let traits: TraitDesign[] = loadSection(
   TRAITS_FILE,
@@ -670,6 +695,13 @@ let traits: TraitDesign[] = loadSection(
   migrateTraits,
   sanitizeTraitsList,
   DEFAULT_TRAITS,
+)
+let occupations: OccupationDesign[] = loadSection(
+  OCCUPATIONS_FILE,
+  'occupations',
+  migrateOccupations,
+  sanitizeOccupationsList,
+  DEFAULT_OCCUPATIONS,
 )
 let houses: HouseDesign[] = loadSection(HOUSES_FILE, 'houses', migrateHouses, sanitizeHousesList, DEFAULT_HOUSES)
 let scenarios: ScenarioDesign[] = loadSection(
@@ -717,6 +749,22 @@ export function updateTraits(raw: unknown): TraitDesign[] | string {
     console.error('failed to persist traits:', err)
   }
   return traits
+}
+
+export function getOccupations(): OccupationDesign[] {
+  return occupations
+}
+
+export function updateOccupations(raw: unknown): OccupationDesign[] | string {
+  const next = sanitizeOccupationsList(raw)
+  if (typeof next === 'string') return next
+  occupations = next
+  try {
+    writeFileSync(OCCUPATIONS_FILE, JSON.stringify(occupations, null, 2) + '\n')
+  } catch (err) {
+    console.error('failed to persist occupations:', err)
+  }
+  return occupations
 }
 
 export function getHouses(): HouseDesign[] {
@@ -767,11 +815,12 @@ export function updateFaceOutcomes(raw: unknown): FaceOutcomeMap | string {
   return faceOutcomes
 }
 
-/** composes the five independently-persisted sections; used by room/round setup */
+/** composes the six independently-persisted sections; used by room/round setup */
 export function getContent(): GameContent {
   return {
     skills: getSkills(),
     traits: getTraits(),
+    occupations: getOccupations(),
     houses: getHouses(),
     scenarios: getScenarios(),
     faceOutcomes: getFaceOutcomes(),

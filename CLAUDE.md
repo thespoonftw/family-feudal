@@ -90,7 +90,7 @@ Three layers:
   `game-config.json` (gitignored, in the server process cwd — `packages/server` in prod;
   override via `CONFIG_FILE`). Read at `startGame` — applies to games started after a
   change; in-progress games keep their values.
-- **Designable content** (`server/src/game/content.ts`): five independently persisted
+- **Designable content** (`server/src/game/content.ts`): six independently persisted
   sections — one file, one loader, one dev-panel tab each, so saving one can never
   clobber another — composed into a `GameContent` only as a read convenience
   (`getContent()`) for `engine.ts`:
@@ -116,7 +116,15 @@ Three layers:
     names, ≥1 bonus each, no duplicate skill within one trait), persisted to
     `game-traits.json` (gitignored; override via `TRAITS_FILE`). Loaded **before**
     houses since the house sanitizer validates each member's assigned trait names
-    against the live catalog.
+    against the live catalog. In the dev panel, a bonus's skill dropdown excludes
+    skills already bonused by another row on the same trait.
+  - **Occupations** — `OccupationDesign` (currently a type alias of `TraitDesign`) catalog,
+    same shape and validation as Traits (`sanitizeOccupationsList`, sharing the generic
+    `sanitizeNamedBonuses`/`sanitizeNamedBonusList` helpers with Traits) and the same
+    dropdown-exclusion behaviour in its dev panel rows — not yet assignable to members or
+    read anywhere in `engine.ts`, a placeholder catalog pending its own assignment slot.
+    `getOccupations`/`updateOccupations`, persisted to `game-occupations.json` (gitignored;
+    override via `OCCUPATIONS_FILE`). Loaded after traits, before houses.
   - **Houses** — the 8 `HouseDesign`s (name, colour, home city name, fixed 3-member
     roster — name, appearance, and up to `MAX_TRAITS_PER_MEMBER` assigned trait
     names; skills are no longer hand-set, they're derived from those traits, see
@@ -137,16 +145,18 @@ Three layers:
 
   Each is edited from its own dev panel tab (full-replace PUT — the saved designs ARE
   the settings; there is no reset). On load, a file written by an older build is
-  upgraded by that section's migrator (`migrateSkills`/`migrateTraits`/`migrateHouses`/
-  `migrateScenarios`/`migrateFaceOutcomes`) so design edits survive schema changes —
+  upgraded by that section's migrator (`migrateSkills`/`migrateTraits`/`migrateOccupations`/
+  `migrateHouses`/`migrateScenarios`/`migrateFaceOutcomes`) so design edits survive schema
+  changes —
   **extend the matching migrator whenever that section's schema changes**; a file that is
   still invalid after migration is backed up to `<file>.invalid-<timestamp>` before
   falling back to defaults, never silently discarded. A server that predates the split
   persisted everything to one combined `game-content.json` (`CONTENT_FILE`); the first
   time a section's own file is missing, it's seeded from that combined file's matching
   key (if present) rather than defaults, and immediately written out to its own file —
-  the legacy file itself is read-only and never touched again (traits never existed in
-  that combined file, so its section always seeds from `DEFAULT_TRAITS` instead). Rooms
+  the legacy file itself is read-only and never touched again (traits and occupations
+  never existed in that combined file, so those sections always seed from
+  `DEFAULT_TRAITS`/`DEFAULT_OCCUPATIONS` instead). Rooms
   snapshot towns + house presets at `room:create`; scenario designs are re-read every
   planning phase.
 - **Fixed data** (`server/src/game/data.ts`): map slot geometry (capital + 8 city slots —
@@ -178,7 +188,8 @@ trait names, never the numeric skills those traits grant.
 
 `/dev` route — game settings (GET/PATCH `/api/dev/config`, POST
 `/api/dev/config/reset`), skill catalog designer (GET/PUT `/api/dev/skills`), trait
-designer (GET/PUT `/api/dev/traits`) — both under the "Skills and Traits" tab — house
+designer (GET/PUT `/api/dev/traits`), occupation designer (GET/PUT
+`/api/dev/occupations`) — all three under the "Skills and Traits" tab — house
 designer (GET/PUT `/api/dev/houses`), scenario designer (GET/PUT `/api/dev/scenarios`),
 face-outcome designer (GET/PUT `/api/dev/faces`) — each
 tab loads and saves independently, so one tab's save can't overwrite another's; invalid

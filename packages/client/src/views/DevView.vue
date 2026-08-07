@@ -12,6 +12,7 @@ import type {
   FaceOutcomeDesign,
   FaceOutcomeMap,
   TraitDesign,
+  OccupationDesign,
   GameConfig,
   HouseDesign,
   MemberAppearance,
@@ -53,6 +54,10 @@ interface TraitsResponse {
   traits: TraitDesign[]
 }
 
+interface OccupationsResponse {
+  occupations: OccupationDesign[]
+}
+
 interface HousesResponse {
   houses: HouseDesign[]
 }
@@ -86,6 +91,7 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
 const configData = ref<ConfigResponse | null>(null)
 const skillsData = ref<SkillsResponse | null>(null)
 const traitsData = ref<TraitsResponse | null>(null)
+const occupationsData = ref<OccupationsResponse | null>(null)
 const housesData = ref<HousesResponse | null>(null)
 const scenariosData = ref<ScenariosResponse | null>(null)
 const facesData = ref<FacesResponse | null>(null)
@@ -253,6 +259,76 @@ function addTraitBonus(f: TraitDesign) {
 }
 
 function removeTraitBonus(f: TraitDesign, index: number) {
+  if (f.bonuses.length > 1) f.bonuses.splice(index, 1)
+}
+
+/** skills not already used by another bonus on the same trait/occupation, so a dropdown
+ *  never offers a skill that's already bonused within that same entry */
+function availableSkillsFor(f: TraitDesign, index: number): SkillKey[] {
+  const usedByOthers = new Set(f.bonuses.filter((_, i) => i !== index).map((b) => b.skill))
+  return skillCatalog().filter((s) => !usedByOthers.has(s))
+}
+
+async function loadOccupations() {
+  try {
+    occupationsData.value = await api<OccupationsResponse>('/dev/occupations')
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+async function saveOccupations() {
+  if (!occupationsData.value) return
+  try {
+    occupationsData.value = await api<OccupationsResponse>('/dev/occupations', {
+      method: 'PUT',
+      body: JSON.stringify(occupationsData.value.occupations),
+    })
+    status.value = `Occupations saved ✓ (${new Date().toLocaleTimeString()})`
+    error.value = ''
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+let nextNewOccupationId = 1
+
+function addOccupation() {
+  occupationsData.value?.occupations.push({
+    name: `Occupation ${nextNewOccupationId++}`,
+    bonuses: [{ skill: defaultSkillKey(), amount: 1 }],
+  })
+}
+
+function removeOccupation(index: number) {
+  if (occupationsData.value && occupationsData.value.occupations.length > 1) {
+    occupationsData.value.occupations.splice(index, 1)
+  }
+}
+
+/** catalog order is purely display order — occupations are referenced by name, never by
+ *  position, so reordering can never break a reference */
+const draggingOccupationIndex = ref<number | null>(null)
+
+function onOccupationDragStart(index: number) {
+  draggingOccupationIndex.value = index
+}
+
+function onOccupationDrop(index: number) {
+  const from = draggingOccupationIndex.value
+  draggingOccupationIndex.value = null
+  if (from === null || from === index || !occupationsData.value) return
+  const [moved] = occupationsData.value.occupations.splice(from, 1)
+  occupationsData.value.occupations.splice(index, 0, moved!)
+}
+
+function addOccupationBonus(f: OccupationDesign) {
+  const used = new Set(f.bonuses.map((b) => b.skill))
+  f.bonuses.push({ skill: skillCatalog().find((s) => !used.has(s)) ?? defaultSkillKey(), amount: 1 })
+}
+
+function removeOccupationBonus(f: OccupationDesign, index: number) {
   if (f.bonuses.length > 1) f.bonuses.splice(index, 1)
 }
 
@@ -545,6 +621,7 @@ onMounted(() => {
   void loadConfig()
   void loadSkills()
   void loadTraits()
+  void loadOccupations()
   void loadHouses()
   void loadScenarios()
   void loadFaces()
@@ -612,7 +689,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="skillsData && traitsData && activeTab === 'Skills and Traits'" class="card">
+    <section v-if="skillsData && traitsData && occupationsData && activeTab === 'Skills and Traits'" class="card">
       <h2>Skills</h2>
       <p class="dim">
         The skill catalog members are scored on and approaches secretly test. Removing a
@@ -706,7 +783,7 @@ onUnmounted(() => {
         <div class="bonuses">
           <div v-for="(b, k) in f.bonuses" :key="k" class="bonus-edit">
             <select v-model="b.skill" title="Skill bonused">
-              <option v-for="skill in skillCatalog()" :key="skill" :value="skill">{{ skill }}</option>
+              <option v-for="skill in availableSkillsFor(f, k)" :key="skill" :value="skill">{{ skill }}</option>
             </select>
             <input
               v-model.number="b.amount"
@@ -732,6 +809,67 @@ onUnmounted(() => {
       <div class="settings-actions">
         <button class="small" @click="addTrait">+ Add trait</button>
         <button class="small" @click="saveTraits">Save traits</button>
+      </div>
+
+      <h2>Occupations</h2>
+      <p class="dim">
+        A second, independent catalog that behaves the same as Traits for now — not yet
+        assignable to members. Each grants a numeric bonus to one or more skills.
+      </p>
+      <div
+        v-for="(f, i) in occupationsData.occupations"
+        :key="i"
+        class="trait-row"
+        :class="{ dragging: draggingOccupationIndex === i }"
+        @dragover.prevent
+        @drop="onOccupationDrop(i)"
+      >
+        <span
+          class="drag-handle"
+          draggable="true"
+          title="Drag to reorder"
+          @dragstart="onOccupationDragStart(i)"
+          @dragend="draggingOccupationIndex = null"
+        >⠿</span>
+        <span class="scenario-id" title="Occupation number">#{{ i + 1 }}</span>
+        <input v-model="f.name" type="text" maxlength="40" placeholder="Occupation name" class="trait-name" />
+        <button
+          class="small secondary"
+          title="Remove occupation"
+          :disabled="occupationsData.occupations.length <= 1"
+          @click="removeOccupation(i)"
+        >
+          ✕
+        </button>
+        <div class="bonuses">
+          <div v-for="(b, k) in f.bonuses" :key="k" class="bonus-edit">
+            <select v-model="b.skill" title="Skill bonused">
+              <option v-for="skill in availableSkillsFor(f, k)" :key="skill" :value="skill">{{ skill }}</option>
+            </select>
+            <input
+              v-model.number="b.amount"
+              type="number"
+              :min="TRAIT_BONUS_BOUNDS[0]"
+              :max="TRAIT_BONUS_BOUNDS[1]"
+              class="num"
+            />
+            <button
+              class="small secondary"
+              title="Remove bonus"
+              :disabled="f.bonuses.length <= 1"
+              @click="removeOccupationBonus(f, k)"
+            >
+              ✕
+            </button>
+          </div>
+          <button class="small secondary" title="Add a bonus to another skill" @click="addOccupationBonus(f)">
+            + bonus
+          </button>
+        </div>
+      </div>
+      <div class="settings-actions">
+        <button class="small" @click="addOccupation">+ Add occupation</button>
+        <button class="small" @click="saveOccupations">Save occupations</button>
       </div>
     </section>
 
