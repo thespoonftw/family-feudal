@@ -19,6 +19,7 @@ import type {
   RewardTier,
   ScenarioDesign,
   ScenarioLocation,
+  SkillDesign,
   SkillKey,
   Town,
 } from '@family-feudal/shared'
@@ -94,6 +95,12 @@ function cleanString(value: unknown, maxLength: number): string | null {
   return trimmed
 }
 
+/** like cleanString but optional — an empty/missing value is valid and normalises to '' */
+function cleanOptionalString(value: unknown, maxLength: number): string {
+  if (typeof value !== 'string') return ''
+  return value.trim().slice(0, maxLength)
+}
+
 function sanitizeMemberTraits(raw: unknown, where: string): string[] | string {
   if (!Array.isArray(raw) || raw.length > MAX_TRAITS_PER_MEMBER) {
     return `${where}: may have at most ${MAX_TRAITS_PER_MEMBER} traits`
@@ -121,7 +128,8 @@ function pickOption<T extends string>(options: readonly T[], value: unknown, fal
  * onto its nearest fit if that key still exists, else falls back to the catalog's first skill.
  */
 function remapSkill(value: unknown): SkillKey {
-  if (typeof value === 'string' && skills.includes(value)) return value
+  const keys = skillKeys()
+  if (typeof value === 'string' && keys.includes(value)) return value
   const legacy: Record<string, SkillKey> = {
     combat: 'might',
     intellect: 'wit',
@@ -129,8 +137,8 @@ function remapSkill(value: unknown): SkillKey {
     beauty: 'charm',
   }
   const mapped = typeof value === 'string' ? legacy[value] : undefined
-  if (mapped && skills.includes(mapped)) return mapped
-  return skills[0] ?? 'might'
+  if (mapped && keys.includes(mapped)) return mapped
+  return keys[0] ?? 'might'
 }
 
 function sanitizeAppearance(raw: unknown, where: string): MemberAppearance | string {
@@ -160,35 +168,50 @@ function sanitizeAppearance(raw: unknown, where: string): MemberAppearance | str
 }
 
 const SKILL_KEY_PATTERN = /^[a-z][a-z0-9_]{0,19}$/
+const SKILL_DESCRIPTION_MAX_LENGTH = 300
 
-function sanitizeSkillsList(raw: unknown): SkillKey[] | string {
+function sanitizeSkillsList(raw: unknown): SkillDesign[] | string {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 20) {
     return 'There must be between 1 and 20 skills'
   }
-  const clean: SkillKey[] = []
-  for (const [i, skill] of raw.entries()) {
+  const clean: SkillDesign[] = []
+  for (const [i, entry] of raw.entries()) {
     const where = `Skill ${i + 1}`
-    const key = cleanString(skill, 20)
+    const obj = (entry ?? {}) as Record<string, unknown>
+    const key = cleanString(obj['key'], 20)
     if (!key || !SKILL_KEY_PATTERN.test(key)) {
       return `${where}: must be 1–20 lowercase letters/digits/underscores, starting with a letter`
     }
-    if (clean.includes(key)) return `${where}: "${key}" is already used by another skill`
-    clean.push(key)
+    if (clean.some((s) => s.key === key)) return `${where}: "${key}" is already used by another skill`
+    clean.push({ key, description: cleanOptionalString(obj['description'], SKILL_DESCRIPTION_MAX_LENGTH) })
   }
   return clean
 }
 
-// older builds stored skills as { key, label, icon } objects — keep just the key
+// older builds stored skills as plain key strings, or as { key, label, icon } objects
+// (label/icon are dropped — the key doubled as the display name even then)
 function migrateSkills(raw: unknown): unknown {
   if (!Array.isArray(raw)) return raw ?? DEFAULT_SKILLS
-  return raw.map((s) => (s && typeof s === 'object' && 'key' in s ? (s as { key: unknown }).key : s))
+  return raw.map((s) => {
+    if (typeof s === 'string') return { key: s, description: '' }
+    if (s && typeof s === 'object' && 'key' in s) {
+      const obj = s as Record<string, unknown>
+      return { key: obj['key'], description: typeof obj['description'] === 'string' ? obj['description'] : '' }
+    }
+    return s
+  })
+}
+
+/** the catalog's keys only — used everywhere a skill is validated/referenced by string */
+function skillKeys(): SkillKey[] {
+  return skills.map((s) => s.key)
 }
 
 function sanitizeTraitBonus(raw: unknown, where: string): TraitBonus | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const [min, max] = TRAIT_BONUS_BOUNDS
   const skill = obj['skill']
-  if (!skills.includes(skill as SkillKey)) return `${where}: unknown skill`
+  if (!skillKeys().includes(skill as SkillKey)) return `${where}: unknown skill`
   const amount = obj['amount']
   if (typeof amount !== 'number' || !Number.isFinite(amount)) return `${where}: amount must be a number`
   const rounded = Math.round(amount)
@@ -326,7 +349,7 @@ function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): A
     return { label, successMessage, failureMessage, buyoutTier, ...tiers }
   }
   const skill = obj['skill']
-  if (!skills.includes(skill as SkillKey)) return `${where}: unknown skill`
+  if (!skillKeys().includes(skill as SkillKey)) return `${where}: unknown skill`
   // a legacy per-approach `difficulty` is simply ignored (checks now roll against the DC)
   return { label, skill: skill as SkillKey, successMessage, failureMessage, ...tiers }
 }
@@ -640,7 +663,7 @@ function loadSection<T>(
 // skills load first — sanitizing traits/houses/scenarios validates their skill references
 // against the current catalog, so it must already be in memory. traits load next — houses
 // validates each member's assigned traits against the current trait catalog.
-let skills: SkillKey[] = loadSection(SKILLS_FILE, 'skills', migrateSkills, sanitizeSkillsList, DEFAULT_SKILLS)
+let skills: SkillDesign[] = loadSection(SKILLS_FILE, 'skills', migrateSkills, sanitizeSkillsList, DEFAULT_SKILLS)
 let traits: TraitDesign[] = loadSection(
   TRAITS_FILE,
   'traits',
@@ -664,11 +687,11 @@ let faceOutcomes: FaceOutcomeMap = loadSection(
   DEFAULT_FACE_OUTCOMES,
 )
 
-export function getSkills(): SkillKey[] {
+export function getSkills(): SkillDesign[] {
   return skills
 }
 
-export function updateSkills(raw: unknown): SkillKey[] | string {
+export function updateSkills(raw: unknown): SkillDesign[] | string {
   const next = sanitizeSkillsList(raw)
   if (typeof next === 'string') return next
   skills = next

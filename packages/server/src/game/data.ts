@@ -6,7 +6,7 @@ import type {
   MemberAppearance,
   MemberDesign,
   ScenarioDesign,
-  SkillKey,
+  SkillDesign,
   TraitDesign,
 } from '@family-feudal/shared'
 import {
@@ -21,8 +21,22 @@ import {
 // scenarios are designable — see content.ts
 export const MIN_PLAYERS = 1
 
-// the default skill catalog — the game's original fixed 4 skills
-export const DEFAULT_SKILLS: SkillKey[] = ['might', 'charm', 'wit', 'cunning']
+// the default skill catalog — each carries a description (dev-panel only, never shown to
+// players) to help a designer, human or AI, write traits/scenario approaches that test
+// the right skill
+export const DEFAULT_SKILLS: SkillDesign[] = [
+  { key: 'physique', description: 'Intimidation, feats of strength, and athleticism.' },
+  { key: 'battle', description: 'Skill at arms — swordplay, brawling, and combat prowess.' },
+  { key: 'nimble', description: 'Dodging, evasion, stealth, and pickpocketing.' },
+  { key: 'wilderness', description: 'Flora, fauna, survival, tents, tracking, and first aid.' },
+  { key: 'academic', description: 'Literacy, reading, history, logistics, and medicine.' },
+  { key: 'ingenuity', description: 'Creative solutions and clever improvisation.' },
+  { key: 'investigation', description: 'Searching a location, solving a mystery, seeing through lies.' },
+  { key: 'intrigue', description: 'Blackmail, deception, lying, social manipulation, and bribery.' },
+  { key: 'negotiation', description: 'Haggling, striking a deal, social navigation, and diplomacy.' },
+  { key: 'charm', description: 'Likeability, beauty, performance, public image, and calling in favors.' },
+  { key: 'leadership', description: 'Rallying troops, using clout, giving speeches, and gathering forces.' },
+]
 
 // the default trait catalog — one flat +3 bonus per original skill, so the stock roster
 // (each member assigned 3 of these) reproduces the game's original might/charm/wit/cunning

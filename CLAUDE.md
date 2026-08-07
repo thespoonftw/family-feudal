@@ -94,16 +94,20 @@ Three layers:
   sections — one file, one loader, one dev-panel tab each, so saving one can never
   clobber another — composed into a `GameContent` only as a read convenience
   (`getContent()`) for `engine.ts`:
-  - **Skills** — a flat `SkillKey[]` catalog (1–20 lowercase keys, no separate label/icon
-    — the key *is* the display name), the set of skills members are rated on and
-    approaches secretly test — no longer a fixed 4-value union, `SkillKey` is just
-    `string`. `getSkills`/`updateSkills`, validated by `sanitizeSkillsList` (unique
-    lowercase keys), persisted to `game-skills.json` (gitignored; override via
-    `SKILLS_FILE`). Loaded **before** traits/houses/scenarios at module init since
-    their sanitizers validate skill keys against the live catalog. Read live into every
-    `GameView` (same as face outcomes, not snapshotted per-room) — renaming a key applies
-    instantly, even mid-game; removing a key doesn't retroactively fix
-    traits/houses/scenarios still referencing it.
+  - **Skills** — a `SkillDesign[]` catalog (`{ key, description }`, 1–20 entries; the key
+    is lowercase and *is* the display name — no separate label/icon), the set of skills
+    members are rated on and approaches secretly test — `SkillKey` is just `string`,
+    validated dynamically against this catalog rather than a fixed union. `description`
+    is dev-panel only (never sent to players, absent from `GameView.skills` which stays a
+    plain `SkillKey[]`) — free text noting what the skill covers, meant to help a designer
+    (human or AI) pick the right skill when writing traits and scenario approaches.
+    `getSkills`/`updateSkills`, validated by `sanitizeSkillsList` (unique lowercase keys),
+    persisted to `game-skills.json` (gitignored; override via `SKILLS_FILE`). Loaded
+    **before** traits/houses/scenarios at module init since their sanitizers validate
+    skill keys against the live catalog. `GameView.skills` (just the keys) is read live
+    (same as face outcomes, not snapshotted per-room) — renaming a key applies instantly,
+    even mid-game; removing a key doesn't retroactively fix traits/houses/scenarios still
+    referencing it.
   - **Traits** — the `TraitDesign[]` catalog (name + a list of `{skill, amount}`
     bonuses, `amount` clamped to `TRAIT_BONUS_BOUNDS`), the traits a character can be
     assigned (up to `MAX_TRAITS_PER_MEMBER` each) instead of hand-set skill points —

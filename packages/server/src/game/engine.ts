@@ -170,7 +170,11 @@ export function startGame(room: Room): void {
   // houses and home cities were claimed as players joined; instantiate the fixed roster now
   for (const family of room.families) {
     const preset = room.presets.find((p) => p.homeTownId === family.homeTownId)
-    family.members = generateMembers(preset, content.traits, content.skills)
+    family.members = generateMembers(
+      preset,
+      content.traits,
+      content.skills.map((s) => s.key),
+    )
     family.gold = config.startingGold
   }
   room.phase = 'planning'
@@ -446,7 +450,7 @@ export function buildView(room: Room, playerId: string | null): GameView {
     resultHistory: room.phase === 'finished' ? room.resultHistory : [],
     winnerFamilyIds: room.winnerFamilyIds,
     faceOutcomes: getContent().faceOutcomes,
-    skills: getContent().skills,
+    skills: getContent().skills.map((s) => s.key),
     buyoutBonus: getConfig().buyoutBonus,
   }
 }

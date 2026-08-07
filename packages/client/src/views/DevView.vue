@@ -19,6 +19,7 @@ import type {
   Scenario,
   ScenarioDesign,
   ScenarioLocation,
+  SkillDesign,
   SkillKey,
 } from '@family-feudal/shared'
 import {
@@ -45,7 +46,7 @@ interface ConfigResponse {
 }
 
 interface SkillsResponse {
-  skills: SkillKey[]
+  skills: SkillDesign[]
 }
 
 interface TraitsResponse {
@@ -171,7 +172,7 @@ async function saveSkills() {
 let nextNewSkillId = 1
 
 function addSkill() {
-  skillsData.value?.skills.push(`skill${nextNewSkillId++}`)
+  skillsData.value?.skills.push({ key: `skill${nextNewSkillId++}`, description: '' })
 }
 
 function removeSkill(index: number) {
@@ -335,12 +336,12 @@ const DEFAULT_TIERS = {
 
 /** first skill in the catalog, used as the default for newly-created skill approaches */
 function defaultSkillKey(): string {
-  return skillsData.value?.skills[0] ?? ''
+  return skillsData.value?.skills[0]?.key ?? ''
 }
 
 function addScenario() {
   const first = defaultSkillKey()
-  const second = skillsData.value?.skills[1] ?? first
+  const second = skillsData.value?.skills[1]?.key ?? first
   scenariosData.value?.scenarios.push({
     emoji: '❔',
     title: 'New Scenario',
@@ -423,7 +424,7 @@ function townName(townId: string): string {
 }
 
 function skillCatalog(): SkillKey[] {
-  return skillsData.value?.skills ?? []
+  return skillsData.value?.skills.map((s) => s.key) ?? []
 }
 
 /** a member's resultant skills, derived from their assigned traits — same computation
@@ -617,10 +618,13 @@ onUnmounted(() => {
         The skill catalog members are scored on and approaches secretly test. Removing a
         skill here doesn't retroactively fix traits/scenarios that still reference it —
         edit those afterwards if needed. Applies to trait/scenario designs
-        <strong>saved after saving here</strong>; live games keep their skills.
+        <strong>saved after saving here</strong>; live games keep their skills. The
+        description is dev-panel only (never shown to players) — use it to note what the
+        skill covers, so it's easier for a designer (or an AI) to pick the right skill when
+        writing traits and scenario approaches.
       </p>
       <div
-        v-for="(_, i) in skillsData.skills"
+        v-for="(s, i) in skillsData.skills"
         :key="i"
         class="skill-row"
         :class="{ dragging: draggingSkillIndex === i }"
@@ -636,7 +640,7 @@ onUnmounted(() => {
         >⠿</span>
         <span class="scenario-id" title="Skill number">#{{ i + 1 }}</span>
         <input
-          v-model="skillsData.skills[i]"
+          v-model="s.key"
           type="text"
           maxlength="20"
           placeholder="key"
@@ -651,6 +655,14 @@ onUnmounted(() => {
         >
           ✕
         </button>
+        <input
+          v-model="s.description"
+          type="text"
+          maxlength="300"
+          placeholder="What this skill covers (e.g. dodging, stealth, pickpocketing)"
+          title="Dev-panel only — never shown to players"
+          class="skill-description"
+        />
       </div>
       <div class="settings-actions">
         <button class="small" @click="addSkill">+ Add skill</button>
@@ -1525,6 +1537,12 @@ table.faces select {
   width: 8em;
   font-family: monospace;
   font-size: 0.8rem;
+}
+
+.skill-row input.skill-description {
+  grid-column: 2 / -1;
+  font-size: 0.8rem;
+  color: var(--text-dim);
 }
 
 /* trait editor */

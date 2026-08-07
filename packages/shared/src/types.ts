@@ -4,6 +4,14 @@
  *  (content.ts), not a fixed literal union. */
 export type SkillKey = string
 
+/** a catalog skill: its stable key plus a free-text description of what it covers —
+ *  shown only in the dev panel, to help a designer (human or AI) write traits/scenario
+ *  approaches that test the right skill. Never shown to players. */
+export interface SkillDesign {
+  key: SkillKey
+  description: string
+}
+
 export interface FamilyMember {
   id: string
   name: string
@@ -499,7 +507,7 @@ export type FaceOutcomeMap = Partial<Record<AppearanceFace, FaceOutcomeDesign>>
 /** Designable content: applies to rooms/rounds created after saving. */
 export interface GameContent {
   /** the skill catalog members are scored on and approaches test */
-  skills: SkillKey[]
+  skills: SkillDesign[]
   /** the trait catalog characters draw their skills from */
   traits: TraitDesign[]
   houses: HouseDesign[]
