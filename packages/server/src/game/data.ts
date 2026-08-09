@@ -70,14 +70,12 @@ export interface MapSlot {
 export const CAPITAL_SLOT: MapSlot = { id: CAPITAL_ID, x: 50, y: 50 }
 
 export const CITY_SLOTS: MapSlot[] = [
-  { id: 'city-1', x: 21, y: 20 },
-  { id: 'city-2', x: 79, y: 20 },
-  { id: 'city-3', x: 12, y: 50 },
-  { id: 'city-4', x: 78, y: 78 },
-  { id: 'city-5', x: 22, y: 78 },
-  { id: 'city-6', x: 50, y: 88 },
-  { id: 'city-7', x: 50, y: 10 },
-  { id: 'city-8', x: 88, y: 50 },
+  { id: 'city-1', x: 50, y: 12 },
+  { id: 'city-2', x: 83, y: 31 },
+  { id: 'city-3', x: 83, y: 69 },
+  { id: 'city-4', x: 50, y: 88 },
+  { id: 'city-5', x: 17, y: 69 },
+  { id: 'city-6', x: 17, y: 31 },
 ]
 
 // Each house's fixed roster of MEMBERS_PER_HOUSE characters — name + up to
@@ -121,18 +119,6 @@ const FENWICK_MEMBERS: MemberSeed[] = [
   { name: 'Percival', traits: ['Battle-hardened', 'Silver Tongue', 'Sharp Mind'] },
   { name: 'Quinn', traits: ['Scheming', 'Sharp Mind', 'Silver Tongue'] },
   { name: 'Rosalind', traits: ['Battle-hardened', 'Silver Tongue', 'Scheming'] },
-]
-
-const GRIMSBY_MEMBERS: MemberSeed[] = [
-  { name: 'Silas', traits: ['Sharp Mind', 'Scheming', 'Battle-hardened'] },
-  { name: 'Tamsin', traits: ['Battle-hardened', 'Sharp Mind', 'Silver Tongue'] },
-  { name: 'Ulric', traits: ['Sharp Mind', 'Scheming', 'Battle-hardened'] },
-]
-
-const HARROWGATE_MEMBERS: MemberSeed[] = [
-  { name: 'Vivienne', traits: ['Battle-hardened', 'Scheming', 'Silver Tongue'] },
-  { name: 'Wilfred', traits: ['Silver Tongue', 'Sharp Mind', 'Scheming'] },
-  { name: 'Yvette', traits: ['Silver Tongue', 'Battle-hardened', 'Scheming'] },
 ]
 
 // Default portrait swatches, cycled by a global member index so the 24 stock characters
@@ -183,8 +169,6 @@ export const DEFAULT_HOUSES: HouseDesign[] = [
   { name: 'House Draymoor', color: '#7d4fb0', cityName: 'Draymoor', members: withAppearance(DRAYMOOR_MEMBERS, 9) },
   { name: 'House Everly', color: '#c98a2d', cityName: 'Everly', members: withAppearance(EVERLY_MEMBERS, 12) },
   { name: 'House Fenwick', color: '#2d9d9d', cityName: 'Fenwick', members: withAppearance(FENWICK_MEMBERS, 15) },
-  { name: 'House Grimsby', color: '#c2439c', cityName: 'Grimsby', members: withAppearance(GRIMSBY_MEMBERS, 18) },
-  { name: 'House Harrowgate', color: '#607086', cityName: 'Harrowgate', members: withAppearance(HARROWGATE_MEMBERS, 21) },
 ]
 
 // Emoji are flavour, not skill markers. Each scenario offers 2–4 approaches; the labels
