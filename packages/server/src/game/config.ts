@@ -6,7 +6,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   totalRounds: 5,
   scenariosPerRound: 3,
   checkDC: 6,
-  maxPlayers: CITY_SLOTS.length,
+  maxPlayers: 6,
   buyoutBonus: 4,
   startingGold: 50,
   goldSmallMin: 10,
