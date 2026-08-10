@@ -39,6 +39,7 @@ import {
 } from '@family-feudal/shared'
 import {
   appearanceFor,
+  CAPITAL_COLOR,
   CAPITAL_NAME,
   CAPITAL_SLOT,
   CITY_SLOTS,
@@ -855,7 +856,14 @@ export interface FamilyPreset {
 /** The map for a new room: fixed slot geometry + the designed city names. */
 export function buildTowns(from: GameContent): Town[] {
   return [
-    { id: CAPITAL_SLOT.id, name: CAPITAL_NAME, x: CAPITAL_SLOT.x, y: CAPITAL_SLOT.y, isCapital: true },
+    {
+      id: CAPITAL_SLOT.id,
+      name: CAPITAL_NAME,
+      x: CAPITAL_SLOT.x,
+      y: CAPITAL_SLOT.y,
+      isCapital: true,
+      color: CAPITAL_COLOR,
+    },
     ...CITY_SLOTS.map((slot, i) => ({
       id: slot.id,
       name: from.houses[i]?.cityName ?? `City ${i + 1}`,

@@ -84,13 +84,13 @@ export const CAPITAL_STARTING_REPUTATION = 50
 /** the 0-100 reputation range split into 7 equal-width named stages, low to high —
  *  shown to players instead of the raw number */
 export const REPUTATION_STAGES = [
-  'Hatred',
-  'Loathing',
-  'Dislike',
+  'Despised',
+  'Disliked',
+  'Apathetic',
   'Neutral',
   'Friendly',
-  'Fondness',
-  'Reverence',
+  'Honored',
+  'Revered',
 ] as const
 
 /** maps a 0-100 reputation value to its named stage */
@@ -117,7 +117,7 @@ export interface Town {
   x: number
   y: number
   isCapital: boolean
-  /** hex colour of the house whose home city this is — absent for the capital */
+  /** hex colour of the house whose home city this is; the crown's own colour for the capital */
   color?: string
 }
 

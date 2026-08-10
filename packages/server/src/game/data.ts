@@ -57,6 +57,8 @@ export const DEFAULT_OCCUPATIONS: OccupationDesign[] = [
 
 export const CAPITAL_ID = 'capital'
 export const CAPITAL_NAME = 'Kingsreach'
+/** the crown's own colour — matches the capital's marker on the realm map */
+export const CAPITAL_COLOR = '#c9a227'
 
 // Fixed map geometry: the capital plus one city slot per player slot. City names come
 // from the house designs (slot i belongs to house i); coordinates never change.
