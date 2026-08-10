@@ -394,13 +394,20 @@ function closeBoard() {
           </div>
         </div>
 
-        <!-- finale: the standings -->
-        <div v-else key="scores" class="card reveal-card">
-          <h3 class="score-title">👑 The realm takes stock</h3>
-          <ScoreBoard :families="view.families" :players="view.players" />
-          <p class="hint">
-            {{ readyCount }}/{{ view.players.length }} houses ready to continue…
-          </p>
+        <!-- finale: waiting on the houses before the next round -->
+        <div v-else key="waiting" class="card reveal-card">
+          <h3 class="score-title">🕯️ The court awaits</h3>
+          <p class="hint">Every house must confirm before the tale continues…</p>
+          <ul class="ready-list">
+            <li v-for="p in view.players" :key="p.id">
+              <span class="dot" :style="{ background: familyOf(p.id)?.color ?? '#666' }" />
+              {{ p.name }}
+              <span class="spacer" />
+              <span v-if="!p.connected" class="offline">away</span>
+              <span v-else-if="p.ready" class="ready">✓ ready</span>
+              <span v-else class="hint">weighing the omens…</span>
+            </li>
+          </ul>
         </div>
       </Transition>
     </main>
