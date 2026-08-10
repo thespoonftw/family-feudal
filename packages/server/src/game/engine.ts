@@ -144,10 +144,12 @@ export function addPlayer(room: Room, name: string): Player {
 }
 
 /** Instantiate a family's members from its house preset's fixed roster (new id per game).
- *  Skills are derived from each member's assigned traits against the trait/skill
- *  catalogs in effect right now — baked into concrete numbers once, like config, rather
- *  than read live for the rest of the game. Trait names are kept alongside the derived
- *  skills — players see those instead of the numeric skills they grant. */
+ *  Skills are derived from each member's assigned traits/occupations against the
+ *  trait+occupation/skill catalogs in effect right now — baked into concrete numbers
+ *  once, like config, rather than read live for the rest of the game. Names are kept
+ *  alongside the derived skills — players see those instead of the numeric skills they
+ *  grant. `traits` here is the combined traits+occupations catalog — both share the
+ *  same shape, and a member's assigned slots may name either. */
 function generateMembers(
   preset: FamilyPreset | undefined,
   traits: TraitDesign[],
@@ -172,7 +174,7 @@ export function startGame(room: Room): void {
     const preset = room.presets.find((p) => p.homeTownId === family.homeTownId)
     family.members = generateMembers(
       preset,
-      content.traits,
+      [...content.traits, ...content.occupations],
       content.skills.map((s) => s.key),
     )
     family.gold = config.startingGold

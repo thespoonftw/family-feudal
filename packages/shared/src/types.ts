@@ -423,8 +423,8 @@ export const MEMBER_SKILL_BOUNDS: [number, number] = [1, 10]
 /** a character may be assigned at most this many traits */
 export const MAX_TRAITS_PER_MEMBER = 3
 
-/** inclusive bounds for one trait's bonus amount to a single skill */
-export const TRAIT_BONUS_BOUNDS: [number, number] = [1, 9]
+/** inclusive bounds for one trait's bonus amount to a single skill (may be negative) */
+export const TRAIT_BONUS_BOUNDS: [number, number] = [-9, 9]
 
 /** a numeric bonus a trait grants to one skill */
 export interface TraitBonus {

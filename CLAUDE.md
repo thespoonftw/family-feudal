@@ -109,28 +109,36 @@ Three layers:
     even mid-game; removing a key doesn't retroactively fix traits/houses/scenarios still
     referencing it.
   - **Traits** — the `TraitDesign[]` catalog (name + a list of `{skill, amount}`
-    bonuses, `amount` clamped to `TRAIT_BONUS_BOUNDS`), the traits a character can be
-    assigned (up to `MAX_TRAITS_PER_MEMBER` each) instead of hand-set skill points —
-    see below. Shown to players in place of the numeric skills they grant.
-    `getTraits`/`updateTraits`, validated by `sanitizeTraitsList` (unique
-    names, ≥1 bonus each, no duplicate skill within one trait), persisted to
-    `game-traits.json` (gitignored; override via `TRAITS_FILE`). Loaded **before**
-    houses since the house sanitizer validates each member's assigned trait names
-    against the live catalog. In the dev panel, a bonus's skill dropdown excludes
-    skills already bonused by another row on the same trait.
+    bonuses, `amount` clamped to `TRAIT_BONUS_BOUNDS`, which allows negative values), the
+    traits a character can be assigned (up to `MAX_TRAITS_PER_MEMBER` each, alongside
+    Occupations — see below) instead of hand-set skill points — see below. Shown to
+    players in place of the numeric skills they grant. `getTraits`/`updateTraits`,
+    validated by `sanitizeTraitsList` (unique names, ≥1 bonus each, no duplicate skill
+    within one trait), persisted to `game-traits.json` (gitignored; override via
+    `TRAITS_FILE`). Loaded **before** houses since the house sanitizer validates each
+    member's assigned slot names against the live traits+occupations catalogs combined.
+    In the dev panel, a bonus's skill dropdown excludes skills already bonused by
+    another row on the same trait.
   - **Occupations** — `OccupationDesign` (currently a type alias of `TraitDesign`) catalog,
     same shape and validation as Traits (`sanitizeOccupationsList`, sharing the generic
     `sanitizeNamedBonuses`/`sanitizeNamedBonusList` helpers with Traits) and the same
-    dropdown-exclusion behaviour in its dev panel rows — not yet assignable to members or
-    read anywhere in `engine.ts`, a placeholder catalog pending its own assignment slot.
-    `getOccupations`/`updateOccupations`, persisted to `game-occupations.json` (gitignored;
-    override via `OCCUPATIONS_FILE`). Loaded after traits, before houses.
+    dropdown-exclusion behaviour in its dev panel rows. Assignable to members through the
+    same up-to-`MAX_TRAITS_PER_MEMBER` slots as Traits — the Houses tab's per-slot
+    dropdown offers both catalogs together in separate `<optgroup>`s (each option labelled
+    with its total bonus points in brackets), and `computeMemberSkills` is called with the
+    two catalogs concatenated (`[...traits, ...occupations]`) both client-side (dev panel
+    preview) and server-side (`generateMembers` in `engine.ts`) — a slot just names either
+    catalog's entry, with no record of which catalog it came from. Trait/occupation names
+    aren't required to be unique from each other; a same-named collision resolves to
+    whichever the traits catalog has, since it's concatenated first. `getOccupations`/
+    `updateOccupations`, persisted to `game-occupations.json` (gitignored; override via
+    `OCCUPATIONS_FILE`). Loaded after traits, before houses (order relative to traits
+    doesn't matter — houses needs both loaded first).
   - **Houses** — the 8 `HouseDesign`s (name, colour, home city name, fixed 3-member
-    roster — name, appearance, and up to `MAX_TRAITS_PER_MEMBER` assigned trait
-    names; skills are no longer hand-set, they're derived from those traits, see
-    below). `getHouses`/`updateHouses`, validated by `sanitizeHousesList` (exactly one
-    house per city slot), persisted to `game-houses.json` (gitignored; override via
-    `HOUSES_FILE`).
+    roster — name, appearance, and up to `MAX_TRAITS_PER_MEMBER` assigned trait/occupation
+    names; skills are no longer hand-set, they're derived from those, see below).
+    `getHouses`/`updateHouses`, validated by `sanitizeHousesList` (exactly one house per
+    city slot), persisted to `game-houses.json` (gitignored; override via `HOUSES_FILE`).
   - **Scenarios** — the `ScenarioDesign` list (flavour emoji, title, description with
     `{town}`, 2–4 approaches — each a public label, a hidden skill (or a standalone gold
     buyout), success/failure flavour text with `{actor}`, success/failure Influence+gold
@@ -165,13 +173,14 @@ Three layers:
 
 Each joining player is dealt a *random* free house (house + home city) in the lobby
 (`claimFamily` in `engine.ts`; freed on lobby departure via `releaseFamily`); at
-`startGame`, each member's assigned trait names are resolved into concrete skill values
-(`computeMemberSkills` in `packages/shared/src/skills.ts`: every catalog skill starts at
-`MEMBER_SKILL_BOUNDS[0]`, each assigned trait adds its bonuses on top, clamped to
-`MEMBER_SKILL_BOUNDS[1]`) against the trait/skill catalogs in effect at that moment —
+`startGame`, each member's assigned trait/occupation names are resolved into concrete
+skill values (`computeMemberSkills` in `packages/shared/src/skills.ts`: every catalog
+skill starts at `MEMBER_SKILL_BOUNDS[0]`, each assigned trait/occupation adds its bonuses
+on top, clamped to `MEMBER_SKILL_BOUNDS`, which allows a negative-bonus trait to pull a
+skill back down) against the traits+occupations/skill catalogs in effect at that moment —
 baked into concrete numbers once, like config, rather than read live for the rest of the
-game. The trait names themselves are kept on the runtime `FamilyMember` alongside the
-derived skills — players see those trait names, never the numeric skills they grant.
+game. The names themselves are kept on the runtime `FamilyMember` alongside the derived
+skills — players see those names, never the numeric skills they grant.
 
 Resolution (see `resolveRound` in `engine.ts`): every attending family rolls the member's
 skill for its chosen approach + 1d6 against the configured check DC (`checkDC`, default

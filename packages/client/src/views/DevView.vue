@@ -503,10 +503,16 @@ function skillCatalog(): SkillKey[] {
   return skillsData.value?.skills.map((s) => s.key) ?? []
 }
 
-/** a member's resultant skills, derived from their assigned traits — same computation
- *  the server runs at game start, run here client-side for an instant preview */
+/** traits and occupations are offered together for assignment — both catalogs share the
+ *  same shape, and a member's slots may name either */
+function assignableCatalog(): TraitDesign[] {
+  return [...(traitsData.value?.traits ?? []), ...(occupationsData.value?.occupations ?? [])]
+}
+
+/** a member's resultant skills, derived from their assigned traits/occupations — same
+ *  computation the server runs at game start, run here client-side for an instant preview */
 function memberSkills(m: MemberDesign): Record<SkillKey, number> {
-  return computeMemberSkills(m.traits, traitsData.value?.traits ?? [], skillCatalog())
+  return computeMemberSkills(m.traits, assignableCatalog(), skillCatalog())
 }
 
 function memberTotal(m: MemberDesign): number {
@@ -527,12 +533,37 @@ function setTraitAt(m: MemberDesign, slot: number, value: string) {
   m.traits = next.filter((f) => f !== '')
 }
 
-/** trait options for one slot's dropdown — excludes traits already assigned in this
- *  member's other slots, but keeps the slot's own current pick selectable */
+/** a trait/occupation's total bonus points, signed for display (e.g. "+3", "-2") */
+function bonusSum(f: TraitDesign): number {
+  return f.bonuses.reduce((sum, b) => sum + b.amount, 0)
+}
+
+function formatSigned(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`
+}
+
+/** the sum of bonus points across a member's currently assigned traits/occupations
+ *  (raw, unclamped — the "Show skills" preview clamps per-skill to MEMBER_SKILL_BOUNDS) */
+function memberBonusSum(m: MemberDesign): number {
+  const catalog = assignableCatalog()
+  return m.traits.reduce((sum, name) => {
+    const f = catalog.find((c) => c.name === name)
+    return sum + (f ? bonusSum(f) : 0)
+  }, 0)
+}
+
+/** options for one slot's dropdown — excludes traits/occupations already assigned in
+ *  this member's other slots, but keeps the slot's own current pick selectable */
 function traitOptionsFor(m: MemberDesign, slot: number): TraitDesign[] {
   const current = traitAt(m, slot)
   const chosenElsewhere = new Set(m.traits.filter((f) => f !== current))
   return (traitsData.value?.traits ?? []).filter((f) => !chosenElsewhere.has(f.name))
+}
+
+function occupationOptionsFor(m: MemberDesign, slot: number): OccupationDesign[] {
+  const current = traitAt(m, slot)
+  const chosenElsewhere = new Set(m.traits.filter((f) => f !== current))
+  return (occupationsData.value?.occupations ?? []).filter((f) => !chosenElsewhere.has(f.name))
 }
 
 function memberKey(h: HouseDesign, m: MemberDesign): string {
@@ -813,8 +844,9 @@ onUnmounted(() => {
 
       <h2>Occupations</h2>
       <p class="dim">
-        A second, independent catalog that behaves the same as Traits for now — not yet
-        assignable to members. Each grants a numeric bonus to one or more skills.
+        A second, independent catalog that behaves the same as Traits — offered alongside
+        traits in the same assignment slots on the Houses tab. Each grants a numeric bonus
+        to one or more skills.
       </p>
       <div
         v-for="(f, i) in occupationsData.occupations"
@@ -873,15 +905,16 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="housesData && traitsData && activeTab === 'Houses'" class="card">
+    <section v-if="housesData && traitsData && occupationsData && activeTab === 'Houses'" class="card">
       <h2>Houses</h2>
       <p class="dim">
         The eight houses a joining player can be dealt — name, banner colour, home city, and
         a fixed roster of three characters. Each character is assigned up to
-        {{ MAX_TRAITS_PER_MEMBER }} traits (edited in the Skills and Traits tab)
-        instead of hand-set skill points — click "Show skills" on a character to see the
-        skills those traits add up to. Applies to rooms <strong>created after saving</strong>;
-        live games keep their houses.
+        {{ MAX_TRAITS_PER_MEMBER }} traits and/or occupations (edited in the Skills and
+        Traits tab) instead of hand-set skill points — the bracketed number after each
+        dropdown option is the points it adds, and the Σ after the dropdowns is their sum.
+        Click "Show skills" on a character to see the skills those bonuses add up to.
+        Applies to rooms <strong>created after saving</strong>; live games keep their houses.
       </p>
       <div v-for="(h, i) in housesData.houses" :key="i" class="house-card">
         <div class="house-header">
@@ -899,12 +932,22 @@ onUnmounted(() => {
               v-for="slot in TRAIT_SLOTS"
               :key="slot"
               :value="traitAt(m, slot)"
-              title="Assigned trait"
+              title="Assigned trait or occupation"
               @change="setTraitAt(m, slot, ($event.target as HTMLSelectElement).value)"
             >
               <option value="">(none)</option>
-              <option v-for="f in traitOptionsFor(m, slot)" :key="f.name" :value="f.name">{{ f.name }}</option>
+              <optgroup label="Traits">
+                <option v-for="f in traitOptionsFor(m, slot)" :key="f.name" :value="f.name">
+                  {{ f.name }} ({{ formatSigned(bonusSum(f)) }})
+                </option>
+              </optgroup>
+              <optgroup label="Occupations">
+                <option v-for="f in occupationOptionsFor(m, slot)" :key="f.name" :value="f.name">
+                  {{ f.name }} ({{ formatSigned(bonusSum(f)) }})
+                </option>
+              </optgroup>
             </select>
+            <span class="trait-sum" title="Sum of assigned bonus points">Σ {{ formatSigned(memberBonusSum(m)) }}</span>
           </div>
           <button class="small secondary" @click="togglePreview(h, m)">
             {{ isPreviewOpen(h, m) ? 'Hide skills' : 'Show skills' }}
@@ -1456,6 +1499,13 @@ button.small {
 
 .trait-slots select {
   width: 10em;
+}
+
+.trait-sum {
+  align-self: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--gold-soft);
 }
 
 .skill-preview {

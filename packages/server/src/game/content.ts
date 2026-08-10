@@ -105,16 +105,22 @@ function cleanOptionalString(value: unknown, maxLength: number): string {
   return value.trim().slice(0, maxLength)
 }
 
+/** a member's assigned slots may name either a Trait or an Occupation — both catalogs
+ *  share the same shape and are offered together in the dev panel's assignment dropdown */
+function isAssignableName(entry: string): boolean {
+  return traits.some((f) => f.name === entry) || occupations.some((f) => f.name === entry)
+}
+
 function sanitizeMemberTraits(raw: unknown, where: string): string[] | string {
   if (!Array.isArray(raw) || raw.length > MAX_TRAITS_PER_MEMBER) {
     return `${where}: may have at most ${MAX_TRAITS_PER_MEMBER} traits`
   }
   const clean: string[] = []
   for (const entry of raw) {
-    if (typeof entry !== 'string' || !traits.some((f) => f.name === entry)) {
-      return `${where}: unknown trait "${String(entry)}"`
+    if (typeof entry !== 'string' || !isAssignableName(entry)) {
+      return `${where}: unknown trait/occupation "${String(entry)}"`
     }
-    if (clean.includes(entry)) return `${where}: trait "${entry}" is assigned twice`
+    if (clean.includes(entry)) return `${where}: "${entry}" is assigned twice`
     clean.push(entry)
   }
   return clean
@@ -528,9 +534,9 @@ function tiersFromLegacyReward(rewards: unknown[], rewardIndexRaw: unknown) {
  * colour that predates the curated preset lists — get that field backfilled from the same
  * generated defaults the stock roster uses, keyed off their house+member slot; fields
  * already valid are left alone. A member whose `traits` are missing, invalid, or don't
- * match the current trait catalog (including a pre-traits file whose members only ever
- * had hand-set `skills`, which can't be sensibly mapped onto traits) resets to that
- * slot's fresh default rather than losing the appearance too.
+ * match the current trait/occupation catalogs (including a pre-traits file whose members
+ * only ever had hand-set `skills`, which can't be sensibly mapped onto traits) resets to
+ * that slot's fresh default rather than losing the appearance too.
  */
 function migrateHouses(raw: unknown): unknown {
   if (!Array.isArray(raw)) return raw
@@ -555,7 +561,7 @@ function migrateHouses(raw: unknown): unknown {
       const hasValidTraits =
         Array.isArray(rawTraits) &&
         rawTraits.length <= MAX_TRAITS_PER_MEMBER &&
-        rawTraits.every((f) => typeof f === 'string' && traits.some((fd) => fd.name === f))
+        rawTraits.every((f) => typeof f === 'string' && isAssignableName(f))
       const defaultTraits =
         DEFAULT_HOUSES[hi]?.members[mi]?.traits ?? DEFAULT_HOUSES[0]?.members[0]?.traits ?? []
       const memberTraits = hasValidTraits ? (rawTraits as string[]) : defaultTraits
@@ -684,10 +690,10 @@ function loadSection<T>(
   return structuredClone(defaults)
 }
 
-// skills load first — sanitizing traits/houses/scenarios validates their skill references
-// against the current catalog, so it must already be in memory. traits load next — houses
-// validates each member's assigned traits against the current trait catalog. occupations
-// aren't referenced by anything else yet, so their load position doesn't matter.
+// skills load first — sanitizing traits/occupations/houses/scenarios validates their skill
+// references against the current catalog, so it must already be in memory. traits and
+// occupations load next, in either order relative to each other — houses validates each
+// member's assigned slots against both catalogs combined, so both must be loaded first.
 let skills: SkillDesign[] = loadSection(SKILLS_FILE, 'skills', migrateSkills, sanitizeSkillsList, DEFAULT_SKILLS)
 let traits: TraitDesign[] = loadSection(
   TRAITS_FILE,
