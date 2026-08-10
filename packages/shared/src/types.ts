@@ -417,8 +417,9 @@ export interface MemberDesign {
   appearance: MemberAppearance
 }
 
-/** inclusive bounds for a member's resultant skill values (base value + trait bonuses) */
-export const MEMBER_SKILL_BOUNDS: [number, number] = [1, 10]
+/** inclusive bounds for a member's resultant skill values — a skill with no assigned
+ *  trait/occupation bonuses is 0, there is no base value */
+export const MEMBER_SKILL_BOUNDS: [number, number] = [0, 10]
 
 /** a character may be assigned at most this many traits */
 export const MAX_TRAITS_PER_MEMBER = 3

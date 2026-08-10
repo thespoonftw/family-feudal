@@ -2,12 +2,13 @@ import { MEMBER_SKILL_BOUNDS, type TraitDesign, type SkillKey } from './types.js
 
 /**
  * Derives a member's resultant skills from their assigned traits. Every catalog skill
- * starts at the base value (MEMBER_SKILL_BOUNDS[0]); each assigned trait that still
- * exists in `traitCatalog` adds its bonuses on top, clamped to MEMBER_SKILL_BOUNDS.
- * `traitCatalog` may be a combined traits+occupations list — both share the same shape.
- * A trait name with no match (removed since assignment) or a bonus targeting a skill no
- * longer in `skillCatalog` is silently skipped — same tolerance as other stale catalog
- * references elsewhere in the design content.
+ * starts at 0 — there is no base value, a skill is purely the sum of assigned bonuses —
+ * and each assigned trait that still exists in `traitCatalog` adds its bonuses on top,
+ * clamped to MEMBER_SKILL_BOUNDS. `traitCatalog` may be a combined traits+occupations
+ * list — both share the same shape. A trait name with no match (removed since
+ * assignment) or a bonus targeting a skill no longer in `skillCatalog` is silently
+ * skipped — same tolerance as other stale catalog references elsewhere in the design
+ * content.
  */
 export function computeMemberSkills(
   traitNames: readonly string[],

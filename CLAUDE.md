@@ -175,9 +175,10 @@ Each joining player is dealt a *random* free house (house + home city) in the lo
 (`claimFamily` in `engine.ts`; freed on lobby departure via `releaseFamily`); at
 `startGame`, each member's assigned trait/occupation names are resolved into concrete
 skill values (`computeMemberSkills` in `packages/shared/src/skills.ts`: every catalog
-skill starts at `MEMBER_SKILL_BOUNDS[0]`, each assigned trait/occupation adds its bonuses
-on top, clamped to `MEMBER_SKILL_BOUNDS`, which allows a negative-bonus trait to pull a
-skill back down) against the traits+occupations/skill catalogs in effect at that moment —
+skill starts at 0 — there's no base value, a skill is purely the sum of assigned
+bonuses — and each assigned trait/occupation adds its bonuses on top, clamped to
+`MEMBER_SKILL_BOUNDS` (`[0, 10]`), which allows a negative-bonus trait to pull a skill
+back down) against the traits+occupations/skill catalogs in effect at that moment —
 baked into concrete numbers once, like config, rather than read live for the rest of the
 game. The names themselves are kept on the runtime `FamilyMember` alongside the derived
 skills — players see those names, never the numeric skills they grant.

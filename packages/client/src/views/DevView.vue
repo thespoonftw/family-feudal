@@ -100,8 +100,6 @@ const detail = ref<DevRoomDetail | null>(null)
 const error = ref('')
 const status = ref('')
 const editingMember = ref<{ member: MemberDesign; house: HouseDesign } | null>(null)
-/** which members currently have their resultant-skills preview expanded, keyed by "house::member" */
-const previewOpen = ref<Record<string, boolean>>({})
 
 const TABS = ['Settings', 'Skills and Traits', 'Houses', 'Scenarios', 'Faces', 'Rooms'] as const
 type Tab = (typeof TABS)[number]
@@ -542,16 +540,6 @@ function formatSigned(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`
 }
 
-/** the sum of bonus points across a member's currently assigned traits/occupations
- *  (raw, unclamped — the "Show skills" preview clamps per-skill to MEMBER_SKILL_BOUNDS) */
-function memberBonusSum(m: MemberDesign): number {
-  const catalog = assignableCatalog()
-  return m.traits.reduce((sum, name) => {
-    const f = catalog.find((c) => c.name === name)
-    return sum + (f ? bonusSum(f) : 0)
-  }, 0)
-}
-
 /** options for one slot's dropdown — excludes traits/occupations already assigned in
  *  this member's other slots, but keeps the slot's own current pick selectable */
 function traitOptionsFor(m: MemberDesign, slot: number): TraitDesign[] {
@@ -564,19 +552,6 @@ function occupationOptionsFor(m: MemberDesign, slot: number): OccupationDesign[]
   const current = traitAt(m, slot)
   const chosenElsewhere = new Set(m.traits.filter((f) => f !== current))
   return (occupationsData.value?.occupations ?? []).filter((f) => !chosenElsewhere.has(f.name))
-}
-
-function memberKey(h: HouseDesign, m: MemberDesign): string {
-  return `${h.name}::${m.name}`
-}
-
-function togglePreview(h: HouseDesign, m: MemberDesign) {
-  const key = memberKey(h, m)
-  previewOpen.value[key] = !previewOpen.value[key]
-}
-
-function isPreviewOpen(h: HouseDesign, m: MemberDesign): boolean {
-  return !!previewOpen.value[memberKey(h, m)]
 }
 
 function headStyles(): string[] {
@@ -912,9 +887,9 @@ onUnmounted(() => {
         a fixed roster of three characters. Each character is assigned up to
         {{ MAX_TRAITS_PER_MEMBER }} traits and/or occupations (edited in the Skills and
         Traits tab) instead of hand-set skill points — the bracketed number after each
-        dropdown option is the points it adds, and the Σ after the dropdowns is their sum.
-        Click "Show skills" on a character to see the skills those bonuses add up to.
-        Applies to rooms <strong>created after saving</strong>; live games keep their houses.
+        dropdown option is the points it adds, and the resultant skills those bonuses add
+        up to are shown underneath each character. Applies to rooms
+        <strong>created after saving</strong>; live games keep their houses.
       </p>
       <div v-for="(h, i) in housesData.houses" :key="i" class="house-card">
         <div class="house-header">
@@ -947,12 +922,8 @@ onUnmounted(() => {
                 </option>
               </optgroup>
             </select>
-            <span class="trait-sum" title="Sum of assigned bonus points">Σ {{ formatSigned(memberBonusSum(m)) }}</span>
           </div>
-          <button class="small secondary" @click="togglePreview(h, m)">
-            {{ isPreviewOpen(h, m) ? 'Hide skills' : 'Show skills' }}
-          </button>
-          <div v-if="isPreviewOpen(h, m)" class="skill-preview">
+          <div class="skill-preview">
             <span v-for="skill in skillCatalog()" :key="skill">{{ skill }} {{ memberSkills(m)[skill] }}</span>
             <span class="total">total {{ memberTotal(m) }}</span>
           </div>
@@ -1499,13 +1470,6 @@ button.small {
 
 .trait-slots select {
   width: 10em;
-}
-
-.trait-sum {
-  align-self: center;
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--gold-soft);
 }
 
 .skill-preview {
