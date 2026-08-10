@@ -18,7 +18,14 @@ import type {
   SkillKey,
   Town,
 } from '@family-feudal/shared'
-import { computeMemberSkills, GOLD_STEP, goldTierBounds, INFLUENCE_TIER_VALUES, revealTotalMs } from '@family-feudal/shared'
+import {
+  computeMemberSkills,
+  GOLD_STEP,
+  goldTierBounds,
+  INFLUENCE_TIER_VALUES,
+  revealTotalMs,
+  successChance,
+} from '@family-feudal/shared'
 import { CAPITAL_ID } from './data.js'
 import { buildPresets, buildTowns, getContent, type FamilyPreset } from './content.js'
 import { getConfig } from './config.js'
@@ -336,12 +343,11 @@ export function setChoices(
 
 export function resolveRound(room: Room): void {
   const config = getConfig()
-  const dc = config.checkDC
   const bounds = goldTierBounds(config)
   const outcomes: ScenarioOutcome[] = []
   for (const scenario of room.scenarios) {
-    // every attending family rolls skill + d6 against the DC (or pays gold to buy out
-    // the roll with a flat bonus instead) …
+    // every attending family checks its skill total against the approach's difficulty
+    // (or pays gold to buy out the check with a flat bonus instead) …
     const contenders: ScenarioOutcome[] = []
     for (const family of room.families) {
       const familyAssignments = room.assignments[family.id] ?? {}
@@ -358,8 +364,7 @@ export function resolveRound(room: Room): void {
       const skillTotal = boughtOut
         ? config.buyoutBonus
         : members.reduce((sum, m) => sum + (m.skills[approach.skill as SkillKey] ?? 0), 0)
-      const roll = randomInt(1, 6)
-      const total = skillTotal + roll
+      const chance = successChance(skillTotal, approach.difficulty ?? 0)
       contenders.push({
         scenarioId: scenario.id,
         familyId: family.id,
@@ -367,22 +372,21 @@ export function resolveRound(room: Room): void {
         approachIndex,
         boughtOut,
         skillTotal,
-        roll,
-        total,
-        success: total >= dc,
+        chance,
+        success: Math.random() < chance,
         influenceGained: 0,
         goldGained: 0,
         injured: false,
       })
     }
-    // …and the highest passing total takes the prize (Influence and/or gold, per that
-    // approach's success tiers); ties all score. Anyone who fails outright instead pays
-    // that approach's failure consequence tiers (which may take them below 0).
-    const best = Math.max(...contenders.filter((c) => c.success).map((c) => c.total))
+    // …and the highest passing skill total takes the prize (Influence and/or gold, per
+    // that approach's success tiers); ties all score. Anyone who fails outright instead
+    // pays that approach's failure consequence tiers (which may take them below 0).
+    const best = Math.max(...contenders.filter((c) => c.success).map((c) => c.skillTotal))
     for (const contender of contenders) {
       const family = room.families.find((f) => f.id === contender.familyId)
       const chosenApproach = scenario.approaches[contender.approachIndex] as ScenarioApproach
-      if (contender.success && contender.total === best) {
+      if (contender.success && contender.skillTotal === best) {
         const influenceGained = INFLUENCE_TIER_VALUES[chosenApproach.successInfluence]
         const goldGained = rollGoldTier(chosenApproach.successGold, bounds)
         contender.influenceGained = influenceGained

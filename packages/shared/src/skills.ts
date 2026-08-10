@@ -28,3 +28,12 @@ export function computeMemberSkills(
   }
   return result
 }
+
+/**
+ * Probability that a check with the given skill total succeeds against a difficulty:
+ * P(success) = 1 / (1 + 2^(difficulty - skill)) — even odds when skill equals difficulty,
+ * rising toward 1 as skill exceeds it and toward 0 as it falls short.
+ */
+export function successChance(skill: number, difficulty: number): number {
+  return 1 / (1 + Math.pow(2, difficulty - skill))
+}

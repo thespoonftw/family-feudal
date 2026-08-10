@@ -12,8 +12,9 @@ skills in the designable skill catalog — Might/Charm/Wit/Cunning by default; p
 member's trait names, never the numeric skills they grant). Five rounds of: planning
 (assign members to scenarios on the realm map, one member per scenario) → approach (each
 scenario offers 2–3 approaches; pick one per deployed member; skipped if nobody deployed)
-→ resolution (member's skill for the chosen approach + d6 vs the check DC; highest passing
-total at a scenario takes the Influence, ties share); each phase advances when every
+→ resolution (member's skill for the chosen approach vs the approach's difficulty,
+P(success) = 1 / (1 + 2^(difficulty − skill)); highest skill total among passing
+families at a scenario takes the Influence, ties share); each phase advances when every
 connected player has confirmed. Most Influence after 5 rounds wins.
 
 ## Stack
@@ -85,8 +86,8 @@ Pass `-Full` to also `pnpm install` on the server.
 Three layers:
 
 - **Runtime config** (`server/src/game/config.ts`): `GameConfig` (rounds, scenarios per
-  round, check DC, max players, buyout bonus, starting gold, gold tier ranges, phase
-  timers), editable from the dev panel, clamped to `CONFIG_BOUNDS`, persisted to
+  round, max players, buyout bonus, starting gold, gold tier ranges, phase timers),
+  editable from the dev panel, clamped to `CONFIG_BOUNDS`, persisted to
   `game-config.json` (gitignored, in the server process cwd — `packages/server` in prod;
   override via `CONFIG_FILE`). Read at `startGame` — applies to games started after a
   change; in-progress games keep their values.
@@ -140,9 +141,12 @@ Three layers:
     `getHouses`/`updateHouses`, validated by `sanitizeHousesList` (exactly one house per
     city slot), persisted to `game-houses.json` (gitignored; override via `HOUSES_FILE`).
   - **Scenarios** — the `ScenarioDesign` list (flavour emoji, title, description with
-    `{town}`, 2–4 approaches — each a public label, a hidden skill (or a standalone gold
-    buyout), success/failure flavour text with `{actor}`, success/failure Influence+gold
-    reward tiers, and a failure-injury flag — and location: general/capital/home).
+    `{town}`, 2–4 approaches — each a public label, a hidden skill and difficulty (or a
+    standalone gold buyout), success/failure flavour text with `{actor}`, success/failure
+    Influence+gold reward tiers, and a failure-injury flag — and location:
+    general/capital/home). An approach's `difficulty` (default 0, dev-panel editable, no
+    fixed bounds beyond `APPROACH_DIFFICULTY_BOUNDS`) feeds the success-chance formula —
+    see Resolution below.
     `getScenarios`/`updateScenarios`, validated by `sanitizeScenariosList` (needs ≥1
     capital + ≥1 home scenario), persisted to `game-scenarios.json` (gitignored;
     override via `SCENARIOS_FILE`).
@@ -183,11 +187,16 @@ baked into concrete numbers once, like config, rather than read live for the res
 game. The names themselves are kept on the runtime `FamilyMember` alongside the derived
 skills — players see those names, never the numeric skills they grant.
 
-Resolution (see `resolveRound` in `engine.ts`): every attending family rolls the member's
-skill for its chosen approach + 1d6 against the configured check DC (`checkDC`, default
-6; unchosen assignments default to the first approach). Scenarios are contested: among
-the families that meet the DC, the highest total takes the 1 Influence — ties all score;
-passing but being beaten shows as "Outdone" in the results. Only one member per family
+Resolution (see `resolveRound` in `engine.ts`): every attending family checks its
+member's skill total for the chosen approach against that approach's difficulty
+(`ApproachDesign.difficulty`, default 0) via P(success) = 1 / (1 + 2^(difficulty −
+skill)) — even odds when skill equals difficulty, rising toward certain success as skill
+exceeds it (`successChance` in `packages/shared/src/skills.ts`); unchosen assignments
+default to the first approach. Scenarios are contested: among the families whose check
+passes, the highest skill total takes that approach's success tier (Influence + gold) —
+ties all score; passing but being beaten shows as "Outdone" in the results. A failed
+check instead pays the approach's failure tier. The results screen shows each check's
+P(success) as a rounded percentage alongside the skill total. Only one member per family
 may attend each scenario (enforced in `setAssignments` and greyed out as "Used" in the
 UI). Approach choices are validated in `setChoices` (approach phase only, only for
 scenarios you deployed to). Players see approach *labels* but never the skill behind

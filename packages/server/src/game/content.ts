@@ -31,6 +31,7 @@ import {
   APPEARANCE_HAIR_COLORS,
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
+  APPROACH_DIFFICULTY_BOUNDS,
   TRAIT_BONUS_BOUNDS,
   MAX_TRAITS_PER_MEMBER,
   MEMBERS_PER_HOUSE,
@@ -353,6 +354,14 @@ function parseGoldTier(raw: unknown): GoldTier | null {
   return tier && tier !== 'none' ? tier : null
 }
 
+/** an approach's difficulty, clamped to bounds; missing/invalid (e.g. a pre-difficulty
+ *  save) defaults to 0 rather than erroring */
+function sanitizeDifficulty(raw: unknown): number {
+  const [min, max] = APPROACH_DIFFICULTY_BOUNDS
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return 0
+  return Math.min(max, Math.max(min, Math.round(raw)))
+}
+
 function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): ApproachDesign | string {
   const obj = (raw ?? {}) as Record<string, unknown>
   const where = `${scenarioLabel}, approach ${index + 1}`
@@ -371,17 +380,17 @@ function sanitizeApproach(raw: unknown, scenarioLabel: string, index: number): A
   const failureGold = parseTier(obj['failureGold'])
   if (!failureGold) return `${where}: unknown failure gold tier`
   const failureInjury = obj['failureInjury'] === true
+  const difficulty = sanitizeDifficulty(obj['difficulty'])
   const tiers = { successInfluence, successGold, failureInfluence, failureGold, failureInjury }
   // a buyout approach stands alone — no skill behind it, just the flat buyout bonus
   if (obj['buyoutTier'] !== undefined) {
     const buyoutTier = parseGoldTier(obj['buyoutTier'])
     if (!buyoutTier) return `${where}: unknown buyout tier`
-    return { label, successMessage, failureMessage, buyoutTier, ...tiers }
+    return { label, successMessage, failureMessage, buyoutTier, difficulty, ...tiers }
   }
   const skill = obj['skill']
   if (!skillKeys().includes(skill as SkillKey)) return `${where}: unknown skill`
-  // a legacy per-approach `difficulty` is simply ignored (checks now roll against the DC)
-  return { label, skill: skill as SkillKey, successMessage, failureMessage, ...tiers }
+  return { label, skill: skill as SkillKey, successMessage, failureMessage, difficulty, ...tiers }
 }
 
 function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string {

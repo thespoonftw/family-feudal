@@ -97,6 +97,11 @@ function outcomeAppearance(o: ScenarioOutcome): FamilyMember['appearance'] | und
   return face ? { ...member.appearance, face } : member.appearance
 }
 
+/** the check's odds of success, as a whole percentage for display */
+function chancePercent(o: ScenarioOutcome): number {
+  return Math.round(o.chance * 100)
+}
+
 /** won the scenario / passed but beaten by a rival / failed the check outright */
 function verdictClass(o: ScenarioOutcome): string {
   return o.influenceGained > 0 || o.goldGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
@@ -365,7 +370,7 @@ function closeBoard() {
                   <small>{{ memberNames(o.familyId, o.memberIds) }} — “{{ approachLabel(o) }}”</small>
                 </span>
                 <span class="result-col">
-                  <span class="math">{{ o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}</span>
+                  <span class="math">{{ o.skillTotal }} · {{ chancePercent(o) }}% chance</span>
                   <span class="verdict">{{ verdictText(o) }}</span>
                 </span>
               </div>

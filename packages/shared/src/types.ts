@@ -94,6 +94,9 @@ export interface ScenarioApproach {
   /** short verb phrase shown to players when choosing, e.g. "Storm the gates" */
   label: string
   skill?: SkillKey
+  /** how hard this approach's check is; P(success) = 1 / (1 + 2^(difficulty - skill)),
+   *  so a skill total equal to difficulty is even odds. Defaults to 0 when unset. */
+  difficulty?: number
   /** flavour text shown on the results screen when this approach succeeds. {actor} is replaced with the attending member's name */
   successMessage: string
   /** flavour text shown on the results screen when this approach fails the check. {actor} is replaced with the attending member's name */
@@ -149,9 +152,9 @@ export interface ScenarioOutcome {
   /** true if gold was paid to skip the skill roll (skillTotal is the buyout bonus, not a skill sum) */
   boughtOut: boolean
   skillTotal: number
-  roll: number
-  total: number
-  /** met the DC — but a rival with a higher total can still take the prize */
+  /** P(success) for this check — 1 / (1 + 2^(difficulty - skillTotal)) — shown on the results screen */
+  chance: number
+  /** whether the check passed — but a rival with a higher skillTotal can still take the prize */
   success: boolean
   /** positive for the highest successful total(s) at the scenario (the approach's success tier);
    *  negative if the check failed outright (the approach's failure tier); 0 if passed but outdone */
@@ -212,8 +215,6 @@ export interface GameConfig {
   totalRounds: number
   /** public scenarios per round (one is always at the capital; every family also gets a home scenario) */
   scenariosPerRound: number
-  /** every check is skill + d6 vs this DC; highest passing total at a scenario wins */
-  checkDC: number
   /** maximum players per room */
   maxPlayers: number
   /** flat total used instead of a skill roll when a family pays to buy out an approach */
@@ -427,6 +428,9 @@ export const MAX_TRAITS_PER_MEMBER = 3
 /** inclusive bounds for one trait's bonus amount to a single skill (may be negative) */
 export const TRAIT_BONUS_BOUNDS: [number, number] = [-9, 9]
 
+/** inclusive bounds for an approach's difficulty (may be negative, for an easier-than-baseline check) */
+export const APPROACH_DIFFICULTY_BOUNDS: [number, number] = [-10, 20]
+
 /** a numeric bonus a trait grants to one skill */
 export interface TraitBonus {
   skill: SkillKey
@@ -465,6 +469,9 @@ export interface ApproachDesign {
   label: string
   /** hidden skill this approach tests */
   skill?: SkillKey
+  /** how hard this approach's check is; P(success) = 1 / (1 + 2^(difficulty - skill)),
+   *  so a skill total equal to difficulty is even odds. Defaults to 0 when unset. */
+  difficulty?: number
   /** flavour text shown on the results screen when this approach succeeds. {actor} is replaced with the attending member's name */
   successMessage: string
   /** flavour text shown on the results screen when this approach fails the check. {actor} is replaced with the attending member's name */

@@ -422,6 +422,11 @@ function outcomeMessageParts(o: ScenarioOutcome): { text: string; actor: boolean
     .map((part) => (part === '{actor}' ? { text: name, actor: true } : { text: part, actor: false }))
 }
 
+/** the check's odds of success, as a whole percentage for display */
+function chancePercent(o: ScenarioOutcome): number {
+  return Math.round(o.chance * 100)
+}
+
 /** won the scenario / passed but beaten by a rival / failed the check outright */
 function verdictClass(o: ScenarioOutcome): string {
   return o.influenceGained > 0 || o.goldGained > 0 ? 'ok' : o.success ? 'beat' : 'fail'
@@ -767,7 +772,7 @@ const winnerNames = computed(() => {
                 />
                 <span class="verdict">{{ verdictText(o) }}</span>
                 <span class="math">
-                  {{ o.boughtOut ? `💰${o.skillTotal}` : o.skillTotal }} + 🎲{{ o.roll }} = {{ o.total }}
+                  {{ o.boughtOut ? `💰${o.skillTotal}` : o.skillTotal }} · {{ chancePercent(o) }}% chance
                 </span>
               </div>
               <div class="outcome-body">

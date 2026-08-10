@@ -30,6 +30,7 @@ import {
   APPEARANCE_HAIR_COLORS,
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
+  APPROACH_DIFFICULTY_BOUNDS,
   MEMBER_SKILL_BOUNDS,
   TRAIT_BONUS_BOUNDS,
   GOLD_TIERS,
@@ -73,9 +74,8 @@ interface FacesResponse {
 const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = [
   { key: 'totalRounds', label: 'Rounds per game', hint: 'Influence is tallied after this many rounds' },
   { key: 'scenariosPerRound', label: 'Scenarios per round', hint: 'Public scenarios on the map (1 is always at the capital); each family also gets a home scenario' },
-  { key: 'checkDC', label: 'Check DC', hint: 'Every check is skill + d6 vs this; the highest passing total at a scenario takes the Influence, ties share' },
   { key: 'maxPlayers', label: 'Max players per room', hint: 'Limited by the number of family presets' },
-  { key: 'buyoutBonus', label: 'Buyout bonus', hint: 'Flat total used instead of a skill roll when a family pays gold to buy out an approach (still + d6 vs the DC)' },
+  { key: 'buyoutBonus', label: 'Buyout bonus', hint: 'Flat total used instead of a skill sum when a family pays gold to buy out an approach' },
   { key: 'startingGold', label: 'Starting gold', hint: 'Gold every family has at the start of the game' },
   { key: 'goldSmallMin', label: 'Small gold — min', hint: 'Lower bound of gold rolled for a Small tier (rewards, consequences, and gold buyouts)' },
   { key: 'goldSmallMax', label: 'Small gold — max', hint: 'Upper bound of gold rolled for a Small tier' },
@@ -399,8 +399,9 @@ async function saveFaces() {
   }
 }
 
-/** default success/failure tiers for a freshly-created approach: no consequence on failure */
+/** defaults for a freshly-created approach: even-odds difficulty, no consequence on failure */
 const DEFAULT_TIERS = {
+  difficulty: 0,
   successInfluence: 'small',
   successGold: 'none',
   failureInfluence: 'none',
@@ -464,10 +465,10 @@ function removeApproach(s: ScenarioDesign, index: number) {
   if (s.approaches.length > 2) s.approaches.splice(index, 1)
 }
 
-/** compact "label (skill)" list for the room inspector */
+/** compact "label (skill vs difficulty)" list for the room inspector */
 function approachSummary(s: Scenario): string {
   return s.approaches
-    .map((a) => `${a.label} (${a.skill ? a.skill : `💰${a.buyoutCost}g`})`)
+    .map((a) => `${a.label} (${a.skill ? `${a.skill} vs ${a.difficulty ?? 0}` : `💰${a.buyoutCost}g`})`)
     .join(' / ')
 }
 
@@ -952,21 +953,24 @@ onUnmounted(() => {
     <section v-if="scenariosData && activeTab === 'Scenarios'" class="card">
       <h2>Scenarios</h2>
       <p class="dim">
-        Every scenario offers 2–4 approaches; checks roll skill + d6 against the Check DC,
-        and when several houses attend, the highest passing total takes the prize (ties
-        share). Each approach sets its own success reward and failure consequence — an
-        Influence tier and a gold tier for each (gold is rolled within the tier's range,
-        set per tier in the Settings tab; Influence is a flat 1/2/3). On success the
-        winner gains those tiers; on an outright failed check, the family loses them
-        instead (can go below 0) — a failure can also be flagged to injure the attending
-        character (stored only, no effect yet). Players see the approach labels but never
-        the skill behind them — the wording is the only clue, so write labels that hint at
-        the skill. Use <code>{town}</code> for the town name and <code>{actor}</code> for
-        the attending character's name in success/failure messages. An approach can
-        instead be a gold buyout — a standalone option with no hidden skill, shown to
-        players as its own choice, that pays a gold tier (rolled once per round, same
-        ranges as above) for the "Buyout bonus" total (Settings tab) + d6 instead of a
-        skill. Applies to rounds planned after saving.
+        Every scenario offers 2–4 approaches; each check's chance of success is
+        1 / (1 + 2^(difficulty − skill)) — even odds when the attending skill total equals
+        the approach's difficulty, rising toward certain success as skill exceeds it and
+        toward certain failure as it falls short. Difficulty defaults to 0. When several
+        houses attend and pass, the highest skill total takes the prize (ties share). Each
+        approach sets its own success reward and failure consequence — an Influence tier
+        and a gold tier for each (gold is rolled within the tier's range, set per tier in
+        the Settings tab; Influence is a flat 1/2/3). On success the winner gains those
+        tiers; on an outright failed check, the family loses them instead (can go below 0)
+        — a failure can also be flagged to injure the attending character (stored only, no
+        effect yet). Players see the approach labels but never the skill behind them — the
+        wording is the only clue, so write labels that hint at the skill. Use
+        <code>{town}</code> for the town name and <code>{actor}</code> for the attending
+        character's name in success/failure messages. An approach can instead be a gold
+        buyout — a standalone option with no hidden skill, shown to players as its own
+        choice, that pays a gold tier (rolled once per round, same ranges as above) for the
+        "Buyout bonus" total (Settings tab) used as its skill total against difficulty,
+        instead of a skill. Applies to rounds planned after saving.
       </p>
       <div
         v-for="(s, i) in scenariosData.scenarios"
@@ -1017,6 +1021,14 @@ onUnmounted(() => {
             >
               <option v-for="t in GOLD_TIERS" :key="t" :value="t">{{ REWARD_TIER_LABELS[t] }}</option>
             </select>
+            <input
+              v-model.number="a.difficulty"
+              type="number"
+              :min="APPROACH_DIFFICULTY_BOUNDS[0]"
+              :max="APPROACH_DIFFICULTY_BOUNDS[1]"
+              class="difficulty"
+              title="Difficulty — P(success) = 1 / (1 + 2^(difficulty - skill)); 0 is even odds at skill 0"
+            />
             <button
               class="small secondary"
               title="Remove approach"
@@ -1759,11 +1771,15 @@ table.faces select {
 
 .approach-edit {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto auto auto;
   gap: 0.35rem 0.5rem;
   align-items: center;
   padding-bottom: 0.4rem;
   border-bottom: 1px dashed var(--border);
+}
+
+.approach-edit input.difficulty {
+  width: 4em;
 }
 
 .approach-edit .outcome-row {

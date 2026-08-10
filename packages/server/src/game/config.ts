@@ -5,7 +5,6 @@ import { CITY_SLOTS } from './data.js'
 export const DEFAULT_CONFIG: GameConfig = {
   totalRounds: 5,
   scenariosPerRound: 3,
-  checkDC: 6,
   maxPlayers: CITY_SLOTS.length,
   buyoutBonus: 4,
   startingGold: 50,
@@ -24,7 +23,6 @@ export const DEFAULT_CONFIG: GameConfig = {
 export const CONFIG_BOUNDS: Record<keyof GameConfig, [number, number]> = {
   totalRounds: [1, 20],
   scenariosPerRound: [1, 10],
-  checkDC: [1, 16],
   maxPlayers: [1, CITY_SLOTS.length],
   buyoutBonus: [0, 10],
   startingGold: [0, 200],
