@@ -63,16 +63,6 @@ function reputationStageAt(townId: string): string {
   return reputationStage(game.yourFamily?.reputation[townId] ?? 0)
 }
 
-/** splits a description around its town name so the name can be bolded/coloured inline */
-function descriptionParts(description: string, townId: string): { text: string; town: boolean }[] {
-  const name = townName(townId)
-  if (!name || name === '?') return [{ text: description, town: false }]
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return description
-    .split(new RegExp(`(${escaped})`))
-    .filter((part) => part.length > 0)
-    .map((text) => ({ text, town: text === name }))
-}
 
 function memberAssignment(memberId: string): string {
   return view.value?.yourAssignments[memberId] ?? ''
@@ -573,15 +563,11 @@ const winnerNames = computed(() => {
         >
           <div class="scenario-info">
             <h4>{{ s.emoji }} {{ s.title }}</h4>
-            <p class="hint">
-              <template v-for="(part, i) in descriptionParts(s.description, s.townId)" :key="i">
-                <template v-if="part.town">
-                  <b :style="{ color: townColor(s.townId) }">{{ part.text }}</b>
-                  <span class="rep-stage">({{ reputationStageAt(s.townId) }})</span>
-                </template>
-                <template v-else>{{ part.text }}</template>
-              </template>
+            <p class="scenario-town">
+              At <b :style="{ color: townColor(s.townId) }">{{ townName(s.townId) }}</b>
+              <span class="rep-stage">({{ reputationStageAt(s.townId) }})</span>
             </p>
+            <p class="hint">{{ s.description }}</p>
           </div>
           <button class="scenario-slot" type="button">
             <span
@@ -675,21 +661,14 @@ const winnerNames = computed(() => {
               {{ yourDeployments.length }}
             </p>
             <h3>{{ currentDeployment.scenario.emoji }} {{ currentDeployment.scenario.title }}</h3>
-            <p class="hint">
-              <template
-                v-for="(part, i) in descriptionParts(
-                  currentDeployment.scenario.description,
-                  currentDeployment.scenario.townId,
-                )"
-                :key="i"
-              >
-                <b
-                  v-if="part.town"
-                  :style="{ color: townColor(currentDeployment.scenario.townId) }"
-                >{{ part.text }}</b>
-                <template v-else>{{ part.text }}</template>
-              </template>
+            <p class="scenario-town">
+              At
+              <b :style="{ color: townColor(currentDeployment.scenario.townId) }">{{
+                townName(currentDeployment.scenario.townId)
+              }}</b>
+              <span class="rep-stage">({{ reputationStageAt(currentDeployment.scenario.townId) }})</span>
             </p>
+            <p class="hint">{{ currentDeployment.scenario.description }}</p>
             <p class="attendee">
               <MemberAvatar
                 :appearance="currentDeployment.member.appearance"
@@ -1143,6 +1122,12 @@ button.small {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.scenario-town {
+  margin: 0 0 0.15rem;
+  font-size: 0.78rem;
+  line-height: 1.2;
 }
 
 .rep-stage {
