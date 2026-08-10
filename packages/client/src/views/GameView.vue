@@ -7,7 +7,7 @@ import type {
   Scenario,
   ScenarioOutcome,
 } from '@family-feudal/shared'
-import { revealTotalMs } from '@family-feudal/shared'
+import { revealTotalMs, reputationStage } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import ScoreBoard from '../components/ScoreBoard.vue'
 import MemberAvatar from '../components/MemberAvatar.vue'
@@ -58,9 +58,9 @@ function townColor(townId: string): string | undefined {
   return view.value?.towns.find((t) => t.id === townId)?.color
 }
 
-/** your family's current standing (0-100) with a location */
-function reputationAt(townId: string): number {
-  return game.yourFamily?.reputation[townId] ?? 0
+/** your family's current standing with a location, as a named stage */
+function reputationStageAt(townId: string): string {
+  return reputationStage(game.yourFamily?.reputation[townId] ?? 0)
 }
 
 /** splits a description around its town name so the name can be bolded/coloured inline */
@@ -575,16 +575,13 @@ const winnerNames = computed(() => {
             <h4>{{ s.emoji }} {{ s.title }}</h4>
             <p class="hint">
               <template v-for="(part, i) in descriptionParts(s.description, s.townId)" :key="i">
-                <b v-if="part.town" :style="{ color: townColor(s.townId) }">{{ part.text }}</b>
+                <template v-if="part.town">
+                  <b :style="{ color: townColor(s.townId) }">{{ part.text }}</b>
+                  <span class="rep-stage">({{ reputationStageAt(s.townId) }})</span>
+                </template>
                 <template v-else>{{ part.text }}</template>
               </template>
             </p>
-            <div class="rep-bar" :title="`Influence with this location: ${reputationAt(s.townId)}/100`">
-              <div class="rep-bar-track">
-                <div class="rep-bar-fill" :style="{ width: reputationAt(s.townId) + '%' }" />
-              </div>
-              <small>{{ reputationAt(s.townId) }}</small>
-            </div>
           </div>
           <button class="scenario-slot" type="button">
             <span
@@ -1148,33 +1145,9 @@ button.small {
   overflow: hidden;
 }
 
-.rep-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.3rem;
-}
-
-.rep-bar-track {
-  flex: 1;
-  height: 0.3rem;
-  border-radius: 0.2rem;
-  background: var(--bg-inset);
-  overflow: hidden;
-}
-
-.rep-bar-fill {
-  height: 100%;
-  background: var(--gold-soft);
-  border-radius: 0.2rem;
-  transition: width 0.2s ease;
-}
-
-.rep-bar small {
-  font-size: 0.7rem;
+.rep-stage {
   color: var(--text-dim);
-  min-width: 1.6em;
-  text-align: right;
+  font-style: italic;
 }
 
 .scenario-slot {

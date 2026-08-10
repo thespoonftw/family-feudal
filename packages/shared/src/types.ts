@@ -81,6 +81,26 @@ export const STARTING_REPUTATION_VALUES = [40, 45, 50, 55, 60] as const
 /** the capital's starting reputation is fixed, not rolled */
 export const CAPITAL_STARTING_REPUTATION = 50
 
+/** the 0-100 reputation range split into 7 equal-width named stages, low to high —
+ *  shown to players instead of the raw number */
+export const REPUTATION_STAGES = [
+  'Hatred',
+  'Loathing',
+  'Dislike',
+  'Neutral',
+  'Friendly',
+  'Fondness',
+  'Reverence',
+] as const
+
+/** maps a 0-100 reputation value to its named stage */
+export function reputationStage(value: number): (typeof REPUTATION_STAGES)[number] {
+  const [min, max] = REPUTATION_BOUNDS
+  const width = (max - min) / REPUTATION_STAGES.length
+  const index = Math.min(REPUTATION_STAGES.length - 1, Math.floor((value - min) / width))
+  return REPUTATION_STAGES[Math.max(0, index)] as (typeof REPUTATION_STAGES)[number]
+}
+
 /** derives each gold tier's inclusive roll bounds from the dev-configurable ranges */
 export function goldTierBounds(config: GameConfig): Record<GoldTier, [number, number]> {
   return {
