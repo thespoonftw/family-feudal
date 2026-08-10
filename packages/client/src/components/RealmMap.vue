@@ -33,7 +33,7 @@ function town(id: string): Town | undefined {
   return props.towns.find((t) => t.id === id)
 }
 
-const capital = computed(() => props.towns.find((t) => t.isCapital))
+const capital = computed(() => props.towns.find((t) => t.kind === 'capital'))
 
 const homesByTown = computed(() => {
   const map: Record<string, Family[]> = {}
@@ -53,10 +53,10 @@ const homesByTown = computed(() => {
     <!-- realm border -->
     <rect x="1.5" y="1.5" :width="viewW - 3" :height="viewH - 3" rx="4" class="realm-border" />
 
-    <!-- roads from capital to towns -->
+    <!-- roads from capital to towns (wild locations sit outside the realm's road network) -->
     <g v-if="capital" class="roads">
       <line
-        v-for="t in towns.filter((t) => !t.isCapital)"
+        v-for="t in towns.filter((t) => t.kind === 'city')"
         :key="'road-' + t.id"
         :x1="pos(capital).x"
         :y1="pos(capital).y"
@@ -66,15 +66,15 @@ const homesByTown = computed(() => {
     </g>
 
     <!-- towns -->
-    <g v-for="t in towns" :key="t.id" class="town">
+    <g v-for="t in towns" :key="t.id" class="town" :class="{ wild: t.kind === 'wild' }">
       <circle
         :cx="pos(t).x"
         :cy="pos(t).y"
-        :r="t.isCapital ? 2.6 : 1.6"
-        :class="{ capital: t.isCapital }"
+        :r="t.kind === 'capital' ? 2.6 : 1.6"
+        :class="{ capital: t.kind === 'capital', wild: t.kind === 'wild' }"
       />
-      <text :x="pos(t).x" :y="pos(t).y + (t.isCapital ? 5.4 : 4.2)" class="town-name">
-        {{ t.name }}{{ t.isCapital ? ' ♔' : '' }}
+      <text :x="pos(t).x" :y="pos(t).y + (t.kind === 'capital' ? 5.4 : 4.2)" class="town-name">
+        {{ t.name }}{{ t.kind === 'capital' ? ' ♔' : '' }}
       </text>
       <!-- family home shields -->
       <g v-for="(family, i) in homesByTown[t.id] ?? []" :key="family.id">
@@ -171,6 +171,17 @@ const homesByTown = computed(() => {
 .town circle.capital {
   fill: #c9a227;
   stroke: #f0e3ad;
+}
+
+.town circle.wild {
+  fill: #2e3a2e;
+  stroke: #6e7d5a;
+  stroke-dasharray: 0.6 0.5;
+}
+
+.town.wild .town-name {
+  fill: #8a9877;
+  font-style: italic;
 }
 
 .town-name {

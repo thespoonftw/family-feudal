@@ -58,9 +58,19 @@ function townColor(townId: string): string | undefined {
   return view.value?.towns.find((t) => t.id === townId)?.color
 }
 
+/** wild locations are unowned — no family holds reputation there */
+function isWildTown(townId: string): boolean {
+  return view.value?.towns.find((t) => t.id === townId)?.kind === 'wild'
+}
+
 /** your family's current standing with a location, as a named stage */
 function reputationStageAt(townId: string): string {
   return reputationStage(game.yourFamily?.reputation[townId] ?? 0)
+}
+
+/** "In" or "Near", capitalised for the subtitle line */
+function prepositionText(s: Scenario): string {
+  return s.preposition === 'near' ? 'Near' : 'In'
 }
 
 
@@ -564,8 +574,9 @@ const winnerNames = computed(() => {
           <div class="scenario-info">
             <h4>{{ s.emoji }} {{ s.title }}</h4>
             <p class="scenario-town">
-              At <b :style="{ color: townColor(s.townId) }">{{ townName(s.townId) }}</b>
-              <span class="rep-stage">({{ reputationStageAt(s.townId) }})</span>
+              {{ prepositionText(s) }}
+              <b :style="{ color: townColor(s.townId) }">{{ townName(s.townId) }}</b>
+              <span v-if="!isWildTown(s.townId)" class="rep-stage">{{ ' ' }}({{ reputationStageAt(s.townId) }})</span>
             </p>
             <p class="hint">{{ s.description }}</p>
           </div>
@@ -662,11 +673,11 @@ const winnerNames = computed(() => {
             </p>
             <h3>{{ currentDeployment.scenario.emoji }} {{ currentDeployment.scenario.title }}</h3>
             <p class="scenario-town">
-              At
+              {{ prepositionText(currentDeployment.scenario) }}
               <b :style="{ color: townColor(currentDeployment.scenario.townId) }">{{
                 townName(currentDeployment.scenario.townId)
               }}</b>
-              <span class="rep-stage">({{ reputationStageAt(currentDeployment.scenario.townId) }})</span>
+              <span v-if="!isWildTown(currentDeployment.scenario.townId)" class="rep-stage">{{ ' ' }}({{ reputationStageAt(currentDeployment.scenario.townId) }})</span>
             </p>
             <p class="hint">{{ currentDeployment.scenario.description }}</p>
             <p class="attendee">

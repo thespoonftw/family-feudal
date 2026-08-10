@@ -15,6 +15,7 @@ import type {
   GameContent,
   GoldTier,
   HouseDesign,
+  LocationPreposition,
   MemberAppearance,
   MemberDesign,
   RewardTier,
@@ -48,6 +49,7 @@ import {
   DEFAULT_HOUSES,
   DEFAULT_SCENARIOS,
   DEFAULT_SKILLS,
+  WILD_SLOTS,
 } from './data.js'
 
 // every face defaults to a downcast "concerned" look on a failed check, matching the
@@ -92,7 +94,8 @@ function legacyContent(): Record<string, unknown> | null {
   return legacyContentCache
 }
 
-const LOCATIONS: ScenarioLocation[] = ['general', 'capital', 'home']
+const LOCATIONS: ScenarioLocation[] = ['general', 'capital', 'home', 'wild']
+const PREPOSITIONS: LocationPreposition[] = ['in', 'near']
 
 function cleanString(value: unknown, maxLength: number): string | null {
   if (typeof value !== 'string') return null
@@ -405,6 +408,9 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
   if (!description) return `${label}: description must be 1–240 characters`
   const location = obj['location']
   if (!LOCATIONS.includes(location as ScenarioLocation)) return `${label}: unknown location`
+  const preposition = PREPOSITIONS.includes(obj['preposition'] as LocationPreposition)
+    ? (obj['preposition'] as LocationPreposition)
+    : 'in'
   const approaches = obj['approaches']
   if (!Array.isArray(approaches) || approaches.length < 2 || approaches.length > 4) {
     return `${label}: needs 2–4 approaches`
@@ -415,7 +421,7 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
     if (typeof result === 'string') return result
     cleanApproaches.push(result)
   }
-  return { emoji, title, description, approaches: cleanApproaches, location: location as ScenarioLocation }
+  return { emoji, title, description, preposition, approaches: cleanApproaches, location: location as ScenarioLocation }
 }
 
 function sanitizeScenariosList(raw: unknown): ScenarioDesign[] | string {
@@ -861,7 +867,7 @@ export function buildTowns(from: GameContent): Town[] {
       name: CAPITAL_NAME,
       x: CAPITAL_SLOT.x,
       y: CAPITAL_SLOT.y,
-      isCapital: true,
+      kind: 'capital',
       color: CAPITAL_COLOR,
     },
     ...CITY_SLOTS.map((slot, i) => ({
@@ -869,8 +875,15 @@ export function buildTowns(from: GameContent): Town[] {
       name: from.houses[i]?.cityName ?? `City ${i + 1}`,
       x: slot.x,
       y: slot.y,
-      isCapital: false,
+      kind: 'city' as const,
       ...(from.houses[i]?.color ? { color: from.houses[i]!.color } : {}),
+    })),
+    ...WILD_SLOTS.map((slot) => ({
+      id: slot.id,
+      name: slot.name,
+      x: slot.x,
+      y: slot.y,
+      kind: 'wild' as const,
     })),
   ]
 }

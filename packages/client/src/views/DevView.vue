@@ -421,7 +421,8 @@ function addScenario() {
   scenariosData.value?.scenarios.push({
     emoji: '❔',
     title: 'New Scenario',
-    description: 'Something is afoot at {town}.',
+    description: 'Something is afoot.',
+    preposition: 'in',
     approaches: [
       { label: 'Meet it head-on', skill: first, successMessage: 'Success!', failureMessage: 'It comes to nothing.', ...DEFAULT_TIERS },
       { label: 'Find another way', skill: second, successMessage: 'Success!', failureMessage: 'It comes to nothing.', ...DEFAULT_TIERS },
@@ -474,7 +475,7 @@ function approachSummary(s: Scenario): string {
 }
 
 function locationKeys(): ScenarioLocation[] {
-  return ['general', 'capital', 'home']
+  return ['general', 'capital', 'home', 'wild']
 }
 
 async function loadRooms() {
@@ -965,9 +966,10 @@ onUnmounted(() => {
         tiers; on an outright failed check, the family loses them instead (can go below 0)
         — a failure can also be flagged to injure the attending character (stored only, no
         effect yet). Players see the approach labels but never the skill behind them — the
-        wording is the only clue, so write labels that hint at the skill. Use
-        <code>{town}</code> for the town name and <code>{actor}</code> for the attending
-        character's name in success/failure messages. An approach can instead be a gold
+        wording is the only clue, so write labels that hint at the skill. The town name is
+        shown on its own subtitle line below the title, not woven into the description — set
+        "In" or "Near" to say how the scenario relates to it. Use <code>{actor}</code> for
+        the attending character's name in success/failure messages. An approach can instead be a gold
         buyout — a standalone option with no hidden skill, shown to players as its own
         choice, that pays a gold tier (rolled once per round, same ranges as above) for the
         "Buyout bonus" total (Settings tab) used as its skill total against difficulty,
@@ -986,13 +988,17 @@ onUnmounted(() => {
             {{ SCENARIO_LOCATION_LABELS[loc] }}
           </option>
         </select>
+        <select v-model="s.preposition" title="'In {town}' or 'Near {town}', shown under the title">
+          <option value="in">In</option>
+          <option value="near">Near</option>
+        </select>
         <button class="small secondary" title="Remove scenario" @click="removeScenario(i)">✕</button>
         <input
           v-model="s.description"
           type="text"
           maxlength="240"
           class="description"
-          placeholder="Description — {town} becomes the town name"
+          placeholder="Description — pure flavour text, the town is shown separately"
         />
         <div class="approaches">
           <div v-for="(a, j) in s.approaches" :key="j" class="approach-edit">

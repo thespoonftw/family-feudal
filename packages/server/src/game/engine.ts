@@ -91,11 +91,13 @@ function clampReputation(n: number): number {
 
 /** Roll every location's shared starting reputation once per room — the capital is
  *  always neutral, every other town gets a random pick from the same fixed set so no
- *  family starts favoured or disfavoured relative to the others. */
+ *  family starts favoured or disfavoured relative to the others. Wild locations are
+ *  unowned — no family holds reputation there, so they get no entry at all. */
 function rollBaseReputation(towns: Town[]): Record<string, number> {
   const base: Record<string, number> = {}
   for (const town of towns) {
-    base[town.id] = town.isCapital
+    if (town.kind === 'wild') continue
+    base[town.id] = town.kind === 'capital'
       ? CAPITAL_STARTING_REPUTATION
       : (STARTING_REPUTATION_VALUES[Math.floor(Math.random() * STARTING_REPUTATION_VALUES.length)] as number)
   }
@@ -229,10 +231,10 @@ function pickScenarios(room: Room): Scenario[] {
   const capital = shuffle(designs.filter((d) => d.location === 'capital'))[0] as ScenarioDesign
   scenarios.push(instantiate(capital, CAPITAL_ID, room.towns, bounds))
 
-  // remaining scenarios at distinct non-capital, non-home towns on this game's map
+  // remaining scenarios at distinct non-capital, non-home cities on this game's map
   const homeTowns = new Set(room.families.map((f) => f.homeTownId))
   const eligibleTowns = shuffle(
-    room.towns.filter((t) => !t.isCapital && !homeTowns.has(t.id)),
+    room.towns.filter((t) => t.kind === 'city' && !homeTowns.has(t.id)),
   )
   const general = shuffle(designs.filter((d) => d.location === 'general'))
   const count = Math.min(getConfig().scenariosPerRound - 1, eligibleTowns.length, general.length)
@@ -251,6 +253,15 @@ function pickScenarios(room: Room): Scenario[] {
     scenarios.push(scenario)
   }
 
+  // one wild scenario per round, at a random unowned corner location — never grants Influence
+  const wildTowns = room.towns.filter((t) => t.kind === 'wild')
+  const wildDesigns = designs.filter((d) => d.location === 'wild')
+  if (wildTowns.length > 0 && wildDesigns.length > 0) {
+    const design = shuffle(wildDesigns)[0] as ScenarioDesign
+    const town = shuffle(wildTowns)[0] as Town
+    scenarios.push(instantiate(design, town.id, room.towns, bounds))
+  }
+
   return scenarios
 }
 
@@ -267,6 +278,7 @@ function instantiate(
     title: design.title,
     description: design.description.replace('{town}', town?.name ?? 'the realm'),
     townId,
+    preposition: design.preposition,
     // a buyout approach's design-time tier is rolled into an actual, fixed gold cost once
     // per instantiation — it must stay deterministic for the rest of the round, unlike
     // reward/consequence gold which is rolled fresh at resolution
@@ -407,6 +419,10 @@ export function resolveRound(room: Room): void {
         injured: false,
       })
     }
+    // wild locations are unowned — nobody holds reputation there, so no-show penalties
+    // and Influence rewards never apply, win or lose (gold still does)
+    const town = room.towns.find((t) => t.id === scenario.townId)
+    const affectsReputation = town?.kind !== 'wild'
     // a family with access to this scenario's location but nobody deployed there loses
     // a flat pinch of reputation with it; other families' private home scenarios never
     // count against families who aren't their owner
@@ -414,10 +430,12 @@ export function resolveRound(room: Room): void {
     const eligible = scenario.homeFamilyId
       ? room.families.filter((f) => f.id === scenario.homeFamilyId)
       : room.families
-    for (const family of eligible) {
-      if (attending.has(family.id)) continue
-      const current = family.reputation[scenario.townId] ?? 0
-      family.reputation[scenario.townId] = clampReputation(current - config.locationNoShowPenalty)
+    if (affectsReputation) {
+      for (const family of eligible) {
+        if (attending.has(family.id)) continue
+        const current = family.reputation[scenario.townId] ?? 0
+        family.reputation[scenario.townId] = clampReputation(current - config.locationNoShowPenalty)
+      }
     }
     // …and the highest passing skill total takes the prize (reputation with this
     // location, and/or gold, per that approach's success tiers); ties all score.
@@ -428,13 +446,15 @@ export function resolveRound(room: Room): void {
       const family = room.families.find((f) => f.id === contender.familyId)
       const chosenApproach = scenario.approaches[contender.approachIndex] as ScenarioApproach
       if (contender.success && contender.skillTotal === best) {
-        const influenceGained = INFLUENCE_TIER_VALUES[chosenApproach.successInfluence]
+        const influenceGained = affectsReputation ? INFLUENCE_TIER_VALUES[chosenApproach.successInfluence] : 0
         const goldGained = rollGoldTier(chosenApproach.successGold, bounds)
         contender.influenceGained = influenceGained
         contender.goldGained = goldGained
         if (family) {
-          const current = family.reputation[scenario.townId] ?? 0
-          family.reputation[scenario.townId] = clampReputation(current + influenceGained)
+          if (affectsReputation) {
+            const current = family.reputation[scenario.townId] ?? 0
+            family.reputation[scenario.townId] = clampReputation(current + influenceGained)
+          }
           family.gold += goldGained
         }
       } else if (!contender.success) {

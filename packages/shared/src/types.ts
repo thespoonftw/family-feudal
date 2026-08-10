@@ -110,14 +110,19 @@ export function goldTierBounds(config: GameConfig): Record<GoldTier, [number, nu
   }
 }
 
+/** 'capital' and 'city' locations carry a family's reputation and can be assigned as a
+ *  home town; 'wild' locations (the four map corners) are unowned — no family holds
+ *  reputation there, and scenarios sited there never affect Influence. */
+export type TownKind = 'capital' | 'city' | 'wild'
+
 export interface Town {
   id: string
   name: string
   /** map coordinates, 0–100 in both axes */
   x: number
   y: number
-  isCapital: boolean
-  /** hex colour of the house whose home city this is; the crown's own colour for the capital */
+  kind: TownKind
+  /** hex colour of the house whose home city this is; the crown's own colour for the capital; absent for wild locations */
   color?: string
 }
 
@@ -158,6 +163,8 @@ export interface Scenario {
   title: string
   description: string
   townId: string
+  /** "In {town}" or "Near {town}" — shown as a subtitle under the title */
+  preposition: LocationPreposition
   /** 2–3 ways to tackle it; players pick one in the approach phase */
   approaches: ScenarioApproach[]
   /** set when this is a home scenario belonging to one family */
@@ -279,14 +286,20 @@ export interface GameConfig {
 
 // ---------- Editable game content (dev panel) ----------
 
-/** where a scenario design may appear on the map */
-export type ScenarioLocation = 'general' | 'capital' | 'home'
+/** where a scenario design may appear on the map — 'wild' lands at one of the four
+ *  unowned corner locations and never affects Influence (no family holds reputation there) */
+export type ScenarioLocation = 'general' | 'capital' | 'home' | 'wild'
 
 export const SCENARIO_LOCATION_LABELS: Record<ScenarioLocation, string> = {
   general: 'Any city',
   capital: 'Capital only',
   home: 'Home estate',
+  wild: 'Wildlands',
 }
+
+/** whether a scenario's flavour text should introduce its location as "In {town}" or
+ *  "Near {town}" — shown as its own subtitle line, no longer woven into the description */
+export type LocationPreposition = 'in' | 'near'
 
 /** number of fixed characters every house has */
 export const MEMBERS_PER_HOUSE = 3
@@ -535,8 +548,10 @@ export interface ScenarioDesign {
   /** flavour emoji shown on the map — should hint at the story, not the skills */
   emoji: string
   title: string
-  /** {town} is replaced with the town name */
+  /** pure flavour text — the town name is shown separately, never woven in here */
   description: string
+  /** "In {town}" or "Near {town}", shown as its own subtitle line under the title */
+  preposition: LocationPreposition
   /** 2–3 approaches players can pick between */
   approaches: ApproachDesign[]
   location: ScenarioLocation
