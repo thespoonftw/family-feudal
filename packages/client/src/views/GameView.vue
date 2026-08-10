@@ -103,8 +103,10 @@ const UI_SCALE_MIN = 0.6
 
 /** a screen exactly this tall (or wide) renders at zoom 1; shorter/narrower zooms out,
  *  taller/wider zooms in — always the more constraining of the two axes, so the result
- *  stays continuous as either dimension crosses its pivot (no jump at the boundary) */
-const HEIGHT_ZOOM_PIVOT = 750
+ *  stays continuous as either dimension crosses its pivot (no jump at the boundary).
+ *  HEIGHT_ZOOM_PIVOT is a bit taller than the literal authored height to leave headroom
+ *  for the agent bar's stacked trait tags, which run up to 3 lines under each member. */
+const HEIGHT_ZOOM_PIVOT = 790
 const WIDTH_ZOOM_PIVOT = 400
 
 function recalcUiScale() {
@@ -771,9 +773,7 @@ const winnerNames = computed(() => {
                   :size="96"
                 />
                 <span class="verdict">{{ verdictText(o) }}</span>
-                <span class="math">
-                  {{ o.boughtOut ? `💰${o.skillTotal}` : o.skillTotal }} · {{ chancePercent(o) }}% chance
-                </span>
+                <span class="math">{{ chancePercent(o) }}% chance</span>
               </div>
               <div class="outcome-body">
                 <span class="who">

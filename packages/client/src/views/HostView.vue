@@ -305,7 +305,6 @@ function closeBoard() {
         />
       </section>
       <aside class="side-pane">
-        <ScoreBoard :families="view.families" :players="view.players" />
         <div class="card ready-card">
           <h3>{{ view.phase === 'planning' ? 'Planning' : 'Choosing approaches' }}</h3>
           <p class="hint">{{ readyCount }}/{{ view.players.length }} houses ready</p>
@@ -370,7 +369,7 @@ function closeBoard() {
                   <small>{{ memberNames(o.familyId, o.memberIds) }} — “{{ approachLabel(o) }}”</small>
                 </span>
                 <span class="result-col">
-                  <span class="math">{{ o.skillTotal }} · {{ chancePercent(o) }}% chance</span>
+                  <span class="math">{{ chancePercent(o) }}% chance</span>
                   <span class="verdict">{{ verdictText(o) }}</span>
                 </span>
               </div>
