@@ -30,7 +30,7 @@ import {
   APPEARANCE_HAIR_COLORS,
   APPEARANCE_HEAD_STYLES,
   APPEARANCE_SKIN_TONES,
-  computeMemberSkills,
+  MEMBER_SKILL_BOUNDS,
   TRAIT_BONUS_BOUNDS,
   GOLD_TIERS,
   MAX_TRAITS_PER_MEMBER,
@@ -507,10 +507,23 @@ function assignableCatalog(): TraitDesign[] {
   return [...(traitsData.value?.traits ?? []), ...(occupationsData.value?.occupations ?? [])]
 }
 
-/** a member's resultant skills, derived from their assigned traits/occupations — same
- *  computation the server runs at game start, run here client-side for an instant preview */
+/** a member's resultant skills, derived from their assigned traits/occupations. Unlike
+ *  the server's computeMemberSkills (which floors at 0 for actual gameplay rolls), this
+ *  doesn't clamp the low end — so a designer can see a negative-bonus trait actually
+ *  pull a skill below 0 here, rather than it looking like a no-op once floored. */
 function memberSkills(m: MemberDesign): Record<SkillKey, number> {
-  return computeMemberSkills(m.traits, assignableCatalog(), skillCatalog())
+  const catalog = assignableCatalog()
+  const result: Record<SkillKey, number> = {}
+  for (const skill of skillCatalog()) result[skill] = 0
+  for (const name of m.traits) {
+    const trait = catalog.find((f) => f.name === name)
+    if (!trait) continue
+    for (const bonus of trait.bonuses) {
+      if (!(bonus.skill in result)) continue
+      result[bonus.skill] = Math.min(MEMBER_SKILL_BOUNDS[1], (result[bonus.skill] ?? 0) + bonus.amount)
+    }
+  }
+  return result
 }
 
 function memberTotal(m: MemberDesign): number {
@@ -888,8 +901,10 @@ onUnmounted(() => {
         {{ MAX_TRAITS_PER_MEMBER }} traits and/or occupations (edited in the Skills and
         Traits tab) instead of hand-set skill points — the bracketed number after each
         dropdown option is the points it adds, and the resultant skills those bonuses add
-        up to are shown underneath each character. Applies to rooms
-        <strong>created after saving</strong>; live games keep their houses.
+        up to are shown underneath each character (shown here uncapped at 0, so a
+        negative-bonus trait is visibly doing something; in play a skill can't roll below
+        0). Applies to rooms <strong>created after saving</strong>; live games keep their
+        houses.
       </p>
       <div v-for="(h, i) in housesData.houses" :key="i" class="house-card">
         <div class="house-header">
