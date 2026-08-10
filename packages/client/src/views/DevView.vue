@@ -76,6 +76,7 @@ const CONFIG_FIELDS: { key: keyof GameConfig; label: string; hint: string }[] = 
   { key: 'scenariosPerRound', label: 'Scenarios per round', hint: 'Public scenarios on the map (1 is always at the capital); each family also gets a home scenario' },
   { key: 'maxPlayers', label: 'Max players per room', hint: 'Limited by the number of family presets' },
   { key: 'buyoutBonus', label: 'Buyout bonus', hint: 'Flat total used instead of a skill sum when a family pays gold to buy out an approach' },
+  { key: 'locationNoShowPenalty', label: 'No-show penalty', hint: 'Reputation lost at each location a family had access to this round but sent nobody to' },
   { key: 'startingGold', label: 'Starting gold', hint: 'Gold every family has at the start of the game' },
   { key: 'goldSmallMin', label: 'Small gold — min', hint: 'Lower bound of gold rolled for a Small tier (rewards, consequences, and gold buyouts)' },
   { key: 'goldSmallMax', label: 'Small gold — max', hint: 'Upper bound of gold rolled for a Small tier' },

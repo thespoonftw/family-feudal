@@ -30,7 +30,11 @@ export interface Family {
   color: string
   homeTownId: string
   members: FamilyMember[]
+  /** sum of `reputation` across every location — the win condition */
   influence: number
+  /** standing with each location (townId, including the capital), 0-100. Raised by
+   *  winning a scenario there, lowered by ignoring an active scenario there */
+  reputation: Record<string, number>
   /** spendable gold, earned from gold-reward scenarios and spent buying out approach rolls */
   gold: number
 }
@@ -57,13 +61,25 @@ export const REWARD_TIER_LABELS: Record<RewardTier, string> = {
   large: 'Large',
 }
 
-/** Influence granted (success) or lost (failure) for each tier */
+/** reputation granted, with the scenario's location, for winning at that tier */
 export const INFLUENCE_TIER_VALUES: Record<RewardTier, number> = {
   none: 0,
-  small: 1,
-  medium: 2,
-  large: 3,
+  small: 10,
+  medium: 15,
+  large: 20,
 }
+
+// ---------- Reputation ----------
+
+/** each family's standing with a location is clamped to this range */
+export const REPUTATION_BOUNDS: [number, number] = [0, 100]
+
+/** a non-capital location's starting reputation is rolled once per room from this set,
+ *  shared by every family so nobody starts favoured or disfavoured there */
+export const STARTING_REPUTATION_VALUES = [40, 45, 50, 55, 60] as const
+
+/** the capital's starting reputation is fixed, not rolled */
+export const CAPITAL_STARTING_REPUTATION = 50
 
 /** derives each gold tier's inclusive roll bounds from the dev-configurable ranges */
 export function goldTierBounds(config: GameConfig): Record<GoldTier, [number, number]> {
@@ -156,8 +172,9 @@ export interface ScenarioOutcome {
   chance: number
   /** whether the check passed — but a rival with a higher skillTotal can still take the prize */
   success: boolean
-  /** positive for the highest successful total(s) at the scenario (the approach's success tier);
-   *  negative if the check failed outright (the approach's failure tier); 0 if passed but outdone */
+  /** reputation gained with the scenario's location — positive for the highest successful
+   *  total(s) at the scenario (the approach's success tier); 0 otherwise, whether the
+   *  check failed outright or merely passed while being outdone by a rival */
   influenceGained: number
   /** gold gained/lost alongside influenceGained, same sign convention */
   goldGained: number
@@ -236,6 +253,8 @@ export interface GameConfig {
   approachSeconds: number
   /** seconds the results screen holds after the reveal finishes, before it auto-advances */
   resultsSeconds: number
+  /** reputation lost at a location a family had access to this round but sent nobody to */
+  locationNoShowPenalty: number
 }
 
 // ---------- Editable game content (dev panel) ----------

@@ -19,11 +19,14 @@ import type {
   Town,
 } from '@family-feudal/shared'
 import {
+  CAPITAL_STARTING_REPUTATION,
   computeMemberSkills,
   GOLD_STEP,
   goldTierBounds,
   INFLUENCE_TIER_VALUES,
+  REPUTATION_BOUNDS,
   revealTotalMs,
+  STARTING_REPUTATION_VALUES,
   successChance,
 } from '@family-feudal/shared'
 import { CAPITAL_ID } from './data.js'
@@ -45,6 +48,9 @@ export interface Room {
   towns: Town[]
   /** houses claimable in this room — snapshotted at creation so design edits never hit a live room */
   presets: FamilyPreset[]
+  /** every family's starting reputation per location (townId), rolled once so everyone
+   *  starts equally regarded at a given location */
+  baseReputation: Record<string, number>
   scenarios: Scenario[]
   /** familyId -> (memberId -> scenarioId) */
   assignments: Record<string, Assignments>
@@ -78,11 +84,30 @@ function shuffle<T>(arr: T[]): T[] {
   return out
 }
 
+function clampReputation(n: number): number {
+  const [min, max] = REPUTATION_BOUNDS
+  return Math.min(max, Math.max(min, n))
+}
+
+/** Roll every location's shared starting reputation once per room — the capital is
+ *  always neutral, every other town gets a random pick from the same fixed set so no
+ *  family starts favoured or disfavoured relative to the others. */
+function rollBaseReputation(towns: Town[]): Record<string, number> {
+  const base: Record<string, number> = {}
+  for (const town of towns) {
+    base[town.id] = town.isCapital
+      ? CAPITAL_STARTING_REPUTATION
+      : (STARTING_REPUTATION_VALUES[Math.floor(Math.random() * STARTING_REPUTATION_VALUES.length)] as number)
+  }
+  return base
+}
+
 /** Open a room for a host board screen. The board is not a player — players all join. */
 export function createRoom(isCodeTaken: (code: string) => boolean): Room {
   let code = generateCode()
   while (isCodeTaken(code)) code = generateCode()
   const content = getContent()
+  const towns = buildTowns(content)
   return {
     code,
     createdAt: new Date(),
@@ -93,8 +118,9 @@ export function createRoom(isCodeTaken: (code: string) => boolean): Room {
     totalRounds: getConfig().totalRounds,
     players: [],
     families: [],
-    towns: buildTowns(content),
+    towns,
     presets: buildPresets(content),
+    baseReputation: rollBaseReputation(towns),
     scenarios: [],
     assignments: {},
     choices: {},
@@ -110,6 +136,7 @@ function claimFamily(room: Room, playerId: string): void {
   const free = room.presets.filter((p) => !taken.has(p.homeTownId))
   const preset = free[Math.floor(Math.random() * free.length)]
   if (!preset) return
+  const reputation = { ...room.baseReputation }
   room.families.push({
     id: randomUUID(),
     playerId,
@@ -117,7 +144,8 @@ function claimFamily(room: Room, playerId: string): void {
     color: preset.color,
     homeTownId: preset.homeTownId,
     members: [],
-    influence: 0,
+    influence: Object.values(reputation).reduce((sum, v) => sum + v, 0),
+    reputation,
     gold: 0,
   })
 }
@@ -379,9 +407,22 @@ export function resolveRound(room: Room): void {
         injured: false,
       })
     }
-    // …and the highest passing skill total takes the prize (Influence and/or gold, per
-    // that approach's success tiers); ties all score. Anyone who fails outright instead
-    // pays that approach's failure consequence tiers (which may take them below 0).
+    // a family with access to this scenario's location but nobody deployed there loses
+    // a flat pinch of reputation with it; other families' private home scenarios never
+    // count against families who aren't their owner
+    const attending = new Set(contenders.map((c) => c.familyId))
+    const eligible = scenario.homeFamilyId
+      ? room.families.filter((f) => f.id === scenario.homeFamilyId)
+      : room.families
+    for (const family of eligible) {
+      if (attending.has(family.id)) continue
+      const current = family.reputation[scenario.townId] ?? 0
+      family.reputation[scenario.townId] = clampReputation(current - config.locationNoShowPenalty)
+    }
+    // …and the highest passing skill total takes the prize (reputation with this
+    // location, and/or gold, per that approach's success tiers); ties all score.
+    // Anyone who fails outright instead loses only the gold consequence tier —
+    // reputation is unaffected, same as passing but being outdone.
     const best = Math.max(...contenders.filter((c) => c.success).map((c) => c.skillTotal))
     for (const contender of contenders) {
       const family = room.families.find((f) => f.id === contender.familyId)
@@ -392,22 +433,24 @@ export function resolveRound(room: Room): void {
         contender.influenceGained = influenceGained
         contender.goldGained = goldGained
         if (family) {
-          family.influence += influenceGained
+          const current = family.reputation[scenario.townId] ?? 0
+          family.reputation[scenario.townId] = clampReputation(current + influenceGained)
           family.gold += goldGained
         }
       } else if (!contender.success) {
-        const influenceLost = INFLUENCE_TIER_VALUES[chosenApproach.failureInfluence]
         const goldLost = rollGoldTier(chosenApproach.failureGold, bounds)
-        contender.influenceGained = -influenceLost
         contender.goldGained = -goldLost
         contender.injured = chosenApproach.failureInjury
         if (family) {
-          family.influence -= influenceLost
           family.gold -= goldLost
         }
       }
       outcomes.push(contender)
     }
+  }
+  // a family's total Influence is always the sum of its standing across every location
+  for (const family of room.families) {
+    family.influence = Object.values(family.reputation).reduce((sum, v) => sum + v, 0)
   }
   const result: RoundResult = { round: room.round, outcomes }
   room.lastResult = result

@@ -58,6 +58,11 @@ function townColor(townId: string): string | undefined {
   return view.value?.towns.find((t) => t.id === townId)?.color
 }
 
+/** your family's current standing (0-100) with a location */
+function reputationAt(townId: string): number {
+  return game.yourFamily?.reputation[townId] ?? 0
+}
+
 /** splits a description around its town name so the name can be bolded/coloured inline */
 function descriptionParts(description: string, townId: string): { text: string; town: boolean }[] {
   const name = townName(townId)
@@ -574,6 +579,12 @@ const winnerNames = computed(() => {
                 <template v-else>{{ part.text }}</template>
               </template>
             </p>
+            <div class="rep-bar" :title="`Influence with this location: ${reputationAt(s.townId)}/100`">
+              <div class="rep-bar-track">
+                <div class="rep-bar-fill" :style="{ width: reputationAt(s.townId) + '%' }" />
+              </div>
+              <small>{{ reputationAt(s.townId) }}</small>
+            </div>
           </div>
           <button class="scenario-slot" type="button">
             <span
@@ -1135,6 +1146,35 @@ button.small {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.rep-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.rep-bar-track {
+  flex: 1;
+  height: 0.3rem;
+  border-radius: 0.2rem;
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+
+.rep-bar-fill {
+  height: 100%;
+  background: var(--gold-soft);
+  border-radius: 0.2rem;
+  transition: width 0.2s ease;
+}
+
+.rep-bar small {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  min-width: 1.6em;
+  text-align: right;
 }
 
 .scenario-slot {
