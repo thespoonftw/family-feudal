@@ -601,6 +601,20 @@ function migrateHouses(raw: unknown): unknown {
   })
 }
 
+// title -> wildSlotId for the default wild scenarios, used to backfill wildSlotId onto
+// files persisted before that field existed (see migrateScenarios) — a title not listed
+// here (a user's custom wild scenario) is left with no wildSlotId, meaning "any location"
+const LEGACY_WILD_SLOT_BY_TITLE: Record<string, string> = {
+  'Frozen Pass': 'wild-peaks',
+  'The Lost Vein': 'wild-peaks',
+  'Shipwreck Salvage': 'wild-sea',
+  'Smugglers on the Tideline': 'wild-sea',
+  'The Hedge Witch': 'wild-forest',
+  'Wolf Pack': 'wild-forest',
+  'The Ash Nomads': 'wild-wastes',
+  'Ruins in the Sand': 'wild-wastes',
+}
+
 /**
  * Upgrade a persisted scenarios file written by an older build so design edits (titles,
  * descriptions, …) survive schema changes. Currently handles the pre-approach format
@@ -609,9 +623,12 @@ function migrateHouses(raw: unknown): unknown {
  * format (approaches without a `successMessage`/`failureMessage` get generic fallback
  * text), the pre-reward-tier format (a scenario-level `rewards`/`reward` list, named per
  * approach by `rewardIndex`, becomes per-approach success/failure Influence+gold tiers plus
- * an injury flag — see {@link tiersFromLegacyReward}; approaches already carrying valid
- * tiers pass through untouched), and the pre-buyout-tier format (an approach's flat numeric
- * `buyoutCost` becomes a `buyoutTier`, bucketed via {@link migrateApproachBuyout}).
+ * an injury flag — see {@link tiersFromLegacyReward}), the pre-buyout-tier format (an
+ * approach's flat numeric `buyoutCost` becomes a `buyoutTier`, bucketed via
+ * {@link migrateApproachBuyout}), and the pre-wildSlotId format (a 'wild' scenario with no
+ * `wildSlotId` gets one backfilled by matching its title against
+ * {@link LEGACY_WILD_SLOT_BY_TITLE}, so already-persisted wild scenarios pair up with the
+ * corner their flavour text was written for instead of landing at a random one).
  */
 function migrateScenarios(raw: unknown): unknown {
   if (!Array.isArray(raw)) return raw
@@ -637,9 +654,14 @@ function migrateScenarios(raw: unknown): unknown {
     // any approach persisted before the success/failure message fields existed, and
     // derive reward/consequence tiers for any approach that predates them
     const legacyRewards = migrateRewards(sc)
+    const wildSlotId =
+      sc['location'] === 'wild' && sc['wildSlotId'] === undefined
+        ? LEGACY_WILD_SLOT_BY_TITLE[sc['title'] as string]
+        : sc['wildSlotId']
     return {
       ...sc,
       rewards: undefined,
+      ...(wildSlotId ? { wildSlotId } : {}),
       approaches: sc['approaches'].map((a) => {
         const approach = migrateApproachBuyout((a ?? {}) as Record<string, unknown>)
         // a buyout approach (persisted with a buyoutTier) has no skill to remap — the
