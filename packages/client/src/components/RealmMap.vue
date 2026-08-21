@@ -33,6 +33,13 @@ function town(id: string): Town | undefined {
   return props.towns.find((t) => t.id === id)
 }
 
+// city/capital markers sit up-and-right of the town circle; wild locations have no
+// circle, so their scenario badge sits centered directly above the name label instead
+function scenarioAnchor(t: Town): { x: number; y: number } {
+  const p = pos(t)
+  return t.kind === 'wild' ? { x: p.x, y: p.y - 3.8 } : { x: p.x + 2.6, y: p.y - 2.6 }
+}
+
 const capital = computed(() => props.towns.find((t) => t.kind === 'capital'))
 
 const homesByTown = computed(() => {
@@ -103,21 +110,21 @@ const homesByTown = computed(() => {
       <template v-if="town(s.townId)">
         <!-- oversized invisible hit area for touch -->
         <circle
-          :cx="pos(town(s.townId)!).x + 2.6"
-          :cy="pos(town(s.townId)!).y - 2.6"
+          :cx="scenarioAnchor(town(s.townId)!).x"
+          :cy="scenarioAnchor(town(s.townId)!).y"
           r="5"
           fill="transparent"
         />
         <circle
-          :cx="pos(town(s.townId)!).x + 2.6"
-          :cy="pos(town(s.townId)!).y - 2.6"
+          :cx="scenarioAnchor(town(s.townId)!).x"
+          :cy="scenarioAnchor(town(s.townId)!).y"
           r="2.6"
           class="scenario-bg"
           :class="{ home: !!s.homeFamilyId }"
         />
         <text
-          :x="pos(town(s.townId)!).x + 2.6"
-          :y="pos(town(s.townId)!).y - 1.7"
+          :x="scenarioAnchor(town(s.townId)!).x"
+          :y="scenarioAnchor(town(s.townId)!).y + 0.9"
           class="scenario-icon"
           text-anchor="middle"
         >
@@ -125,14 +132,14 @@ const homesByTown = computed(() => {
         </text>
         <g v-if="(assignedCounts[s.id] ?? 0) > 0">
           <circle
-            :cx="pos(town(s.townId)!).x + 4.9"
-            :cy="pos(town(s.townId)!).y - 4.9"
+            :cx="scenarioAnchor(town(s.townId)!).x + 2.3"
+            :cy="scenarioAnchor(town(s.townId)!).y - 2.3"
             r="1.4"
             class="count-bg"
           />
           <text
-            :x="pos(town(s.townId)!).x + 4.9"
-            :y="pos(town(s.townId)!).y - 4.2"
+            :x="scenarioAnchor(town(s.townId)!).x + 2.3"
+            :y="scenarioAnchor(town(s.townId)!).y - 1.6"
             class="count"
             text-anchor="middle"
           >

@@ -29,7 +29,6 @@ import {
   STARTING_REPUTATION_VALUES,
   successChance,
 } from '@family-feudal/shared'
-import { CAPITAL_ID } from './data.js'
 import { buildPresets, buildTowns, getContent, type FamilyPreset } from './content.js'
 import { getConfig } from './config.js'
 
@@ -227,24 +226,7 @@ function pickScenarios(room: Room): Scenario[] {
   const designs = getContent().scenarios
   const bounds = goldTierBounds(getConfig())
 
-  // one capital scenario per round (content validation guarantees at least one)
-  const capital = shuffle(designs.filter((d) => d.location === 'capital'))[0] as ScenarioDesign
-  scenarios.push(instantiate(capital, CAPITAL_ID, room.towns, bounds))
-
-  // remaining scenarios at distinct non-capital, non-home cities on this game's map
-  const homeTowns = new Set(room.families.map((f) => f.homeTownId))
-  const eligibleTowns = shuffle(
-    room.towns.filter((t) => t.kind === 'city' && !homeTowns.has(t.id)),
-  )
-  const general = shuffle(designs.filter((d) => d.location === 'general'))
-  const count = Math.min(getConfig().scenariosPerRound - 1, eligibleTowns.length, general.length)
-  for (let i = 0; i < count; i++) {
-    const design = general[i] as ScenarioDesign
-    const town = eligibleTowns[i] as Town
-    scenarios.push(instantiate(design, town.id, room.towns, bounds))
-  }
-
-  // one home scenario per family, at its home town
+  // one home scenario per family, at its home town — always included, on top of scenariosPerRound
   const homeDesigns = designs.filter((d) => d.location === 'home')
   for (const family of room.families) {
     const design = shuffle(homeDesigns)[0] as ScenarioDesign
@@ -253,12 +235,29 @@ function pickScenarios(room: Room): Scenario[] {
     scenarios.push(scenario)
   }
 
-  // one wild scenario per round, at a random unowned corner location — never grants Influence
-  const wildTowns = room.towns.filter((t) => t.kind === 'wild')
+  // everywhere else — capital, general cities, and wild locations — is one shared pool:
+  // every eligible town is equally likely to be picked, up to scenariosPerRound of them
+  const homeTowns = new Set(room.families.map((f) => f.homeTownId))
+  const capitalDesigns = designs.filter((d) => d.location === 'capital')
+  const generalDesigns = designs.filter((d) => d.location === 'general')
   const wildDesigns = designs.filter((d) => d.location === 'wild')
-  if (wildTowns.length > 0 && wildDesigns.length > 0) {
-    const design = shuffle(wildDesigns)[0] as ScenarioDesign
-    const town = shuffle(wildTowns)[0] as Town
+  const candidates = shuffle([
+    ...(capitalDesigns.length > 0
+      ? room.towns.filter((t) => t.kind === 'capital').map((town) => ({ town, pool: capitalDesigns }))
+      : []),
+    ...(generalDesigns.length > 0
+      ? room.towns
+          .filter((t) => t.kind === 'city' && !homeTowns.has(t.id))
+          .map((town) => ({ town, pool: generalDesigns }))
+      : []),
+    ...(wildDesigns.length > 0
+      ? room.towns.filter((t) => t.kind === 'wild').map((town) => ({ town, pool: wildDesigns }))
+      : []),
+  ])
+  const count = Math.min(getConfig().scenariosPerRound, candidates.length)
+  for (let i = 0; i < count; i++) {
+    const { town, pool } = candidates[i] as { town: Town; pool: ScenarioDesign[] }
+    const design = shuffle(pool)[0] as ScenarioDesign
     scenarios.push(instantiate(design, town.id, room.towns, bounds))
   }
 
