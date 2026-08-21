@@ -68,12 +68,17 @@ const homesByTown = computed(() => {
     <!-- towns -->
     <g v-for="t in towns" :key="t.id" class="town" :class="{ wild: t.kind === 'wild' }">
       <circle
+        v-if="t.kind !== 'wild'"
         :cx="pos(t).x"
         :cy="pos(t).y"
         :r="t.kind === 'capital' ? 2.6 : 1.6"
-        :class="{ capital: t.kind === 'capital', wild: t.kind === 'wild' }"
+        :class="{ capital: t.kind === 'capital' }"
       />
-      <text :x="pos(t).x" :y="pos(t).y + (t.kind === 'capital' ? 5.4 : 4.2)" class="town-name">
+      <text
+        :x="pos(t).x"
+        :y="t.kind === 'wild' ? pos(t).y + 1 : pos(t).y + (t.kind === 'capital' ? 5.4 : 4.2)"
+        class="town-name"
+      >
         {{ t.name }}{{ t.kind === 'capital' ? ' ♔' : '' }}
       </text>
       <!-- family home shields -->
@@ -171,11 +176,6 @@ const homesByTown = computed(() => {
 .town circle.capital {
   fill: #c9a227;
   stroke: #f0e3ad;
-}
-
-.town circle.wild {
-  fill: #2e3a2e;
-  stroke: #6e7d5a;
 }
 
 .town.wild .town-name {
