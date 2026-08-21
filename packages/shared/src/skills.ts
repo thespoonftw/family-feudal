@@ -1,4 +1,4 @@
-import { MEMBER_SKILL_BOUNDS, type TraitDesign, type SkillKey } from './types.js'
+import { MEMBER_SKILL_BOUNDS, type FamilyMember, type TraitDesign, type SkillKey } from './types.js'
 
 /**
  * Derives a member's resultant skills from their assigned traits. Every catalog skill
@@ -27,6 +27,16 @@ export function computeMemberSkills(
     }
   }
   return result
+}
+
+/**
+ * A member's skill for the round about to resolve — the -1 injury penalty applies for
+ * one round only (see FamilyMember.injured), clamped to MEMBER_SKILL_BOUNDS.
+ */
+export function effectiveMemberSkill(member: FamilyMember, skill: SkillKey): number {
+  const base = member.skills[skill] ?? 0
+  if (!member.injured) return base
+  return Math.max(MEMBER_SKILL_BOUNDS[0], base - 1)
 }
 
 /**

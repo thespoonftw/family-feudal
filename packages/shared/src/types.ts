@@ -19,6 +19,9 @@ export interface FamilyMember {
   /** names of assigned TraitDesigns — shown to players instead of the numeric skills they grant */
   traits: string[]
   appearance: MemberAppearance
+  /** true if this member failed a failureInjury approach last round — applies a -1 penalty
+   *  to every skill for the round after it happens, then clears */
+  injured: boolean
 }
 
 export interface Family {
@@ -67,6 +70,21 @@ export const INFLUENCE_TIER_VALUES: Record<RewardTier, number> = {
   small: 10,
   medium: 15,
   large: 20,
+}
+
+/** qualitative phrasing for an Influence tier, shown instead of the raw number so
+ *  players read "Gain influence with Ashford" rather than "+15 influence" */
+const INFLUENCE_TIER_PHRASES: Record<GoldTier, { gain: string; lose: string }> = {
+  small: { gain: 'Gain', lose: 'Lose' },
+  medium: { gain: 'Gain notable', lose: 'Lose notable' },
+  large: { gain: 'Gain significant', lose: 'Lose significant' },
+}
+
+/** the results-screen line for an Influence tier at a given location — empty for 'none' */
+export function influenceTierText(tier: RewardTier, gained: boolean, townName: string): string {
+  if (tier === 'none') return ''
+  const phrase = gained ? INFLUENCE_TIER_PHRASES[tier].gain : INFLUENCE_TIER_PHRASES[tier].lose
+  return `${phrase} influence with ${townName}`
 }
 
 // ---------- Reputation ----------
@@ -152,7 +170,8 @@ export interface ScenarioApproach {
   failureInfluence: RewardTier
   /** gold tier lost by a family whose check on this approach fails (rolled within the tier's band) */
   failureGold: RewardTier
-  /** whether failing this approach's check also injures the attending member — stored only, no effect yet */
+  /** whether failing this approach's check also injures the attending member — injured
+   *  members take a -1 penalty to every skill for the following round only */
   failureInjury: boolean
 }
 
@@ -549,7 +568,8 @@ export interface ApproachDesign {
   failureInfluence: RewardTier
   /** gold tier lost by a family whose check on this approach fails (rolled within the tier's band) */
   failureGold: RewardTier
-  /** whether failing this approach's check also injures the attending member — stored only, no effect yet */
+  /** whether failing this approach's check also injures the attending member — injured
+   *  members take a -1 penalty to every skill for the following round only */
   failureInjury: boolean
 }
 

@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Family, FamilyMember, Scenario, ScenarioOutcome } from '@family-feudal/shared'
-import { revealSteps, revealTotalMs } from '@family-feudal/shared'
+import { influenceTierText, revealSteps, revealTotalMs } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import RealmMap from '../components/RealmMap.vue'
 import ScoreBoard from '../components/ScoreBoard.vue'
@@ -108,21 +108,23 @@ function verdictClass(o: ScenarioOutcome): string {
 }
 
 function verdictText(o: ScenarioOutcome): string {
+  const approach = outcomeScenario(o)?.approaches[o.approachIndex]
   if (o.influenceGained > 0 || o.goldGained > 0) {
     const parts: string[] = []
-    if (o.influenceGained > 0) parts.push(`+${o.influenceGained}`)
+    if (o.influenceGained > 0 && approach) {
+      parts.push(influenceTierText(approach.successInfluence, true, townName(outcomeScenario(o)!.townId)))
+    }
     if (o.goldGained > 0) parts.push(`+${o.goldGained}g`)
-    return `Success! ${parts.join(' ')}`
+    return `Success! ${parts.join(' · ')}`
   }
   if (o.success) return 'Outdone!'
-  if (o.influenceGained < 0 || o.goldGained < 0) {
-    const parts: string[] = []
-    if (o.influenceGained < 0) parts.push(`${o.influenceGained}`)
-    if (o.goldGained < 0) parts.push(`${o.goldGained}g`)
-    if (o.injured) parts.push('Injured!')
-    return `Failure ${parts.join(' ')}`
+  const parts: string[] = []
+  if (o.influenceGained < 0 && approach) {
+    parts.push(influenceTierText(approach.failureInfluence, false, townName(outcomeScenario(o)!.townId)))
   }
-  return 'Failure'
+  if (o.goldGained < 0) parts.push(`${o.goldGained}g`)
+  if (o.injured) parts.push('Injured!')
+  return parts.length > 0 ? `Failure ${parts.join(' · ')}` : 'Failure'
 }
 
 // ---------- planning/approach: countdown to auto-advance ----------

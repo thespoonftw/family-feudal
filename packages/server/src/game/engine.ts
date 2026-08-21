@@ -21,6 +21,7 @@ import type {
 import {
   CAPITAL_STARTING_REPUTATION,
   computeMemberSkills,
+  effectiveMemberSkill,
   GOLD_STEP,
   goldTierBounds,
   INFLUENCE_TIER_VALUES,
@@ -198,6 +199,7 @@ function generateMembers(
     skills: computeMemberSkills(m.traits, traits, skillCatalog),
     traits: [...m.traits],
     appearance: { ...m.appearance },
+    injured: false,
   }))
 }
 
@@ -390,6 +392,10 @@ export function resolveRound(room: Room): void {
   const config = getConfig()
   const bounds = goldTierBounds(config)
   const outcomes: ScenarioOutcome[] = []
+  // members who fail a failureInjury approach this round carry a -1 penalty to every
+  // skill for the round that follows, then it clears — tracked separately from
+  // `injured` on the outcome (which just flags this round's own consequence)
+  const newlyInjured = new Set<string>()
   for (const scenario of room.scenarios) {
     // every attending family checks its skill total against the approach's difficulty
     // (or pays gold to buy out the check with a flat bonus instead) …
@@ -408,7 +414,7 @@ export function resolveRound(room: Room): void {
       if (boughtOut) family.gold -= approach.buyoutCost as number
       const skillTotal = boughtOut
         ? config.buyoutBonus
-        : members.reduce((sum, m) => sum + (m.skills[approach.skill as SkillKey] ?? 0), 0)
+        : members.reduce((sum, m) => sum + effectiveMemberSkill(m, approach.skill as SkillKey), 0)
       const chance = successChance(skillTotal, approach.difficulty ?? 0)
       contenders.push({
         scenarioId: scenario.id,
@@ -466,6 +472,9 @@ export function resolveRound(room: Room): void {
         const goldLost = rollGoldTier(chosenApproach.failureGold, bounds)
         contender.goldGained = -goldLost
         contender.injured = chosenApproach.failureInjury
+        if (contender.injured) {
+          for (const memberId of contender.memberIds) newlyInjured.add(memberId)
+        }
         if (family) {
           family.gold -= goldLost
         }
@@ -476,6 +485,11 @@ export function resolveRound(room: Room): void {
   // a family's total Influence is always the sum of its standing across every location
   for (const family of room.families) {
     family.influence = Object.values(family.reputation).reduce((sum, v) => sum + v, 0)
+  }
+  // this round's injury penalty (from last round's failures) has now been applied to
+  // every skillTotal above — clear it, then carry forward only this round's new injuries
+  for (const family of room.families) {
+    for (const member of family.members) member.injured = newlyInjured.has(member.id)
   }
   const result: RoundResult = { round: room.round, outcomes }
   room.lastResult = result

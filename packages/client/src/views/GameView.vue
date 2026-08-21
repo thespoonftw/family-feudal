@@ -7,7 +7,7 @@ import type {
   Scenario,
   ScenarioOutcome,
 } from '@family-feudal/shared'
-import { revealTotalMs, reputationStage } from '@family-feudal/shared'
+import { influenceTierText, revealTotalMs, reputationStage } from '@family-feudal/shared'
 import { useGameStore } from '../stores/game'
 import ScoreBoard from '../components/ScoreBoard.vue'
 import MemberAvatar from '../components/MemberAvatar.vue'
@@ -445,18 +445,22 @@ function verdictText(o: ScenarioOutcome): string {
   return 'Failure'
 }
 
-/** true if the consequence line reflects a loss (failed check with a negative tier) */
+/** true if the consequence line reflects a loss (failed check with a negative tier, or an injury) */
 function rewardIsLoss(o: ScenarioOutcome): boolean {
-  return o.influenceGained < 0 || o.goldGained < 0
+  return o.injured || o.influenceGained < 0 || o.goldGained < 0
 }
 
 /** what was actually won or lost at this scenario, shown under the flavour text */
 function rewardText(o: ScenarioOutcome): string {
   const parts: string[] = []
-  if (o.influenceGained !== 0) parts.push(`${o.influenceGained > 0 ? '+' : ''}${o.influenceGained} influence`)
+  const approach = outcomeScenario(o)?.approaches[o.approachIndex]
+  if (o.influenceGained !== 0 && approach) {
+    const tier = o.influenceGained > 0 ? approach.successInfluence : approach.failureInfluence
+    parts.push(influenceTierText(tier, o.influenceGained > 0, townName(outcomeScenario(o)!.townId)))
+  }
   if (o.goldGained !== 0) parts.push(`${o.goldGained > 0 ? '+' : ''}${o.goldGained}g`)
   if (o.injured) parts.push('Injured!')
-  return parts.join(' ')
+  return parts.join(' · ')
 }
 
 const confirmedCount = computed(
@@ -609,15 +613,19 @@ const winnerNames = computed(() => {
           :class="{
             'is-dragging': draggingMemberId === m.id,
             deployed: !!memberAssignment(m.id),
+            injured: m.injured,
           }"
           @pointerdown="startDrag($event, m.id, null)"
         >
-          <MemberAvatar
-            :appearance="m.appearance"
-            :seed="m.name"
-            :shirt-color="game.yourFamily?.color ?? '#888888'"
-            :size="AVATAR_SIZE"
-          />
+          <span class="avatar-wrap">
+            <MemberAvatar
+              :appearance="m.appearance"
+              :seed="m.name"
+              :shirt-color="game.yourFamily?.color ?? '#888888'"
+              :size="AVATAR_SIZE"
+            />
+            <span v-if="m.injured" class="injured-badge">Injured</span>
+          </span>
           <strong>{{ m.name }}</strong>
           <small class="agent-traits">
             <span v-for="trait in m.traits" :key="trait">{{ trait }}</span>
@@ -1212,6 +1220,31 @@ button.small {
 .agent strong {
   font-size: 0.85rem;
   line-height: 1.1;
+}
+
+.avatar-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.agent.injured .avatar-wrap :deep(.member-avatar) {
+  filter: grayscale(50%) brightness(0.65);
+}
+
+.injured-badge {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
 }
 
 .agent-traits {
