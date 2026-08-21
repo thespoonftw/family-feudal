@@ -176,7 +176,6 @@ const homesByTown = computed(() => {
 .town circle.wild {
   fill: #2e3a2e;
   stroke: #6e7d5a;
-  stroke-dasharray: 0.6 0.5;
 }
 
 .town.wild .town-name {

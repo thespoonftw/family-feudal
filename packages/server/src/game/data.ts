@@ -87,11 +87,16 @@ export interface WildSlot extends MapSlot {
   name: string
 }
 
+// Positions are chosen so that on the host board's landscape-rotated map (the usual
+// viewing orientation — see RealmMap.vue's landscape transform) they land in the
+// requested corners: Blue Peaks top-left, the Great Sea top-right, the Wastes
+// bottom-right, Darkwood bottom-left. Pulled in from the literal corners (and off the
+// portrait 6/94 extremes) so their name labels stay inside the map border.
 export const WILD_SLOTS: WildSlot[] = [
-  { id: 'wild-peaks', name: 'Blue Peaks', x: 6, y: 6 },
-  { id: 'wild-sea', name: 'The Great Sea', x: 94, y: 6 },
-  { id: 'wild-forest', name: 'Darkwood', x: 6, y: 94 },
-  { id: 'wild-wastes', name: 'The Wastes', x: 94, y: 94 },
+  { id: 'wild-peaks', name: 'Blue Peaks', x: 12, y: 91 },
+  { id: 'wild-sea', name: 'The Great Sea', x: 12, y: 9 },
+  { id: 'wild-forest', name: 'Darkwood', x: 88, y: 91 },
+  { id: 'wild-wastes', name: 'The Wastes', x: 88, y: 9 },
 ]
 
 // Each house's fixed roster of MEMBERS_PER_HOUSE characters — name + up to
