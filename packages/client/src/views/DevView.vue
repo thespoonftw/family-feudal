@@ -38,6 +38,7 @@ import {
   REWARD_TIER_LABELS,
   REWARD_TIERS,
   SCENARIO_LOCATION_LABELS,
+  WILD_SLOT_NAMES,
 } from '@family-feudal/shared'
 import MemberAvatar from '../components/MemberAvatar.vue'
 
@@ -476,6 +477,12 @@ function approachSummary(s: Scenario): string {
 
 function locationKeys(): ScenarioLocation[] {
   return ['general', 'capital', 'home', 'wild']
+}
+
+function onWildSlotChange(s: ScenarioDesign, e: Event) {
+  const value = (e.target as HTMLSelectElement).value
+  if (value) s.wildSlotId = value
+  else delete s.wildSlotId
 }
 
 async function loadRooms() {
@@ -991,6 +998,17 @@ onUnmounted(() => {
         <select v-model="s.preposition" title="'In {town}' or 'Near {town}', shown under the title">
           <option value="in">In</option>
           <option value="near">Near</option>
+        </select>
+        <select
+          v-if="s.location === 'wild'"
+          :value="s.wildSlotId ?? ''"
+          title="Which wild corner this scenario's flavour text is written for — Any lets it land at every wild location"
+          @change="onWildSlotChange(s, $event)"
+        >
+          <option value="">Any wild location</option>
+          <option v-for="slot in WILD_SLOT_NAMES" :key="slot.id" :value="slot.id">
+            {{ slot.name }}
+          </option>
         </select>
         <button class="small secondary" title="Remove scenario" @click="removeScenario(i)">✕</button>
         <input

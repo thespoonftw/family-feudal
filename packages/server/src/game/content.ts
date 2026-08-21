@@ -421,7 +421,21 @@ function sanitizeScenario(raw: unknown, index: number): ScenarioDesign | string 
     if (typeof result === 'string') return result
     cleanApproaches.push(result)
   }
-  return { emoji, title, description, preposition, approaches: cleanApproaches, location: location as ScenarioLocation }
+  // a wildSlotId only means anything for a 'wild' scenario, and only if it names a real
+  // wild location — otherwise it's dropped, meaning "can land at any wild location"
+  const wildSlotId =
+    location === 'wild' && WILD_SLOTS.some((slot) => slot.id === obj['wildSlotId'])
+      ? (obj['wildSlotId'] as string)
+      : undefined
+  return {
+    emoji,
+    title,
+    description,
+    preposition,
+    approaches: cleanApproaches,
+    location: location as ScenarioLocation,
+    ...(wildSlotId ? { wildSlotId } : {}),
+  }
 }
 
 function sanitizeScenariosList(raw: unknown): ScenarioDesign[] | string {

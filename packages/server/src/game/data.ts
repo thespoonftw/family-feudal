@@ -358,49 +358,49 @@ export const DEFAULT_SCENARIOS: ScenarioDesign[] = [
   },
   // Wildlands — unowned corners of the map; these never grant Influence (gold only)
   {
-    emoji: '🏔️', title: 'Frozen Pass', description: 'A caravan is snowbound on the high pass, and the drifts only deepen by the hour.', preposition: 'near', location: 'wild', approaches: [
+    emoji: '🏔️', title: 'Frozen Pass', description: 'A caravan is snowbound on the high pass, and the drifts only deepen by the hour.', preposition: 'near', location: 'wild', wildSlotId: 'wild-peaks', approaches: [
       { label: 'Dig them out', skill: 'physique', successMessage: '{actor} claws a path through the drifts, and the caravan totters free before nightfall.', failureMessage: 'The snow packs in faster than {actor} can clear it, and the effort leaves them frostbitten for the trouble.', successInfluence: 'none', successGold: 'medium', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Find a safer route down', skill: 'wilderness', successMessage: '{actor} reads the mountain like an old friend, and leads the caravan down a route the map never showed.', failureMessage: "The route {actor} chooses dead-ends at a sheer drop, and the caravan is back where it started, colder than before.", successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
     ],
   },
   {
-    emoji: '⛏️', title: 'The Lost Vein', description: 'Old miners swear a rich silver vein still runs somewhere beneath these peaks, unclaimed.', preposition: 'in', location: 'wild', approaches: [
+    emoji: '⛏️', title: 'The Lost Vein', description: 'Old miners swear a rich silver vein still runs somewhere beneath these peaks, unclaimed.', preposition: 'in', location: 'wild', wildSlotId: 'wild-peaks', approaches: [
       { label: 'Follow the old survey marks', skill: 'investigation', successMessage: '{actor} matches a faded survey mark to a fresh scar of rock, and the vein glitters within the hour.', failureMessage: 'Every mark {actor} follows leads to another dead tunnel, and the vein stays lost.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
       { label: 'Break new tunnel by main strength', skill: 'physique', successMessage: '{actor} hauls rock for hours and finally breaks through into a seam thick with ore.', failureMessage: 'A loose ceiling nearly ends the dig early, and {actor} comes back up with nothing but bruises.', successInfluence: 'none', successGold: 'medium', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
     ],
   },
   {
-    emoji: '🚢', title: 'Shipwreck Salvage', description: 'A galleon lies broken on the reef, its hold still unplundered.', preposition: 'near', location: 'wild', approaches: [
+    emoji: '🚢', title: 'Shipwreck Salvage', description: 'A galleon lies broken on the reef, its hold still unplundered.', preposition: 'near', location: 'wild', wildSlotId: 'wild-sea', approaches: [
       { label: 'Dive the wreck', skill: 'nimble', successMessage: '{actor} slips between the broken timbers and surfaces clutching a chest still sealed tight.', failureMessage: 'The current drags {actor} against the hull, and the dive ends with torn hands and empty pockets.', successInfluence: 'none', successGold: 'medium', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Read the tides and currents', skill: 'wilderness', successMessage: '{actor} times the tide perfectly, and the sea itself washes the choicest cargo ashore.', failureMessage: 'The tide turns against {actor}, and the cargo it carries washes out to deeper water instead.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
     ],
   },
   {
-    emoji: '🏴‍☠️', title: 'Smugglers on the Tideline', description: 'A smuggling ring works the hidden coves here, and their latest haul is still unhidden.', preposition: 'near', location: 'wild', approaches: [
+    emoji: '🏴‍☠️', title: 'Smugglers on the Tideline', description: 'A smuggling ring works the hidden coves here, and their latest haul is still unhidden.', preposition: 'near', location: 'wild', wildSlotId: 'wild-sea', approaches: [
       { label: 'Corner them on the sand', skill: 'battle', successMessage: '{actor} corners the smugglers on the open beach, and they drop their haul rather than fight for it.', failureMessage: 'The smugglers fight harder than expected, and {actor} beats a bloody retreat empty-handed.', successInfluence: 'none', successGold: 'medium', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Talk your way into the ring', skill: 'intrigue', successMessage: '{actor} passes for one of their own long enough to walk off with a share of the haul.', failureMessage: 'The smugglers see through {actor} at the worst possible moment, and the cove empties before a single coin changes hands.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
     ],
   },
   {
-    emoji: '🌲', title: 'The Hedge Witch', description: 'An old woman deep in the wood is said to trade secrets for favours, if you can find her.', preposition: 'in', location: 'wild', approaches: [
+    emoji: '🌲', title: 'The Hedge Witch', description: 'An old woman deep in the wood is said to trade secrets for favours, if you can find her.', preposition: 'in', location: 'wild', wildSlotId: 'wild-forest', approaches: [
       { label: 'Track her hidden path', skill: 'investigation', successMessage: '{actor} spots what looks like deer-sign but is not, and follows it straight to her door.', failureMessage: 'The wood seems to fold back on itself, and {actor} walks in circles until giving up the search.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
       { label: 'Strike a clever bargain', skill: 'ingenuity', successMessage: '{actor} offers a trade too clever for her to refuse, and walks away with coin and a strange charm besides.', failureMessage: 'The witch sees through {actor}\'s offer at once, and sends them off with nothing for the wasted breath.', successInfluence: 'none', successGold: 'medium', ...NO_CONSEQUENCE },
     ],
   },
   {
-    emoji: '🐺', title: 'Wolf Pack', description: 'A bold wolf pack has taken to shadowing travellers on the forest paths.', preposition: 'near', location: 'wild', approaches: [
+    emoji: '🐺', title: 'Wolf Pack', description: 'A bold wolf pack has taken to shadowing travellers on the forest paths.', preposition: 'near', location: 'wild', wildSlotId: 'wild-forest', approaches: [
       { label: 'Drive them off by force', skill: 'battle', successMessage: '{actor} stands firm and drives the pack back into the trees for good.', failureMessage: 'The pack circles too well for {actor} to hold alone, and they retreat with a nasty bite for their trouble.', successInfluence: 'none', successGold: 'medium', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Track them back to their den', skill: 'wilderness', successMessage: '{actor} finds the den and leaves an offering that satisfies the pack for a season.', failureMessage: 'The pack scatters before {actor} can find the den, and the paths stay dangerous.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
     ],
   },
   {
-    emoji: '🐫', title: 'The Ash Nomads', description: 'A caravan of nomads crosses the wastes, their packs heavy with goods from places no map names.', preposition: 'near', location: 'wild', approaches: [
+    emoji: '🐫', title: 'The Ash Nomads', description: 'A caravan of nomads crosses the wastes, their packs heavy with goods from places no map names.', preposition: 'near', location: 'wild', wildSlotId: 'wild-wastes', approaches: [
       { label: 'Trade honestly', skill: 'negotiation', successMessage: '{actor} strikes a fair deal, and the nomads throw in an extra measure out of respect.', failureMessage: 'The nomads read {actor} as an easy mark and drive too hard a bargain to be worth taking.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
       { label: 'Talk your way to a better price', skill: 'ingenuity', successMessage: "{actor}'s clever haggling walks away with far more than the asking price ever offered.", failureMessage: 'The nomads see the trick coming and close the deal before {actor} can land it.', successInfluence: 'none', successGold: 'medium', ...NO_CONSEQUENCE },
     ],
   },
   {
-    emoji: '🏺', title: 'Ruins in the Sand', description: 'The wind has uncovered the top of some buried structure, far older than the realm itself.', preposition: 'in', location: 'wild', approaches: [
+    emoji: '🏺', title: 'Ruins in the Sand', description: 'The wind has uncovered the top of some buried structure, far older than the realm itself.', preposition: 'in', location: 'wild', wildSlotId: 'wild-wastes', approaches: [
       { label: 'Excavate by hand', skill: 'physique', successMessage: '{actor} clears sand for hours and uncovers a chamber still holding its treasures.', failureMessage: 'A wall of sand collapses back into the pit almost as fast as {actor} can dig it out.', successInfluence: 'none', successGold: 'medium', failureInfluence: 'none', failureGold: 'none', failureInjury: true },
       { label: 'Decipher the old markings first', skill: 'academic', successMessage: '{actor} reads enough of the old script to find the one entrance that is not a trap.', failureMessage: 'The script defeats {actor} entirely, and the ruin keeps its secrets buried.', successInfluence: 'none', successGold: 'small', ...NO_CONSEQUENCE },
     ],

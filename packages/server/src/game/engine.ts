@@ -250,9 +250,15 @@ function pickScenarios(room: Room): Scenario[] {
           .filter((t) => t.kind === 'city' && !homeTowns.has(t.id))
           .map((town) => ({ town, pool: generalDesigns }))
       : []),
-    ...(wildDesigns.length > 0
-      ? room.towns.filter((t) => t.kind === 'wild').map((town) => ({ town, pool: wildDesigns }))
-      : []),
+    ...room.towns
+      .filter((t) => t.kind === 'wild')
+      // a wild design's flavour text is written for a specific corner (wildSlotId) —
+      // only pair a wild town with designs written for it, or left generic (untagged)
+      .map((town) => ({
+        town,
+        pool: wildDesigns.filter((d) => !d.wildSlotId || d.wildSlotId === town.id),
+      }))
+      .filter((c) => c.pool.length > 0),
   ])
   const count = Math.min(getConfig().scenariosPerRound, candidates.length)
   for (let i = 0; i < count; i++) {

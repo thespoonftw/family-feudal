@@ -297,6 +297,16 @@ export const SCENARIO_LOCATION_LABELS: Record<ScenarioLocation, string> = {
   wild: 'Wildlands',
 }
 
+/** id + name of the four unowned wild map corners, for the scenario designer's
+ *  wildSlotId dropdown — map geometry (x/y) is server-only, in data.ts's WILD_SLOTS,
+ *  which must be kept in sync with the ids and names listed here. */
+export const WILD_SLOT_NAMES: { id: string; name: string }[] = [
+  { id: 'wild-peaks', name: 'Blue Peaks' },
+  { id: 'wild-sea', name: 'The Great Sea' },
+  { id: 'wild-forest', name: 'Darkwood' },
+  { id: 'wild-wastes', name: 'The Wastes' },
+]
+
 /** whether a scenario's flavour text should introduce its location as "In {town}" or
  *  "Near {town}" — shown as its own subtitle line, no longer woven into the description */
 export type LocationPreposition = 'in' | 'near'
@@ -555,6 +565,10 @@ export interface ScenarioDesign {
   /** 2–3 approaches players can pick between */
   approaches: ApproachDesign[]
   location: ScenarioLocation
+  /** for a 'wild' scenario, which corner location its flavour text is written for (a
+   *  WildSlot id) — undefined means it can land at any wild location. Ignored for every
+   *  other location kind. */
+  wildSlotId?: string
 }
 
 // ---------- Face outcome overrides (dev panel) ----------
