@@ -108,23 +108,27 @@ function verdictClass(o: ScenarioOutcome): string {
 }
 
 function verdictText(o: ScenarioOutcome): string {
-  const approach = outcomeScenario(o)?.approaches[o.approachIndex]
-  if (o.influenceGained > 0 || o.goldGained > 0) {
-    const parts: string[] = []
-    if (o.influenceGained > 0 && approach) {
-      parts.push(influenceTierText(approach.successInfluence, true, townName(outcomeScenario(o)!.townId)))
-    }
-    if (o.goldGained > 0) parts.push(`+${o.goldGained}g`)
-    return `Success! ${parts.join(' · ')}`
-  }
+  if (o.influenceGained > 0 || o.goldGained > 0) return 'Success!'
   if (o.success) return 'Outdone!'
+  return 'Failure'
+}
+
+/** true if the consequence line reflects a loss (failed check with a negative tier, or an injury) */
+function rewardIsLoss(o: ScenarioOutcome): boolean {
+  return o.injured || o.influenceGained < 0 || o.goldGained < 0
+}
+
+/** what was actually won or lost at this scenario, shown under the flavour text */
+function rewardText(o: ScenarioOutcome): string {
   const parts: string[] = []
-  if (o.influenceGained < 0 && approach) {
-    parts.push(influenceTierText(approach.failureInfluence, false, townName(outcomeScenario(o)!.townId)))
+  const approach = outcomeScenario(o)?.approaches[o.approachIndex]
+  if (o.influenceGained !== 0 && approach) {
+    const tier = o.influenceGained > 0 ? approach.successInfluence : approach.failureInfluence
+    parts.push(influenceTierText(tier, o.influenceGained > 0, townName(outcomeScenario(o)!.townId)))
   }
-  if (o.goldGained < 0) parts.push(`${o.goldGained}g`)
+  if (o.goldGained !== 0) parts.push(`${o.goldGained > 0 ? '+' : ''}${o.goldGained}g`)
   if (o.injured) parts.push('Injured!')
-  return parts.length > 0 ? `Failure ${parts.join(' · ')}` : 'Failure'
+  return parts.join(' · ')
 }
 
 // ---------- planning/approach: countdown to auto-advance ----------
@@ -363,24 +367,21 @@ function closeBoard() {
                 :shirt-color="familyById(o.familyId)?.color ?? '#888888'"
                 :size="96"
               />
+              <span class="verdict">{{ verdictText(o) }}</span>
+              <span class="math">{{ chancePercent(o) }}% chance</span>
             </div>
             <div class="outcome-body">
-              <div class="outcome-head">
-                <span class="who">
-                  <strong>{{ familyById(o.familyId)?.name }}</strong>
-                  <small>{{ memberNames(o.familyId, o.memberIds) }} — “{{ approachLabel(o) }}”</small>
-                </span>
-                <span class="result-col">
-                  <span class="math">{{ chancePercent(o) }}% chance</span>
-                  <span class="verdict">{{ verdictText(o) }}</span>
-                </span>
-              </div>
+              <span class="who">
+                <strong>{{ familyById(o.familyId)?.name }}</strong>
+                <small>{{ memberNames(o.familyId, o.memberIds) }} — “{{ approachLabel(o) }}”</small>
+              </span>
               <p v-if="outcomeMessageParts(o).length" class="outcome-message">
                 <template v-for="(part, i) in outcomeMessageParts(o)" :key="i">
                   <strong v-if="part.actor">{{ part.text }}</strong>
                   <template v-else>{{ part.text }}</template>
                 </template>
               </p>
+              <p v-if="rewardText(o)" class="reward-line" :class="{ loss: rewardIsLoss(o) }">{{ rewardText(o) }}</p>
             </div>
           </div>
         </div>
@@ -791,8 +792,10 @@ button.small {
 .outcome .portrait-col {
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.2rem;
 }
 
 .outcome .outcome-body {
@@ -803,14 +806,7 @@ button.small {
   gap: 0.35rem;
 }
 
-.outcome .outcome-head {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
 .outcome .who {
-  flex: 1;
   display: flex;
   flex-direction: column;
   line-height: 1.25;
@@ -820,22 +816,16 @@ button.small {
   color: var(--text-dim);
 }
 
-.outcome .result-col {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.1rem;
-}
-
 .outcome .math {
   color: var(--text-dim);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 .outcome .verdict {
   font-weight: bold;
-  min-width: 7.5em;
-  text-align: right;
+  font-size: 0.95rem;
+  white-space: nowrap;
 }
 
 .outcome.ok .verdict {
@@ -855,6 +845,16 @@ button.small {
   font-size: 0.95rem;
   line-height: 1.35;
   font-style: italic;
+}
+
+.outcome .reward-line {
+  color: var(--success);
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.outcome .reward-line.loss {
+  color: var(--failure);
 }
 
 /* finished */
@@ -925,18 +925,8 @@ button.small {
     text-align: center;
   }
 
-  .outcome .outcome-head {
-    flex-direction: column;
-  }
-
-  .outcome .who,
-  .outcome .result-col {
+  .outcome .who {
     align-items: center;
-    text-align: center;
-  }
-
-  .outcome .verdict {
-    min-width: 0;
     text-align: center;
   }
 }
